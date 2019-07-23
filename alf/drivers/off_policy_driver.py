@@ -16,7 +16,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from alf.drivers import policy_driver
-from alf.utils import common
+from alf.utils import common, time_profile
 
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 from tf_agents.trajectories.policy_step import PolicyStep
@@ -175,6 +175,7 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
             collect_info=self._processed_experience_spec.info,
             collect_action_distribution=self._action_dist_param_spec)
 
+    @time_profile.timer(record=True)
     @tf.function
     def train(self,
               experience: Experience,

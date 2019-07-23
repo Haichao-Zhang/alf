@@ -30,6 +30,7 @@ import alf.utils.common as common
 from alf.algorithms.on_policy_algorithm import OnPolicyAlgorithm
 from alf.algorithms.rl_algorithm import make_training_info
 from alf.drivers import policy_driver
+from alf.utils import time_profile
 
 
 @gin.configurable
@@ -143,6 +144,7 @@ class OnPolicyDriver(policy_driver.PolicyDriver):
         else:
             return self.predict(max_num_steps, time_step, policy_state)
 
+    @time_profile.timer(record=True)
     def train(self, max_num_steps, time_step, policy_state):
         """Perform on-policy training with `max_num_steps`.
 
@@ -196,6 +198,7 @@ class OnPolicyDriver(policy_driver.PolicyDriver):
 
         return [counter, next_time_step, policy_step.state, training_info_ta]
 
+    @time_profile.timer(record=True)
     def _iter(self, time_step, policy_state):
         """One training iteration."""
         counter = tf.zeros((), tf.int32)

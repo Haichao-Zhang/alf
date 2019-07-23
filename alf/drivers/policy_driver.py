@@ -26,7 +26,7 @@ from tf_agents.metrics import tf_metrics
 from tf_agents.trajectories.trajectory import from_transition
 
 from alf.algorithms.off_policy_algorithm import make_experience
-from alf.utils import common, summary_utils
+from alf.utils import common, summary_utils, time_profile
 from alf.algorithms.rl_algorithm import make_action_time_step
 
 
@@ -181,6 +181,7 @@ class PolicyDriver(driver.Driver):
         next_time_step, policy_step, _ = self._step(time_step, policy_state)
         return [next_time_step, policy_step.state]
 
+    @time_profile.timer()
     def _step(self, time_step, policy_state):
         policy_state = common.reset_state_if_necessary(policy_state,
                                                        self._initial_state,
@@ -216,6 +217,7 @@ class PolicyDriver(driver.Driver):
         time_step = self._env.step(action)
         return make_action_time_step(time_step, action)
 
+    @time_profile.timer(record=True, interval=1)
     @tf.function
     def run(self, max_num_steps=None, time_step=None, policy_state=None):
         """
