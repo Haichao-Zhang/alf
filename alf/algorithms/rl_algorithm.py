@@ -65,7 +65,6 @@ class RLAlgorithm(Algorithm):
 
     See OnPolicyAlgorithm and OffPolicyAlgorithm for detail.
     """
-
     def __init__(self,
                  action_spec,
                  train_state_spec,
@@ -98,15 +97,15 @@ class RLAlgorithm(Algorithm):
             debug_summaries (bool): True if debug summaries should be created.
             name (str): Name of this algorithm.
         """
-        super(RLAlgorithm, self).__init__(
-            train_state_spec=train_state_spec,
-            predict_state_spec=predict_state_spec,
-            optimizer=optimizer,
-            trainable_module_sets=trainable_module_sets,
-            gradient_clipping=gradient_clipping,
-            clip_by_global_norm=clip_by_global_norm,
-            debug_summaries=debug_summaries,
-            name=name)
+        super(RLAlgorithm,
+              self).__init__(train_state_spec=train_state_spec,
+                             predict_state_spec=predict_state_spec,
+                             optimizer=optimizer,
+                             trainable_module_sets=trainable_module_sets,
+                             gradient_clipping=gradient_clipping,
+                             clip_by_global_norm=clip_by_global_norm,
+                             debug_summaries=debug_summaries,
+                             name=name)
 
         self._action_spec = action_spec
         self._action_distribution_spec = action_distribution_spec
@@ -156,7 +155,6 @@ class RLAlgorithm(Algorithm):
                 `action_distribution_spec`
               policy_step.state should be consistent with `predict_state_spec`
         """
-
         def dist_fn(dist):
             try:
                 greedy_action = tf.cond(
@@ -197,7 +195,7 @@ class RLAlgorithm(Algorithm):
     def rollout(self, time_step: ActionTimeStep, state=None):
         """Perform one step of rollout.
 
-        It is called to generate actions for every environment step.
+        It is called to generate actions for 、 那几家， -g'yevery environment step.
         It also needs to generate necessary information for training.
 
         Args:
@@ -237,8 +235,8 @@ class RLAlgorithm(Algorithm):
                 reward=self._reward_shaping_fn(time_step.reward))
         if self._observation_transformer is not None:
             time_step = time_step._replace(
-                observation=self._observation_transformer(time_step.
-                                                          observation))
+                observation=self._observation_transformer(
+                    time_step.observation))
         return time_step
 
     # Subclass may override train_complete() to allow customized training
@@ -253,7 +251,7 @@ class RLAlgorithm(Algorithm):
 
         Args:
             tape (tf.GradientTape): the tape which are used for calculating
-                gradient. All the previous `train_interval` `train_step()` for
+                gradient. All the previous `train_interval` `train_step()`
                 are called under the context of this tape.
             training_info (TrainingInfo): information collected for training.
                 training_info.info are the batched from each policy_step.info

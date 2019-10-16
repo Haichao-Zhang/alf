@@ -22,6 +22,7 @@ from alf.algorithms.icm_algorithm import ICMAlgorithm
 from alf.algorithms.on_policy_algorithm import OnPolicyAlgorithm
 from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, RLAlgorithm
 from alf.algorithms.algorithm import Algorithm
+from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 
 # a meta-algorithm that can take multiple algorithms as input
 
@@ -30,11 +31,12 @@ MultiAgentAlgorithmState = namedtuple("MetaState",
 
 
 @gin.configurable
-class MultiAgentAlgorithm(RLAlgorithm):
+class MultiAgentAlgorithm(OffPolicyAlgorithm):
     def __init__(self,
-                 input_tensor_spec,
-                 action_spec,
                  algos,
+                 action_spec,
+                 train_state_spec,
+                 action_distribution_spec,
                  debug_summaries=False,
                  name="MultiAgentAlgorithm"):
         """Create an MultiAgentAlgorithm
@@ -47,103 +49,71 @@ class MultiAgentAlgorithm(RLAlgorithm):
             """
 
         # need actor_network
-        action_distribution_spec = actor_network.output_spec
+        # action_distribution_spec = actor_network.output_spec
 
         super(MultiAgentAlgorithm,
               self).__init__(action_spec=action_spec,
+                             train_state_spec=train_state_spec,
                              action_distribution_spec=action_distribution_spec,
                              debug_summaries=debug_summaries,
                              name=name)
         # input_tensor_spec provides the observation dictionary
         self._action_spec = action_spec  # multi-agent action spec
         self._algos = algos
-        # later get from environments and specified with gin
-        self._observation_domain = {
-            'observation_learner', 'observation_teacher'
-        }
-        self._action_domain = {'control_learner', 'control_teacher'}
 
-    def slice_with_name(self, ActionTimeStep, name):
-        ActionTimeStep
+    def get_sliced_time_step(self, time_step: ActionTimeStep, idx):
+        """Extract sliced time step information based on the specified index
+        """
+        return time_step._replace(observation=time_step.observation[idx],
+                                  prev_action=time_step.prev_action[idx])
 
-    def assemble_control(self, action_distribution,
-                         action_distribution_teacher):
-        joint_action_distribution = OrderedDict(
-            control_learner=action_distribution,
-            control_teacher=action_distribution_teacher)
-        return joint_action_distribution
+    def assemble_policy_step(self, policy_steps):
+        assert len(policy_steps) > 1, "need more than one policy steps"
+        actions = []
+        states = []
+        infos = []
+        for i, ps in enumerate(policy_steps):
+            actions.append(ps.action)
+            states.append(ps.state)
+            infos.append(ps.info)
 
-    def assemble_control(self, action_distribution,
-                         action_distribution_teacher):
-        joint_action_distribution = OrderedDict(
-            control_learner=action_distribution,
-            control_teacher=action_distribution_teacher)
-        return joint_action_distribution
+        policy_step = policy_steps[0]
+        policy_step._replace(action=actions, state=states, info=infos)
+
+        return policy_step
 
     # rollout and train complete
 
-    def rollout(self, time_step: ActionTimeStep, state=None):
+    def rollout(self,
+                time_step: ActionTimeStep,
+                state=None,
+                with_experience=False):
         policy_steps = []
-        for (i, algo) in self._algos):
-            time_step_sliced = ActionTimeStep(
-                step_type=time_step.step_type,
-                reward=time_step.reward,  # multi-reward TBD
-                discount=time_step.discount,
-                observation=time_step.observation[self._observation_domain[i]],
-                prev_action=time_step.prev_action[self._action_domain[i]])
-            state_sliced = state[self._observation_domain[i]]
-            policy_steps.append(algo.rollout(time_step_sliced,
-                                             state_sliced))  # state TBD
+        for (i, algo) in enumerate(self._algos):
+            time_step_sliced = self.get_sliced_time_step(time_step, i)
+            state_sliced = state[i]
+            policy_steps.append(
+                algo.rollout(time_step_sliced, state_sliced, with_experience))
 
-        return PolicyStep(action=joint_action_distribution,
-                          state=state,
-                          info=info)
+        return self.assemble_policy_step(policy_steps)
 
-    def calc_training_reward(self, external_reward, info: ActorCriticInfo):
-        """Calculate the reward actually used for training.
+    def train_step(self, exp: Experience, state):
+        time_step = ActionTimeStep(step_type=exp.step_type,
+                                   reward=exp.reward,
+                                   discount=exp.discount,
+                                   observation=exp.observation,
+                                   prev_action=exp.prev_action)
+        return self.rollout(time_step, state, with_experience=True)
 
-        The training_reward includes both intrinsic reward (if there's any) and
-        the external reward.
-        Args:
-            external_reward (Tensor): reward from environment
-            info (ActorCriticInfo): (batched) policy_step.info from train_step()
-        Returns:
-            reward used for training.
-        """
-        if self._icm is not None:
-            return (self._extrinsic_reward_coef * external_reward +
-                    self._intrinsic_reward_coef * info.icm_reward)
-        else:
-            return external_reward
-
-    # over
-    def calc_loss(self, training_info):
-        if self._icm is not None:
-            self.add_reward_summary("reward/intrinsic",
-                                    training_info.info.icm_reward)
-
-            training_info = training_info._replace(
-                reward=self.calc_training_reward(training_info.reward,
-                                                 training_info.info))
-
-            self.add_reward_summary("reward/overall", training_info.reward)
-
-        # this part should be adapted for multi-agent case
-        ac_loss = self._loss(training_info, training_info.info.value)
-        loss = ac_loss.loss
-        extra = ActorCriticAlgorithmLossInfo(ac=ac_loss.extra,
-                                             icm=(),
-                                             entropy_target=())
-
-        if self._icm is not None:
-            icm_loss = self._icm.calc_loss(training_info.info.icm_info)
-            loss += icm_loss.loss
-            extra = extra._replace(icm=icm_loss.extra)
-
-        if self._entropy_target_algorithm:
-            et_loss = self._entropy_target_algorithm.calc_loss(
-                training_info.info.entropy_target_info)
-            loss += et_loss.loss
-            extra = extra._replace(entropy_target=et_loss.extra)
-
-        return LossInfo(loss=loss, extra=extra)
+    # unnecessary
+    # def train_complete(self,
+    #                    tape: tf.GradientTape,
+    #                    training_info,
+    #                    valid_masks=None,
+    #                    weight=1.0):
+    #     time_step = ActionTimeStep(step_type=exp.step_type,
+    #                                reward=exp.reward,
+    #                                discount=exp.discount,
+    #                                observation=exp.observation,
+    #                                prev_action=exp.prev_action)
+    #     return self.rollout(time_step, state, with_experience=True)
