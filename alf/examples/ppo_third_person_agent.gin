@@ -6,6 +6,9 @@ import alf.algorithms.ppo_algorithm
 import alf.trainers.off_policy_trainer
 import alf.algorithms.actor_critic_algorithm
 
+import alf.utils.multi_modal_actor_distribution_network
+import alf.utils.multi_modal_value_network
+
 import alf.algorithms.multi_agent_algorithm
 import alf.environments.suite_socialbot
 
@@ -48,11 +51,11 @@ NormalProjectionNetwork.init_means_output_factor=1e-10
 NormalProjectionNetwork.std_bias_initializer_value=5.0
 NormalProjectionNetwork.std_transform=@tf.math.exp
 
-learner/ActorDistributionNetwork.input_tensor_spec=%learner_observation_spec
-learner/ActorDistributionNetwork.output_tensor_spec=%learner_action_spec
-learner/ActorDistributionNetwork.fc_layer_params=(100, 50, 25)
-learner/ActorDistributionNetwork.activation_fn=@tf.nn.softsign
-learner/ActorDistributionNetwork.continuous_projection_net=@NormalProjectionNetwork
+learner/MultiModalActorDistributionNetwork.input_tensor_spec=%learner_observation_spec
+learner/MultiModalActorDistributionNetwork.output_tensor_spec=%learner_action_spec
+learner/MultiModalActorDistributionNetwork.fc_layer_params=(100, 50, 25)
+learner/MultiModalActorDistributionNetwork.activation_fn=@tf.nn.softsign
+learner/MultiModalActorDistributionNetwork.continuous_projection_net=@NormalProjectionNetwork
 
 teacher/ActorDistributionNetwork.input_tensor_spec=%teacher_observation_spec
 teacher/ActorDistributionNetwork.output_tensor_spec=%teacher_action_spec
@@ -60,9 +63,9 @@ teacher/ActorDistributionNetwork.fc_layer_params=(100, 50, 25)
 teacher/ActorDistributionNetwork.activation_fn=@tf.nn.softsign
 teacher/ActorDistributionNetwork.continuous_projection_net=@NormalProjectionNetwork
 
-learner/ValueNetwork.input_tensor_spec=%learner_observation_spec
-learner/ValueNetwork.fc_layer_params=(100, 50, 25)
-learner/ValueNetwork.activation_fn=@tf.nn.softsign
+learner/MultiModalValueNetwork.input_tensor_spec=%learner_observation_spec
+learner/MultiModalValueNetwork.fc_layer_params=(100, 50, 25)
+learner/MultiModalValueNetwork.activation_fn=@tf.nn.softsign
 
 teacher/ValueNetwork.input_tensor_spec=%teacher_observation_spec
 teacher/ValueNetwork.fc_layer_params=(100, 50, 25)
@@ -74,8 +77,8 @@ teacher/Adam.learning_rate=2e-4
 
 learner/Agent.action_spec=%learner_action_spec
 learner/ActorCriticAlgorithm.loss_class=@PPOLoss
-learner/ActorCriticAlgorithm.actor_network=@learner/ActorDistributionNetwork()
-learner/ActorCriticAlgorithm.value_network=@learner/ValueNetwork()
+learner/ActorCriticAlgorithm.actor_network=@learner/MultiModalActorDistributionNetwork()
+learner/ActorCriticAlgorithm.value_network=@learner/MultiModalValueNetwork()
 learner/Agent.optimizer=@learner/Adam()
 
 teacher/Agent.action_spec=%teacher_action_spec
