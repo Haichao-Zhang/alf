@@ -32,13 +32,13 @@ PPOLoss.td_lambda=0.95
 PPOLoss.td_error_loss_fn=@element_wise_squared_loss
 PPOLoss.check_numerics=True
 
-learner/get_sub_observation_spec.domain_name="observation_learner"
-teacher/get_sub_observation_spec.domain_name="observation_teacher"
+learner/get_sub_observation_spec.index=0
+teacher/get_sub_observation_spec.index=1
 learner_observation_spec=@learner/get_sub_observation_spec()
 teacher_observation_spec=@teacher/get_sub_observation_spec()
 
-learner/get_sub_action_spec.domain_name="control_learner"
-teacher/get_sub_action_spec.domain_name="control_teacher"
+learner/get_sub_action_spec.index=0
+teacher/get_sub_action_spec.index=1
 learner_action_spec=@learner/get_sub_action_spec()
 teacher_action_spec=@teacher/get_sub_action_spec()
 
@@ -60,13 +60,13 @@ teacher/ActorDistributionNetwork.fc_layer_params=(100, 50, 25)
 teacher/ActorDistributionNetwork.activation_fn=@tf.nn.softsign
 teacher/ActorDistributionNetwork.continuous_projection_net=@NormalProjectionNetwork
 
-learner/ActorValueNetwork.input_tensor_spec=%learner_observation_spec
-learner/ActorValueNetwork.fc_layer_params=(100, 50, 25)
-learner/ActorValueNetwork.activation_fn=@tf.nn.softsign
+learner/ValueNetwork.input_tensor_spec=%learner_observation_spec
+learner/ValueNetwork.fc_layer_params=(100, 50, 25)
+learner/ValueNetwork.activation_fn=@tf.nn.softsign
 
-teacher/ActorValueNetwork.input_tensor_spec=%teacher_observation_spec
-teacher/ActorValueNetwork.fc_layer_params=(100, 50, 25)
-teacher/ActorValueNetwork.activation_fn=@tf.nn.softsign
+teacher/ValueNetwork.input_tensor_spec=%teacher_observation_spec
+teacher/ValueNetwork.fc_layer_params=(100, 50, 25)
+teacher/ValueNetwork.activation_fn=@tf.nn.softsign
 
 learner/Adam.learning_rate=0e-4
 teacher/Adam.learning_rate=2e-4
@@ -75,17 +75,18 @@ teacher/Adam.learning_rate=2e-4
 learner/Agent.action_spec=%learner_action_spec
 learner/ActorCriticAlgorithm.loss_class=@PPOLoss
 learner/ActorCriticAlgorithm.actor_network=@learner/ActorDistributionNetwork()
-learner/ActorCriticAlgorithm.value_network=@learner/ActorValueNetwork()
+learner/ActorCriticAlgorithm.value_network=@learner/ValueNetwork()
 learner/Agent.optimizer=@learner/Adam()
 
-teacher/Agent.action_spec=%learner_action_spec
+teacher/Agent.action_spec=%teacher_action_spec
 teacher/ActorCriticAlgorithm.loss_class=@PPOLoss
 teacher/ActorCriticAlgorithm.actor_network=@teacher/ActorDistributionNetwork()
-teacher/ActorCriticAlgorithm.value_network=@teacher/ActorValueNetwork()
+teacher/ActorCriticAlgorithm.value_network=@teacher/ValueNetwork()
 teacher/Agent.optimizer=@learner/Adam()
 
 
-MultiAgentAlgorithm.algos=[learner/Agent, teacher/Agent]
+MultiAgentAlgorithm.algos=[@learner/Agent, @teacher/Agent]
+MultiAgentAlgorithm.action_spec=%action_spec
 
 # training config
 # multi-agent policy trainer

@@ -20,14 +20,20 @@ from alf.algorithms.algorithm import Algorithm
 from alf.algorithms.entropy_target_algorithm import EntropyTargetAlgorithm
 from alf.algorithms.icm_algorithm import ICMAlgorithm
 from alf.algorithms.on_policy_algorithm import OnPolicyAlgorithm
-from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, RLAlgorithm
+from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, RLAlgorithm, namedtuple
 from alf.algorithms.algorithm import Algorithm
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 
 # a meta-algorithm that can take multiple algorithms as input
 
-MultiAgentAlgorithmState = namedtuple("MetaState",
-                                      ["teacher_state", "learner_state"])
+MultiAgentState = namedtuple("MultiAgentState",
+                             ["teacher_state", "learner_state"],
+                             default_value=())
+
+ActorCriticState = namedtuple("ActorCriticState", ["actor", "value"],
+                              default_value=())
+
+ActorCriticInfo = namedtuple("ActorCriticInfo", ["value"])
 
 
 @gin.configurable
@@ -35,8 +41,6 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     def __init__(self,
                  algos,
                  action_spec,
-                 train_state_spec,
-                 action_distribution_spec,
                  debug_summaries=False,
                  name="MultiAgentAlgorithm"):
         """Create an MultiAgentAlgorithm
@@ -50,11 +54,15 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
 
         # need actor_network
         # action_distribution_spec = actor_network.output_spec
+        print("============-----")
+        for (i, algo) in enumerate(algos):
+            print(algo(None).train_state_spec)
+            print(algo(None).action_distribution_spec)
 
         super(MultiAgentAlgorithm,
               self).__init__(action_spec=action_spec,
-                             train_state_spec=train_state_spec,
-                             action_distribution_spec=action_distribution_spec,
+                             train_state_spec=(),
+                             action_distribution_spec=None,
                              debug_summaries=debug_summaries,
                              name=name)
         # input_tensor_spec provides the observation dictionary
