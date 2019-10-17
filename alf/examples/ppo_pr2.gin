@@ -39,6 +39,9 @@ ActorCriticAlgorithm.actor_network=@actor/ActorDistributionNetwork()
 ActorCriticAlgorithm.value_network=@value/ValueNetwork()
 Agent.optimizer=@ac/Adam()
 
+
+tf.keras.layers.Conv2D.padding="same"
+
 # training config
 TrainerConfig.mini_batch_length=1
 TrainerConfig.unroll_length=100

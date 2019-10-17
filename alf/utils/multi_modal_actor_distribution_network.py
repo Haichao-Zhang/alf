@@ -57,17 +57,20 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
   output. Due to the nature of the `tanh` function, values near the spec bounds
   cannot be returned.
   """
+
     def __init__(self,
                  input_tensor_spec,
                  output_tensor_spec,
-                 fc_layer_params=(200, 100),
+                 fc_layer_params_visual=(200, 100),
+                 fc_layer_params_state=(200, 100),
                  dropout_layer_params=None,
-                 conv_layer_params=None,
+                 conv_layer_params_visual=None,
+                 conv_layer_params_state=None,
                  activation_fn=tf.keras.activations.relu,
                  discrete_projection_net=_categorical_projection_net,
                  continuous_projection_net=_normal_projection_net,
-                 name='ActorDistributionNetwork'):
-        """Creates an instance of `ActorDistributionNetwork`.
+                 name='MultiModalActorDistributionNetwork'):
+        """Creates an instance of `MultiModalActorDistributionNetwork`.
 
     Args:
       input_tensor_spec: A nest of `tensor_spec.TensorSpec` representing the
@@ -105,14 +108,23 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
         #     raise ValueError(
         #         'Only a single observation is supported by this network')
 
-        mlp_layers = utils.mlp_layers(
-            conv_layer_params,
-            fc_layer_params,
+        mlp_layers_visual = utils.mlp_layers(
+            conv_layer_params_visual,
+            fc_layer_params_visual,
             activation_fn=activation_fn,
-            kernel_initializer=tf.compat.v1.keras.initializers.glorot_uniform(
-            ),
+            kernel_initializer=tf.compat.v1.keras.initializers.
+            glorot_uniform(),
             dropout_layer_params=dropout_layer_params,
-            name='input_mlp')
+            name='input_mlp_visual')
+
+        mlp_layers_state = utils.mlp_layers(
+            conv_layer_params_state,
+            fc_layer_params_state,
+            activation_fn=activation_fn,
+            kernel_initializer=tf.compat.v1.keras.initializers.
+            glorot_uniform(),
+            dropout_layer_params=dropout_layer_params,
+            name='input_mlp_state')
 
         projection_networks = []
         for single_output_spec in tf.nest.flatten(output_tensor_spec):
@@ -129,13 +141,14 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
         output_spec = tf.nest.pack_sequence_as(output_tensor_spec,
                                                projection_distribution_specs)
 
-        super(MultiModalActorDistributionNetwork,
-              self).__init__(input_tensor_spec=input_tensor_spec,
-                             state_spec=(),
-                             output_spec=output_spec,
-                             name=name)
+        super(MultiModalActorDistributionNetwork, self).__init__(
+            input_tensor_spec=input_tensor_spec,
+            state_spec=(),
+            output_spec=output_spec,
+            name=name)
 
-        self._mlp_layers = mlp_layers
+        self._mlp_layers_visual = mlp_layers_visual
+        self._mlp_layers_state = mlp_layers_state
         self._projection_networks = projection_networks
         self._output_tensor_spec = output_tensor_spec
 
@@ -149,14 +162,23 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
                                                self.input_tensor_spec)
         observations = tf.nest.flatten(observations)
         # do multi-modality fusion here
-        states = tf.cast(observations[0], tf.float32)
+        v_states = tf.cast(observations[0], tf.float32)
 
         # Reshape to only a single batch dimension for neural network functions.
         batch_squash = utils.BatchSquash(outer_rank)
-        states = batch_squash.flatten(states)
+        v_states = batch_squash.flatten(v_states)
 
-        for layer in self._mlp_layers:
-            states = layer(states)
+        s_states = tf.cast(observations[1], tf.float32)
+        # Reshape to only a single batch dimension for neural network functions.
+        batch_squash = utils.BatchSquash(outer_rank)
+        s_states = batch_squash.flatten(s_states)
+
+        for layer in self._mlp_layers_visual:
+            v_states = layer(v_states)
+        for layer in self._mlp_layers_state:
+            s_states = layer(s_states)
+
+        states = v_states + s_states
 
         # TODO(oars): Can we avoid unflattening to flatten again
         states = batch_squash.unflatten(states)

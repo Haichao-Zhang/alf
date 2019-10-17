@@ -43,11 +43,6 @@ from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 MultiAgentState = namedtuple(
     "MultiAgentState", ["teacher_state", "learner_state"], default_value=())
 
-ActorCriticState = namedtuple(
-    "ActorCriticState", ["actor", "value"], default_value=())
-
-ActorCriticInfo = namedtuple("ActorCriticInfo", ["value"])
-
 
 @gin.configurable
 class MultiAgentAlgorithm(OffPolicyAlgorithm):
@@ -108,17 +103,18 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._domain_names = domain_names
         self._debug_summaries = debug_summaries
 
-    def get_sliced_data(self, data, idx):
+    def get_sliced_data(self, data, domain_name):
         """Extract sliced time step information based on the specified index
         Args:
             data is in the form of named tuple
         """
         assert type(
             data) is namedtuple, "input data should instance of namedtuple"
-        dn = self._domain_names[idx]
-        return time_step._replace(
-            observation=time_step.observation[dn],
-            prev_action=time_step.prev_action[dn])
+        fields = data._fields
+        for fd in fields:
+            if domain_name in data[fd].keys():
+                data = data._replace(fd=data[fd][domain])
+        return data
 
     def get_sliced_time_step(self, time_step: ActionTimeStep, idx):
         """Extract sliced time step information based on the specified index
@@ -131,9 +127,9 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     def get_sliced_experience(self, exp, idx):
         """Extract sliced time step information based on the specified index
         Args:
-            time_step (ActionTimeStep | Experience): time step
+            exp: Experience
         Returns:
-            ActionTimeStep | Experience: transformed time step
+            sliced_exp: sliced Experience
         """
         dn = self._domain_names[idx]
         return exp._replace(
