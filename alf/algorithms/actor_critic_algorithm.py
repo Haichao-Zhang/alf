@@ -112,4 +112,6 @@ class ActorCriticAlgorithm(OnPolicyAlgorithm):
 
     def calc_loss(self, training_info):
         """Calculate loss."""
+        print("===============------------")
+        print(training_info)
         return self._loss(training_info, training_info.info.value)

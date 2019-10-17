@@ -1,10 +1,11 @@
 include 'ppo.gin'
 
+import alf.environments.suite_socialbot
 # environment config
 
 # "SocialBot-ICubWalk-v0"
 create_environment.env_name="SocialBot-Pr2Gripper-v0"
-create_environment.num_parallel_environments=60
+create_environment.num_parallel_environments=2
 create_environment.env_load_fn=@suite_socialbot.load
 
 # algorithm config

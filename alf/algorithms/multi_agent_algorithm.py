@@ -109,6 +109,57 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         return time_step._replace(observation=time_step.observation[dn],
                                   prev_action=time_step.prev_action[dn])
 
+    def get_sliced_experience(self, exp, idx):
+        """Extract sliced time step information based on the specified index
+        Args:
+            time_step (ActionTimeStep | Experience): time step
+        Returns:
+            ActionTimeStep | Experience: transformed time step
+        """
+        dn = self._domain_names[idx]
+        return exp._replace(
+            observation=exp.observation[dn],
+            prev_action=exp.prev_action[dn],
+            action=exp.action[dn],
+            info=exp.info[dn],
+            action_distribution=exp.action_distribution[dn],
+            #state=exp.state[dn], # state is empty for non-RNN case
+        )
+
+    def assemble_experience(self, exps):
+        # there could be new fields
+        assert len(exps) > 1, "need more than one policy steps"
+        observations = OrderedDict()
+        prev_actions = OrderedDict()
+        actions = OrderedDict()
+        infos = OrderedDict()
+        action_distributions = OrderedDict()
+        #states = OrderedDict()
+
+        for idx, ps in enumerate(exps):
+            dn = self._domain_names[idx]
+            observations[dn] = ps.observation
+            prev_actions[dn] = ps.prev_action
+            actions[dn] = ps.action
+            action_distributions[dn] = ps.action_distribution
+            infos[dn] = ps.info
+            #states[dn] = ps.state
+        # for i, ps in enumerate(policy_steps):
+        #     actions.append(ps.action)
+        #     states.append(ps.state)
+        #     infos.append(ps.info)
+
+        exp = exps[0]
+        exp = exp._replace(
+            observation=observations,
+            prev_action=prev_actions,
+            action=actions,
+            action_distribution=action_distributions,
+            info=infos,
+            #state=states,
+        )
+        return exp
+
     def get_sliced_train_info(self, training_info: TrainingInfo, idx):
         """Extract sliced time step information based on the specified index
         """
@@ -118,14 +169,16 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             action=training_info.action[dn],
             collect_action_distribution=training_info.
             collect_action_distribution[dn],
+            info=training_info.info[dn],
+            collect_info=training_info.collect_info[dn],
         )
 
     def assemble_loss_info(self, loss_infos):
-        assert len(policy_steps) > 1, "need more than one policy steps"
-        losses = OrderedDict()
+        assert len(loss_infos) > 1, "need more than one policy steps"
+        losses = 0
         for idx, ps in enumerate(loss_infos):
             dn = self._domain_names[idx]
-            losses[dn] = ps.loss
+            losses += ps.loss
 
         loss_infos = loss_infos[0]
         loss_infos = loss_infos._replace(loss=losses)
@@ -154,16 +207,24 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         policy_step = policy_step._replace(action=actions,
                                            state=states,
                                            info=infos)
-        print("---------------")
-        print(actions)
-        print(policy_step)
-
         return policy_step
 
     @property
     def trainable_variables(self):
         return sum([var_set for _, var_set in self._get_opt_and_var_sets()],
                    [])
+
+    # def transform_timestep(self, time_step):
+    #     policy_steps = []
+    #     for (i, algo) in enumerate(self._algos):
+    #         time_step_sliced = self.get_sliced_time_step(time_step, i)
+
+    def preprocess_experience(self, exp: Experience):
+        exps = []
+        for (i, algo) in enumerate(self._algos):
+            exp_sliced = self.get_sliced_experience(exp, i)
+            exps.append(algo.preprocess_experience(exp_sliced))
+        return self.assemble_experience(exps)
 
     # rollout and train complete
 
@@ -172,8 +233,6 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 state=None,
                 with_experience=False):
         policy_steps = []
-        print("---algos")
-        print(self._algos)
         for (i, algo) in enumerate(self._algos):
             time_step_sliced = self.get_sliced_time_step(time_step, i)
             state_sliced = self.get_sliced_state(state, i)
@@ -189,12 +248,17 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                                    prev_action=exp.prev_action)
         return self.rollout(time_step, state, with_experience=True)
 
+    # this is used in train_complete
     def calc_loss(self, training_info):
         """Calculate loss."""
         loss_infos = []
         for (i, algo) in enumerate(self._algos):
+            print("================loss info-------")
+            print(self.get_sliced_train_info(training_info, i))
+
             loss_info_sliced = algo.calc_loss(
                 self.get_sliced_train_info(training_info, i))
+
             loss_infos.append(loss_info_sliced)
 
         print("================loss info-------")
