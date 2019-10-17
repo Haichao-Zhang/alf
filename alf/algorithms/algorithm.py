@@ -56,6 +56,7 @@ class Algorithm(tf.Module):
         train_complete(tape, batched_training_info)
     ```
     """
+
     def __init__(self,
                  train_state_spec=None,
                  predict_state_spec=None,
@@ -116,7 +117,7 @@ class Algorithm(tf.Module):
         self._predict_state_spec = predict_state_spec
         self._is_rnn = len(tf.nest.flatten(train_state_spec)) > 0
 
-        if not optimizer:
+        if optimizer is None:
             assert trainable_module_sets is None
             self._init_optimizers = [None]
             self._init_module_sets = [[]]
@@ -151,6 +152,7 @@ class Algorithm(tf.Module):
                 means that no optimizer is specified for the corresponding
                 modules.
         """
+
         def _is_alg(obj):
             return isinstance(obj, Algorithm)
 
@@ -159,9 +161,11 @@ class Algorithm(tf.Module):
                     and not isinstance(obj, Algorithm))
 
         module_sets = [copy.copy(s) for s in self._init_module_sets]
-        optimizers = [
-            copy.copy(opt) for opt in self._init_optimizers if opt is not None
-        ]
+        # optimizers = [
+        #     copy.copy(opt) for opt in self._init_optimizers if opt is not None
+        # ]
+        optimizers = copy.copy(
+            self._init_optimizers) if len(self._init_optimizers) > 0 else []
         module_ids = set(map(id, sum(module_sets, [])))
         for alg in self._get_children(_is_alg):
             for opt, module_set in alg.get_optimizer_and_module_sets():
@@ -203,9 +207,9 @@ class Algorithm(tf.Module):
         opt_and_var_sets = []
         optimizer_and_module_sets = self.get_optimizer_and_module_sets()
         for opt, module_set in optimizer_and_module_sets:
-            logging.info("optimizer %s: modules %s" %
-                         (opt.get_config(), ' '.join(
-                             [m.name for m in module_set if m is not None])))
+            logging.info(
+                "optimizer %s: modules %s" % (opt.get_config(), ' '.join(
+                    [m.name for m in module_set if m is not None])))
             vars = []
             for module in module_set:
                 if module is None:
@@ -308,8 +312,8 @@ class Algorithm(tf.Module):
                                                   loss_info)
             if isinstance(loss_info.scalar_loss, tf.Tensor):
                 assert len(loss_info.scalar_loss.shape) == 0
-                loss_info = loss_info._replace(loss=loss_info.loss +
-                                               loss_info.scalar_loss)
+                loss_info = loss_info._replace(
+                    loss=loss_info.loss + loss_info.scalar_loss)
             loss = weight * loss_info.loss
 
         opt_and_var_sets = self._get_cached_opt_and_var_sets()

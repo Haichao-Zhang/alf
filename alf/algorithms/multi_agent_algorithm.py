@@ -98,6 +98,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             predict_state_spec=get_predict_specs(algos),
             action_distribution_spec=get_action_distribution_specs(algos),
             debug_summaries=debug_summaries,
+            optimizer=[],
+            trainable_module_sets=[],
             name=name)
         # input_tensor_spec provides the observation dictionary
         self._action_spec = action_spec  # multi-agent action spec

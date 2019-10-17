@@ -27,8 +27,8 @@ from alf.algorithms.actor_critic_loss import ActorCriticLoss
 from alf.algorithms.on_policy_algorithm import OnPolicyAlgorithm
 from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, namedtuple
 
-ActorCriticState = namedtuple("ActorCriticState", ["actor", "value"],
-                              default_value=())
+ActorCriticState = namedtuple(
+    "ActorCriticState", ["actor", "value"], default_value=())
 
 ActorCriticInfo = namedtuple("ActorCriticInfo", ["value"])
 
@@ -36,6 +36,7 @@ ActorCriticInfo = namedtuple("ActorCriticInfo", ["value"])
 @gin.configurable
 class ActorCriticAlgorithm(OnPolicyAlgorithm):
     """Actor critic algorithm"""
+
     def __init__(self,
                  action_spec,
                  actor_network: DistributionNetwork,
@@ -67,8 +68,9 @@ class ActorCriticAlgorithm(OnPolicyAlgorithm):
             action_spec=action_spec,
             predict_state_spec=ActorCriticState(
                 actor=actor_network.state_spec),
-            train_state_spec=ActorCriticState(actor=actor_network.state_spec,
-                                              value=value_network.state_spec),
+            train_state_spec=ActorCriticState(
+                actor=actor_network.state_spec,
+                value=value_network.state_spec),
             action_distribution_spec=actor_network.output_spec,
             optimizer=optimizer,
             debug_summaries=debug_summaries,
@@ -87,31 +89,31 @@ class ActorCriticAlgorithm(OnPolicyAlgorithm):
             step_type=time_step.step_type,
             network_state=state.actor)
 
-        return PolicyStep(action=action_distribution,
-                          state=ActorCriticState(actor=actor_state),
-                          info=())
+        return PolicyStep(
+            action=action_distribution,
+            state=ActorCriticState(actor=actor_state),
+            info=())
 
     def rollout(self,
                 time_step: ActionTimeStep,
                 state: ActorCriticState,
                 with_experience=False):
         """Rollout for one step."""
-        value, value_state = self._value_network(time_step.observation,
-                                                 step_type=time_step.step_type,
-                                                 network_state=state.value)
+        value, value_state = self._value_network(
+            time_step.observation,
+            step_type=time_step.step_type,
+            network_state=state.value)
 
         action_distribution, actor_state = self._actor_network(
             time_step.observation,
             step_type=time_step.step_type,
             network_state=state.actor)
 
-        return PolicyStep(action=action_distribution,
-                          state=ActorCriticState(actor=actor_state,
-                                                 value=value_state),
-                          info=ActorCriticInfo(value=value))
+        return PolicyStep(
+            action=action_distribution,
+            state=ActorCriticState(actor=actor_state, value=value_state),
+            info=ActorCriticInfo(value=value))
 
     def calc_loss(self, training_info):
         """Calculate loss."""
-        print("===============------------")
-        print(training_info)
         return self._loss(training_info, training_info.info.value)
