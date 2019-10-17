@@ -74,20 +74,20 @@ learner/Adam.learning_rate=0e-4
 teacher/Adam.learning_rate=2e-4
 
 
-learner/Agent.action_spec=%learner_action_spec
+learner/ActorCriticAlgorithm.action_spec=%learner_action_spec
 learner/ActorCriticAlgorithm.loss_class=@PPOLoss
 learner/ActorCriticAlgorithm.actor_network=@learner/MultiModalActorDistributionNetwork()
 learner/ActorCriticAlgorithm.value_network=@learner/MultiModalValueNetwork()
-learner/Agent.optimizer=@learner/Adam()
+learner/ActorCriticAlgorithm.optimizer=@learner/Adam()
 
-teacher/Agent.action_spec=%teacher_action_spec
+teacher/ActorCriticAlgorithm.action_spec=%teacher_action_spec
 teacher/ActorCriticAlgorithm.loss_class=@PPOLoss
 teacher/ActorCriticAlgorithm.actor_network=@teacher/ActorDistributionNetwork()
 teacher/ActorCriticAlgorithm.value_network=@teacher/ValueNetwork()
-teacher/Agent.optimizer=@teacher/Adam()
+teacher/ActorCriticAlgorithm.optimizer=@teacher/Adam()
 
 
-MultiAgentAlgorithm.algo_ctors=[@learner/Agent, @teacher/Agent]
+MultiAgentAlgorithm.algo_ctors=[@learner/ActorCriticAlgorithm, @teacher/ActorCriticAlgorithm]
 MultiAgentAlgorithm.domain_names=["learner", "teacher"]
 MultiAgentAlgorithm.action_spec=%action_spec
 
