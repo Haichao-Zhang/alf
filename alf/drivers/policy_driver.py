@@ -80,13 +80,12 @@ class PolicyDriver(driver.Driver):
         # playing of the trained model, when num_parallel_envs > 1.
         # Somehow the restore_specs do not match restored metric tensors in
         # tensorflow_core/python/training/saving/functional_saver.py
-        # if training:
-        # standard_metrics += [
-        #     tf_metrics.AverageReturnMetric(
-        #         batch_size=env.batch_size, buffer_size=metric_buf_size),
-        #     tf_metrics.AverageEpisodeLengthMetric(
-        #         batch_size=env.batch_size, buffer_size=metric_buf_size),
-        # ]
+        if training:
+            standard_metrics += [
+                tf_metrics.AverageReturnMetric(buffer_size=metric_buf_size),
+                tf_metrics.AverageEpisodeLengthMetric(
+                    buffer_size=metric_buf_size),
+            ]
         self._metrics = standard_metrics + metrics
         self._exp_observers = []
         self._use_rollout_state = use_rollout_state
@@ -214,8 +213,6 @@ class PolicyDriver(driver.Driver):
         transformed_time_step = self._algorithm.transform_timestep(time_step)
         policy_step = common.algorithm_step(step_func, transformed_time_step,
                                             policy_state)
-        print("-------policy_step.action")
-        print(policy_step)
         action = common.sample_action_distribution(policy_step.action)
         next_time_step = self._env_step(action)
         if self._observers:

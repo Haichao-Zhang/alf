@@ -21,7 +21,7 @@ create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
 #value/MultiActorValueNetwork.input_tensor_spec=%learner_observation_spec
 
 create_environment.env_load_fn=@suite_socialbot.load
-create_environment.num_parallel_environments=1
+create_environment.num_parallel_environments=30
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5
