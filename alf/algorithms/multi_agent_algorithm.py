@@ -1,3 +1,17 @@
+# Copyright (c) 2019 Horizon Robotics. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from collections import namedtuple, OrderedDict
 import functools
 from typing import Callable
@@ -26,12 +40,11 @@ from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 
 # a meta-algorithm that can take multiple algorithms as input
 
-MultiAgentState = namedtuple("MultiAgentState",
-                             ["teacher_state", "learner_state"],
-                             default_value=())
+MultiAgentState = namedtuple(
+    "MultiAgentState", ["teacher_state", "learner_state"], default_value=())
 
-ActorCriticState = namedtuple("ActorCriticState", ["actor", "value"],
-                              default_value=())
+ActorCriticState = namedtuple(
+    "ActorCriticState", ["actor", "value"], default_value=())
 
 ActorCriticInfo = namedtuple("ActorCriticInfo", ["value"])
 
@@ -48,9 +61,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         """Create an MultiAgentAlgorithm
 
         Args:
-            algos: a list of algorithms. algorithm should come with an optimizer, if a module need to keep fixed, then the optimizer should be a dummy one with learning rate as 0
-
-            optimizer: default optimizer for learning
+            algo_ctors: a list of constructors for algorithms. An algorithm should come with an optimizer.
+            domain_names: a list containing the names of all agents; the name of the agent should be the same as the one used in the nested observation/control
             name (str): Name of this algorithm
             """
 
@@ -80,12 +92,6 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 specs[domain_names[i]] = algo.action_distribution_spec
             return specs
 
-        # def get_action_distribution_specs(algos):
-        #     specs = []
-        #     for algo in algos:
-        #         specs.append(algo.action_distribution_spec)
-        #     return specs
-
         super(MultiAgentAlgorithm, self).__init__(
             action_spec=action_spec,
             train_state_spec=get_train_specs(algos),
@@ -97,17 +103,28 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._action_spec = action_spec  # multi-agent action spec
         self._algo_ctors = algo_ctors
         self._algos = algos
-        # self._algo0 = algos[0]
-        # self._algo1 = algos[1]
         self._domain_names = domain_names
         self._debug_summaries = debug_summaries
+
+    def get_sliced_data(self, data, idx):
+        """Extract sliced time step information based on the specified index
+        Args:
+            data is in the form of named tuple
+        """
+        assert type(
+            data) is namedtuple, "input data should instance of namedtuple"
+        dn = self._domain_names[idx]
+        return time_step._replace(
+            observation=time_step.observation[dn],
+            prev_action=time_step.prev_action[dn])
 
     def get_sliced_time_step(self, time_step: ActionTimeStep, idx):
         """Extract sliced time step information based on the specified index
         """
         dn = self._domain_names[idx]
-        return time_step._replace(observation=time_step.observation[dn],
-                                  prev_action=time_step.prev_action[dn])
+        return time_step._replace(
+            observation=time_step.observation[dn],
+            prev_action=time_step.prev_action[dn])
 
     def get_sliced_experience(self, exp, idx):
         """Extract sliced time step information based on the specified index
@@ -204,9 +221,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         #     infos.append(ps.info)
 
         policy_step = policy_steps[0]
-        policy_step = policy_step._replace(action=actions,
-                                           state=states,
-                                           info=infos)
+        policy_step = policy_step._replace(
+            action=actions, state=states, info=infos)
         return policy_step
 
     @property
@@ -241,11 +257,12 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         return self.assemble_policy_step(policy_steps)
 
     def train_step(self, exp: Experience, state):
-        time_step = ActionTimeStep(step_type=exp.step_type,
-                                   reward=exp.reward,
-                                   discount=exp.discount,
-                                   observation=exp.observation,
-                                   prev_action=exp.prev_action)
+        time_step = ActionTimeStep(
+            step_type=exp.step_type,
+            reward=exp.reward,
+            discount=exp.discount,
+            observation=exp.observation,
+            prev_action=exp.prev_action)
         return self.rollout(time_step, state, with_experience=True)
 
     # this is used in train_complete
