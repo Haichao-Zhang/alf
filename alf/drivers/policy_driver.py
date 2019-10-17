@@ -108,6 +108,7 @@ class PolicyDriver(driver.Driver):
         else:
             self._policy_state_spec = algorithm.predict_state_spec
         self._initial_state = self.get_initial_policy_state()
+        print(self._initial_state)
 
     def add_experience_observer(self, observer: Callable):
         """Add an observer to receive experience.
@@ -213,6 +214,8 @@ class PolicyDriver(driver.Driver):
         transformed_time_step = self._algorithm.transform_timestep(time_step)
         policy_step = common.algorithm_step(step_func, transformed_time_step,
                                             policy_state)
+        print("-------policy_step.action")
+        print(policy_step)
         action = common.sample_action_distribution(policy_step.action)
         next_time_step = self._env_step(action)
         if self._observers:
@@ -224,6 +227,7 @@ class PolicyDriver(driver.Driver):
         if self._exp_observers:
             action_distribution_param = common.get_distribution_params(
                 policy_step.action)
+            print(action_distribution_param)
             exp = make_experience(
                 time_step,
                 policy_step._replace(action=action),

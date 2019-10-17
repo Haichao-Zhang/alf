@@ -8,7 +8,6 @@ import alf.algorithms.actor_critic_algorithm
 
 import alf.utils.multi_modal_actor_distribution_network
 import alf.utils.multi_modal_value_network
-
 import alf.algorithms.multi_agent_algorithm
 import alf.environments.suite_socialbot
 
@@ -35,13 +34,13 @@ PPOLoss.td_lambda=0.95
 PPOLoss.td_error_loss_fn=@element_wise_squared_loss
 PPOLoss.check_numerics=True
 
-learner/get_sub_observation_spec.index=0
-teacher/get_sub_observation_spec.index=1
+learner/get_sub_observation_spec.domain_name="learner"
+teacher/get_sub_observation_spec.domain_name="teacher"
 learner_observation_spec=@learner/get_sub_observation_spec()
 teacher_observation_spec=@teacher/get_sub_observation_spec()
 
-learner/get_sub_action_spec.index=0
-teacher/get_sub_action_spec.index=1
+learner/get_sub_action_spec.domain_name="learner"
+teacher/get_sub_action_spec.domain_name="teacher"
 learner_action_spec=@learner/get_sub_action_spec()
 teacher_action_spec=@teacher/get_sub_action_spec()
 
@@ -85,10 +84,11 @@ teacher/Agent.action_spec=%teacher_action_spec
 teacher/ActorCriticAlgorithm.loss_class=@PPOLoss
 teacher/ActorCriticAlgorithm.actor_network=@teacher/ActorDistributionNetwork()
 teacher/ActorCriticAlgorithm.value_network=@teacher/ValueNetwork()
-teacher/Agent.optimizer=@learner/Adam()
+teacher/Agent.optimizer=@teacher/Adam()
 
 
-MultiAgentAlgorithm.algos=[@learner/Agent, @teacher/Agent]
+MultiAgentAlgorithm.algo_ctors=[@learner/Agent, @teacher/Agent]
+MultiAgentAlgorithm.domain_names=["learner", "teacher"]
 MultiAgentAlgorithm.action_spec=%action_spec
 
 # training config

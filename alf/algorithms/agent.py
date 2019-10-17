@@ -30,11 +30,11 @@ from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, LossInfo, 
 
 AgentState = namedtuple("AgentState", ["rl", "icm"], default_value=())
 
-AgentInfo = namedtuple(
-    "AgentInfo", ["rl", "icm", "entropy_target"], default_value=())
+AgentInfo = namedtuple("AgentInfo", ["rl", "icm", "entropy_target"],
+                       default_value=())
 
-AgentLossInfo = namedtuple(
-    "AgentLossInfo", ["rl", "icm", "entropy_target"], default_value=())
+AgentLossInfo = namedtuple("AgentLossInfo", ["rl", "icm", "entropy_target"],
+                           default_value=())
 
 
 @gin.configurable
@@ -43,7 +43,6 @@ class Agent(OnPolicyAlgorithm):
 
     Agent is a master algorithm that integrates different algorithms together.
     """
-
     def __init__(self,
                  action_spec,
                  rl_algorithm_cls=ActorCriticAlgorithm,
@@ -87,8 +86,8 @@ class Agent(OnPolicyAlgorithm):
             debug_summaries (bool): True if debug summaries should be created.
             name (str): Name of this algorithm.
             """
-        rl_algorithm = rl_algorithm_cls(
-            action_spec=action_spec, debug_summaries=debug_summaries)
+        rl_algorithm = rl_algorithm_cls(action_spec=action_spec,
+                                        debug_summaries=debug_summaries)
         train_state_spec = AgentState(rl=rl_algorithm.train_state_spec)
         predict_state_spec = AgentState(rl=rl_algorithm.predict_state_spec)
 
@@ -156,7 +155,6 @@ class Agent(OnPolicyAlgorithm):
                 calc_intrinsic_reward=not with_experience)
             info = info._replace(icm=icm_step.info)
             new_state = new_state._replace(icm=icm_step.state)
-
         rl_step = self._rl_algorithm.rollout(
             time_step._replace(observation=observation), state.rl)
 
@@ -225,8 +223,8 @@ class Agent(OnPolicyAlgorithm):
 
         rl_loss_info = self._rl_algorithm.calc_loss(
             training_info._replace(info=training_info.info.rl))
-        loss_info = rl_loss_info._replace(
-            extra=AgentLossInfo(rl=rl_loss_info.extra))
+        loss_info = rl_loss_info._replace(extra=AgentLossInfo(
+            rl=rl_loss_info.extra))
         loss_info = _update_loss(loss_info, training_info, 'icm', self._icm)
         loss_info = _update_loss(loss_info, training_info, 'entropy_target',
                                  self._entropy_target_algorithm)

@@ -56,7 +56,6 @@ class Algorithm(tf.Module):
         train_complete(tape, batched_training_info)
     ```
     """
-
     def __init__(self,
                  train_state_spec=None,
                  predict_state_spec=None,
@@ -152,7 +151,6 @@ class Algorithm(tf.Module):
                 means that no optimizer is specified for the corresponding
                 modules.
         """
-
         def _is_alg(obj):
             return isinstance(obj, Algorithm)
 
@@ -161,9 +159,10 @@ class Algorithm(tf.Module):
                     and not isinstance(obj, Algorithm))
 
         module_sets = [copy.copy(s) for s in self._init_module_sets]
-        optimizers = copy.copy(self._init_optimizers)
+        optimizers = [
+            copy.copy(opt) for opt in self._init_optimizers if opt is not None
+        ]
         module_ids = set(map(id, sum(module_sets, [])))
-
         for alg in self._get_children(_is_alg):
             for opt, module_set in alg.get_optimizer_and_module_sets():
                 if opt is not None:
@@ -204,9 +203,9 @@ class Algorithm(tf.Module):
         opt_and_var_sets = []
         optimizer_and_module_sets = self.get_optimizer_and_module_sets()
         for opt, module_set in optimizer_and_module_sets:
-            logging.info(
-                "optimizer %s: modules %s" % (opt.get_config(), ' '.join(
-                    [m.name for m in module_set if m is not None])))
+            logging.info("optimizer %s: modules %s" %
+                         (opt.get_config(), ' '.join(
+                             [m.name for m in module_set if m is not None])))
             vars = []
             for module in module_set:
                 if module is None:
@@ -287,7 +286,7 @@ class Algorithm(tf.Module):
                 gradient. All the previous `train_interval` `train_step()` for
                 are called under the context of this tape.
             training_info (nested Tensor): information collected for training.
-                It is batched from each `info` returned bt `train_step()`
+                It is batched from each `info` returned by `train_step()`
             valid_masks (tf.Tensor): masks indicating which samples are valid.
                 shape=(T, B), dtype=tf.float32
             weight (float): weight for this batch. Loss will be multiplied with
@@ -298,6 +297,8 @@ class Algorithm(tf.Module):
         """
         with tape:
             loss_info = self.calc_loss(training_info)
+            print("++++++++++++++++++++++loss_info")
+            print(loss_info)
             if valid_masks is not None:
                 loss_info = tf.nest.map_structure(
                     lambda l: tf.reduce_mean(l * valid_masks)
@@ -307,8 +308,8 @@ class Algorithm(tf.Module):
                                                   loss_info)
             if isinstance(loss_info.scalar_loss, tf.Tensor):
                 assert len(loss_info.scalar_loss.shape) == 0
-                loss_info = loss_info._replace(
-                    loss=loss_info.loss + loss_info.scalar_loss)
+                loss_info = loss_info._replace(loss=loss_info.loss +
+                                               loss_info.scalar_loss)
             loss = weight * loss_info.loss
 
         opt_and_var_sets = self._get_cached_opt_and_var_sets()

@@ -835,8 +835,36 @@ def write_gin_configs(root_dir, gin_file):
         f.write(config_str)
 
 
+# @gin.configurable
+# def get_sub_observation_spec(index):
+#     """Get the `TensorSpec` of observations provided by the global environment
+
+#     Returns:
+#       A `TensorSpec`, or a nested dict, list or tuple of
+#       `TensorSpec` objects, which describe the observation.
+#     """
+#     assert _env, "set a global env by `set_global_env` before using the function"
+#     obs_spec = _env.observation_spec()
+#     assert index < len(obs_spec), "invalid index"
+#     return obs_spec[index]
+
+# @gin.configurable
+# def get_sub_action_spec(index):
+#     """Get the specs of the Tensors expected by `step(action)` of the global environment.
+
+#     Returns:
+#       An single `TensorSpec`, or a nested dict, list or tuple of
+#       `TensorSpec` objects, which describe the shape and
+#       dtype of each Tensor expected by `step()`.
+#     """
+#     assert _env, "set a global env by `set_global_env` before using the function"
+#     action_spec = _env.action_spec()
+#     assert index < len(action_spec), "invalid index"
+#     return action_spec[index]
+
+
 @gin.configurable
-def get_sub_observation_spec(index):
+def get_sub_observation_spec(domain_name):
     """Get the `TensorSpec` of observations provided by the global environment
 
     Returns:
@@ -845,12 +873,15 @@ def get_sub_observation_spec(index):
     """
     assert _env, "set a global env by `set_global_env` before using the function"
     obs_spec = _env.observation_spec()
-    assert index < len(obs_spec), "invalid index"
-    return obs_spec[index]
+    assert type(
+        obs_spec
+    ) is collections.OrderedDict and domain_name in obs_spec.keys(
+    ), "observation spec should be an ordered dictionary and the domain_name should be a valid key of it"
+    return obs_spec[domain_name]
 
 
 @gin.configurable
-def get_sub_action_spec(index):
+def get_sub_action_spec(domain_name):
     """Get the specs of the Tensors expected by `step(action)` of the global environment.
 
     Returns:
@@ -860,5 +891,8 @@ def get_sub_action_spec(index):
     """
     assert _env, "set a global env by `set_global_env` before using the function"
     action_spec = _env.action_spec()
-    assert index < len(action_spec), "invalid index"
-    return action_spec[index]
+    assert type(
+        action_spec
+    ) is collections.OrderedDict and domain_name in action_spec.keys(
+    ), "observation spec should be an ordered dictionary and the domain_name should be a valid key of it"
+    return action_spec[domain_name]
