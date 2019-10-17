@@ -82,9 +82,10 @@ class PolicyDriver(driver.Driver):
         # tensorflow_core/python/training/saving/functional_saver.py
         if training:
             standard_metrics += [
-                tf_metrics.AverageReturnMetric(buffer_size=metric_buf_size),
+                tf_metrics.AverageReturnMetric(
+                    batch_size=env.batch_size, buffer_size=metric_buf_size),
                 tf_metrics.AverageEpisodeLengthMetric(
-                    buffer_size=metric_buf_size),
+                    batch_size=env.batch_size, buffer_size=metric_buf_size),
             ]
         self._metrics = standard_metrics + metrics
         self._exp_observers = []
@@ -139,12 +140,14 @@ class PolicyDriver(driver.Driver):
                     name="collect_action_dist")
 
         for metric in self.get_metrics():
-            metric.tf_summaries(train_step=self._train_step_counter,
-                                step_metrics=self.get_metrics()[:2])
+            metric.tf_summaries(
+                train_step=self._train_step_counter,
+                step_metrics=self.get_metrics()[:2])
 
-        mem = tf.py_function(lambda: self._proc.memory_info().rss // 1e6, [],
-                             tf.float32,
-                             name='memory_usage')
+        mem = tf.py_function(
+            lambda: self._proc.memory_info().rss // 1e6, [],
+            tf.float32,
+            name='memory_usage')
         if not tf.executing_eagerly():
             mem.set_shape(())
         tf.summary.scalar(name='memory_usage', data=mem)
@@ -190,13 +193,13 @@ class PolicyDriver(driver.Driver):
 
     def predict(self, max_num_steps, time_step, policy_state):
         maximum_iterations = math.ceil(max_num_steps / self._env.batch_size)
-        [time_step,
-         policy_state] = tf.while_loop(cond=lambda *_: True,
-                                       body=self._eval_loop_body,
-                                       loop_vars=[time_step, policy_state],
-                                       maximum_iterations=maximum_iterations,
-                                       back_prop=False,
-                                       name="predict_loop")
+        [time_step, policy_state] = tf.while_loop(
+            cond=lambda *_: True,
+            body=self._eval_loop_body,
+            loop_vars=[time_step, policy_state],
+            maximum_iterations=maximum_iterations,
+            back_prop=False,
+            name="predict_loop")
         return time_step, policy_state
 
     def _eval_loop_body(self, time_step, policy_state):

@@ -301,8 +301,6 @@ class Algorithm(tf.Module):
         """
         with tape:
             loss_info = self.calc_loss(training_info)
-            print("++++++++++++++++++++++loss_info")
-            print(loss_info)
             if valid_masks is not None:
                 loss_info = tf.nest.map_structure(
                     lambda l: tf.reduce_mean(l * valid_masks)

@@ -272,16 +272,10 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         """Calculate loss."""
         loss_infos = []
         for (i, algo) in enumerate(self._algos):
-            print("================loss info-------")
-            print(self.get_sliced_train_info(training_info, i))
-
             loss_info_sliced = algo.calc_loss(
                 self.get_sliced_train_info(training_info, i))
 
             loss_infos.append(loss_info_sliced)
-
-        print("================loss info-------")
-        print(self.assemble_loss_info(loss_infos))
         return self.assemble_loss_info(loss_infos)
 
     # unnecessary
