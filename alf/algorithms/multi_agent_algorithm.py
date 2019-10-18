@@ -225,10 +225,21 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             action=actions, state=states, info=infos)
         return policy_step
 
-    @property
-    def trainable_variables(self):
-        return sum([var_set for _, var_set in self._get_opt_and_var_sets()],
-                   [])
+    def get_optimizer_and_module_sets(self):
+        """
+        Return specified optimizer and module sets
+        """
+        optimizer_and_module_sets = super().get_optimizer_and_module_sets()
+        #for opt, module_set in optimizer_and_module_sets:
+        return optimizer_and_module_sets[1:]
+
+    # @property
+    # def trainable_variables(self):
+    #     opt_set, var_set = self._get_opt_and_var_sets()
+    #     res = sum([var_set for _, var_set in self._get_opt_and_var_sets()], [])
+    #     print("=======================")
+    #     print(res)
+    #     return res
 
     def preprocess_experience(self, exp: Experience):
         exps = []
