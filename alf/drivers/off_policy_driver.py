@@ -45,6 +45,7 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
     """
     A base class for SyncOffPolicyDriver and AsyncOffPolicyDriver
     """
+
     def __init__(self,
                  env: TFEnvironment,
                  algorithm: OffPolicyAlgorithm,
@@ -122,15 +123,17 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
 
         policy_step = algorithm.rollout(time_step, self._initial_state)
         info_spec = common.extract_spec(policy_step.info)
-        self._policy_step_spec = PolicyStep(action=self._action_spec,
-                                            state=algorithm.train_state_spec,
-                                            info=info_spec)
+        self._policy_step_spec = PolicyStep(
+            action=self._action_spec,
+            state=algorithm.train_state_spec,
+            info=info_spec)
 
         def _to_distribution_spec(spec):
             if isinstance(spec, tf.TensorSpec):
-                return DistributionSpec(tfp.distributions.Deterministic,
-                                        input_params_spec={"loc": spec},
-                                        sample_spec=spec)
+                return DistributionSpec(
+                    tfp.distributions.Deterministic,
+                    input_params_spec={"loc": spec},
+                    sample_spec=spec)
             return spec
 
         self._action_distribution_spec = tf.nest.map_structure(
@@ -157,16 +160,16 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
             self._action_distribution_spec, action_dist_params)
         initial_state = common.get_initial_policy_state(
             self._env.batch_size, algorithm.train_state_spec)
-        exp = Experience(step_type=time_step.step_type,
-                         reward=time_step.reward,
-                         discount=time_step.discount,
-                         observation=time_step.observation,
-                         prev_action=time_step.prev_action,
-                         action=time_step.prev_action,
-                         info=policy_step.info,
-                         action_distribution=action_dist,
-                         state=initial_state if self._use_rollout_state else
-                         ())
+        exp = Experience(
+            step_type=time_step.step_type,
+            reward=time_step.reward,
+            discount=time_step.discount,
+            observation=time_step.observation,
+            prev_action=time_step.prev_action,
+            action=time_step.prev_action,
+            info=policy_step.info,
+            action_distribution=action_dist,
+            state=initial_state if self._use_rollout_state else ())
 
         processed_exp = algorithm.preprocess_experience(exp)
         self._processed_experience_spec = self._experience_spec._replace(
@@ -207,6 +210,7 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
         """
         experience = self._algorithm.transform_timestep(experience)
         experience = self._algorithm.preprocess_experience(experience)
+        tf.print(experience.observation['learner']['image'])
 
         length = experience.step_type.shape[1]
         mini_batch_length = (mini_batch_length or length)
@@ -280,10 +284,11 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
         def create_ta(s):
             # TensorArray cannot use Tensor (batch_size) as element_shape
             ta_batch_size = experience.step_type.shape[1]
-            return tf.TensorArray(dtype=s.dtype,
-                                  size=num_steps,
-                                  element_shape=tf.TensorShape(
-                                      [ta_batch_size]).concatenate(s.shape))
+            return tf.TensorArray(
+                dtype=s.dtype,
+                size=num_steps,
+                element_shape=tf.TensorShape([ta_batch_size]).concatenate(
+                    s.shape))
 
         experience_ta = tf.nest.map_structure(create_ta,
                                               self._processed_experience_spec)
@@ -329,8 +334,8 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
 
             return [counter, policy_step.state, training_info_ta]
 
-        with tf.GradientTape(persistent=True,
-                             watch_accessed_variables=False) as tape:
+        with tf.GradientTape(
+                persistent=True, watch_accessed_variables=False) as tape:
             tape.watch(self._trainable_variables)
             [_, _, training_info_ta] = tf.while_loop(
                 cond=lambda counter, *_: tf.less(counter, num_steps),

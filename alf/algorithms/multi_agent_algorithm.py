@@ -52,6 +52,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  domain_names,
                  debug_summaries=False,
                  loss_class=ActorCriticLoss,
+                 observation_transformer: Callable = None,
                  name="MultiAgentAlgorithm"):
         """Create an MultiAgentAlgorithm
 
@@ -95,6 +96,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             debug_summaries=debug_summaries,
             optimizer=[],
             trainable_module_sets=[],
+            observation_transformer=observation_transformer,
             name=name)
         # input_tensor_spec provides the observation dictionary
         self._action_spec = action_spec  # multi-agent action spec
@@ -228,17 +230,19 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         return sum([var_set for _, var_set in self._get_opt_and_var_sets()],
                    [])
 
-    # def transform_timestep(self, time_step):
-    #     policy_steps = []
-    #     for (i, algo) in enumerate(self._algos):
-    #         time_step_sliced = self.get_sliced_time_step(time_step, i)
-
     def preprocess_experience(self, exp: Experience):
         exps = []
         for (i, algo) in enumerate(self._algos):
             exp_sliced = self.get_sliced_experience(exp, i)
             exps.append(algo.preprocess_experience(exp_sliced))
         return self.assemble_experience(exps)
+
+    # def transform_timestep(self, exp: Experience):
+    #     exps = []
+    #     for (i, algo) in enumerate(self._algos):
+    #         exp_sliced = self.get_sliced_experience(exp, i)
+    #         exps.append(algo.transform_timestep(exp_sliced))
+    #     return self.assemble_experience(exps)
 
     # rollout and train complete
 

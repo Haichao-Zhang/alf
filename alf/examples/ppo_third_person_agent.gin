@@ -11,10 +11,6 @@ import alf.utils.multi_modal_value_network
 import alf.algorithms.multi_agent_algorithm
 import alf.environments.suite_socialbot
 
-
-# CHANNEL_ORDER='channels_first'
-# FrameStack.channel_order=%CHANNEL_ORDER
-
 # expert phase
 #TeacherActorCriticAlgorithm.teacher_training_phase=True
 create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
@@ -26,13 +22,13 @@ create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-create_environment.num_parallel_environments=30
+create_environment.num_parallel_environments=1
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5
 # ActorCriticAlgorithm.clip_by_global_norm=True
 
-PPOLoss.entropy_regularization=0.0
+PPOLoss.entropy_regularization=0.001
 PPOLoss.gamma=0.99
 PPOLoss.normalize_advantages=True
 PPOLoss.td_lambda=0.95
@@ -101,6 +97,8 @@ teacher/PPOAlgorithm.actor_network=@teacher/ActorDistributionNetwork()
 teacher/PPOAlgorithm.value_network=@teacher/ValueNetwork()
 teacher/PPOAlgorithm.optimizer=@teacher/Adam()
 
+common.image_scale_transformer.min=-1.0
+MultiAgentAlgorithm.observation_transformer=@image_scale_transformer
 
 MultiAgentAlgorithm.algo_ctors=[@learner/PPOAlgorithm, @teacher/PPOAlgorithm]
 MultiAgentAlgorithm.domain_names=["learner", "teacher"]
@@ -112,7 +110,7 @@ TrainerConfig.trainer=@sync_off_policy_trainer
 # can append another algorithm or provide a algorithm list
 TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
 TrainerConfig.mini_batch_length=1
-TrainerConfig.unroll_length=100
+TrainerConfig.unroll_length=10
 TrainerConfig.mini_batch_size=1000
 TrainerConfig.num_iterations=100000
 TrainerConfig.num_updates_per_train_step=25

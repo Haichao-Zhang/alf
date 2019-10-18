@@ -63,6 +63,7 @@ class ActionTimeStep(
             ['step_type', 'reward', 'discount', 'observation', 'prev_action'])
 ):
     """TimeStep with action."""
+
     def is_first(self):
         if tf.is_tensor(self.step_type):
             return tf.equal(self.step_type, StepType.FIRST)
@@ -80,11 +81,12 @@ class ActionTimeStep(
 
 
 def make_action_time_step(time_step, prev_action):
-    return ActionTimeStep(step_type=time_step.step_type,
-                          reward=time_step.reward,
-                          discount=time_step.discount,
-                          observation=time_step.observation,
-                          prev_action=prev_action)
+    return ActionTimeStep(
+        step_type=time_step.step_type,
+        reward=time_step.reward,
+        discount=time_step.discount,
+        observation=time_step.observation,
+        prev_action=prev_action)
 
 
 LossInfo = namedtuple(
@@ -232,10 +234,11 @@ def add_action_summaries(actions, action_specs):
             continue
 
         if tensor_spec.is_discrete(action_spec):
-            summary_utils.histogram_discrete(name="action/%s" % i,
-                                             data=action,
-                                             bucket_min=action_spec.minimum,
-                                             bucket_max=action_spec.maximum)
+            summary_utils.histogram_discrete(
+                name="action/%s" % i,
+                data=action,
+                bucket_min=action_spec.minimum,
+                bucket_max=action_spec.maximum)
         else:
             if len(action_spec.shape) == 0:
                 action_dim = 1
@@ -268,6 +271,7 @@ def get_distribution_params(nested_distribution):
         one distribution, with keys as parameter name and values as tensors
         containing parameter values.
     """
+
     def _tensor_parameters_only(params):
         return {
             k: params[k]
@@ -335,9 +339,8 @@ _summary_enabled_var = None
 def _get_summary_enabled_var():
     global _summary_enabled_var
     if _summary_enabled_var is None:
-        _summary_enabled_var = tf.Variable(True,
-                                           dtype=tf.bool,
-                                           name="summary_enabled")
+        _summary_enabled_var = tf.Variable(
+            True, dtype=tf.bool, name="summary_enabled")
     return _summary_enabled_var
 
 
@@ -376,9 +379,8 @@ def run_under_record_context(func,
 
     import alf.utils.summary_utils
     summary_dir = os.path.expanduser(summary_dir)
-    summary_writer = tf.summary.create_file_writer(summary_dir,
-                                                   flush_millis=flush_millis,
-                                                   max_queue=summary_max_queue)
+    summary_writer = tf.summary.create_file_writer(
+        summary_dir, flush_millis=flush_millis, max_queue=summary_max_queue)
     summary_writer.set_as_default()
     global_step = get_global_counter()
     with tf.summary.record_if(lambda: tf.logical_and(
@@ -405,10 +407,8 @@ def get_global_counter(default_counter=None):
     if default_counter is None:
         default_counter = tf.summary.experimental.get_step()
         if default_counter is None:
-            default_counter = tf.Variable(0,
-                                          dtype=tf.int64,
-                                          trainable=False,
-                                          name="global_counter")
+            default_counter = tf.Variable(
+                0, dtype=tf.int64, trainable=False, name="global_counter")
             tf.summary.experimental.set_step(default_counter)
     return default_counter
 
@@ -425,10 +425,11 @@ def image_scale_transformer(observation, min=-1.0, max=1.0):
     Returns:
         Transfromed observation
     """
+
     def _transform_image(obs):
         # tf_agent changes all gym.spaces.Box observation to tf.float32.
         # See _spec_from_gym_space() in tf_agents/environments/gym_wrapper.py
-        if len(obs.shape) == 4:
+        if len(obs.shape) >= 4:
             if obs.dtype == tf.uint8:
                 obs = tf.cast(obs, tf.float32)
             return ((max - min) / 255.) * obs + min
@@ -648,6 +649,7 @@ def to_distribution(action_or_distribution):
     Returns:
         nested Distribution
     """
+
     def _to_dist(action_or_distribution):
         if isinstance(action_or_distribution, tf.Tensor):
             return tfp.distributions.Deterministic(loc=action_or_distribution)

@@ -29,7 +29,7 @@ import gin.tf
 from alf.environments.utils import UnwrappedEnvChecker, ProcessPyEnvironment
 
 DEFAULT_SOCIALBOT_PORT = 11345
-#DEFAULT_SOCIALBOT_PORT = 21345
+DEFAULT_SOCIALBOT_PORT = 21345
 
 _unwrapped_env_checker_ = UnwrappedEnvChecker()
 
