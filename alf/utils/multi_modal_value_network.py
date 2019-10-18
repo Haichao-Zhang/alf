@@ -38,11 +38,14 @@ import gin.tf
 @gin.configurable
 class MultiModalValueNetwork(network.Network):
     """Feed Forward value network. Reduces to 1 value output per batch item."""
+
     def __init__(self,
                  input_tensor_spec,
-                 fc_layer_params=(75, 40),
+                 fc_layer_params_visual=(200, 100),
+                 fc_layer_params_state=(200, 100),
                  dropout_layer_params=None,
-                 conv_layer_params=None,
+                 conv_layer_params_visual=None,
+                 conv_layer_params_state=None,
                  activation_fn=tf.keras.activations.relu,
                  name='ValueNetwork'):
         """Creates an instance of `ValueNetwork`.
@@ -74,26 +77,34 @@ class MultiModalValueNetwork(network.Network):
       ValueError: If `input_tensor_spec.observations` contains more than one
       observation.
     """
-        super(MultiModalValueNetwork,
-              self).__init__(input_tensor_spec=input_tensor_spec,
-                             state_spec=(),
-                             name=name)
+        super(MultiModalValueNetwork, self).__init__(
+            input_tensor_spec=input_tensor_spec, state_spec=(), name=name)
 
         # if len(tf.nest.flatten(input_tensor_spec)) > 1:
         #     raise ValueError(
         #         'Network only supports observation specs with a single observation.'
         #     )
 
-        self._postprocessing_layers = utils.mlp_layers(
-            conv_layer_params,
-            fc_layer_params,
-            dropout_layer_params=dropout_layer_params,
+        self._postprocessing_layers_visual = utils.mlp_layers(
+            conv_layer_params_visual,
+            fc_layer_params_visual,
             activation_fn=activation_fn,
-            kernel_initializer=tf.compat.v1.keras.initializers.glorot_uniform(
-            ),
-            name='input_mlp')
+            kernel_initializer=tf.compat.v1.keras.initializers.
+            glorot_uniform(),
+            dropout_layer_params=dropout_layer_params,
+            name='input_mlp_visual')
 
-        self._postprocessing_layers.append(
+        self._postprocessing_layers_state = utils.mlp_layers(
+            conv_layer_params_state,
+            fc_layer_params_state,
+            activation_fn=activation_fn,
+            kernel_initializer=tf.compat.v1.keras.initializers.
+            glorot_uniform(),
+            dropout_layer_params=dropout_layer_params,
+            name='input_mlp_state')
+
+        self._postprocessing_layers_fused = []
+        self._postprocessing_layers_fused.append(
             tf.keras.layers.Dense(
                 1,
                 activation=None,
@@ -101,14 +112,26 @@ class MultiModalValueNetwork(network.Network):
                     minval=-0.03, maxval=0.03),
             ))
 
-    def call(self, observation, step_type=None, network_state=()):
-        outer_rank = nest_utils.get_outer_rank(observation,
+    def call(self, observations, step_type=None, network_state=()):
+        outer_rank = nest_utils.get_outer_rank(observations,
                                                self.input_tensor_spec)
         batch_squash = utils.BatchSquash(outer_rank)
 
-        states = tf.cast(tf.nest.flatten(observation)[0], tf.float32)
-        states = batch_squash.flatten(states)
-        for layer in self._postprocessing_layers:
+        observations = tf.nest.flatten(observations)
+        # do multi-modality fusion here
+        v_states = tf.cast(observations[0], tf.float32)
+        s_states = tf.cast(observations[1], tf.float32)
+
+        v_states = batch_squash.flatten(v_states)
+        s_states = batch_squash.flatten(s_states)
+
+        for layer in self._postprocessing_layers_visual:
+            v_states = layer(v_states)
+        for layer in self._postprocessing_layers_state:
+            s_states = layer(s_states)
+
+        states = v_states + s_states
+        for layer in self._postprocessing_layers_fused:
             states = layer(states)
 
         value = tf.reshape(states, [-1])

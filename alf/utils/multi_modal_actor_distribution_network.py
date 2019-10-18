@@ -163,14 +163,11 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
         observations = tf.nest.flatten(observations)
         # do multi-modality fusion here
         v_states = tf.cast(observations[0], tf.float32)
+        s_states = tf.cast(observations[1], tf.float32)
 
         # Reshape to only a single batch dimension for neural network functions.
         batch_squash = utils.BatchSquash(outer_rank)
         v_states = batch_squash.flatten(v_states)
-
-        s_states = tf.cast(observations[1], tf.float32)
-        # Reshape to only a single batch dimension for neural network functions.
-        batch_squash = utils.BatchSquash(outer_rank)
         s_states = batch_squash.flatten(s_states)
 
         for layer in self._mlp_layers_visual:

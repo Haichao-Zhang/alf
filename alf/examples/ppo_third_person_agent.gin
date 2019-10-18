@@ -76,8 +76,10 @@ teacher/ActorDistributionNetwork.activation_fn=@tf.nn.softsign
 teacher/ActorDistributionNetwork.continuous_projection_net=@teacher/NormalProjectionNetwork
 
 learner/MultiModalValueNetwork.input_tensor_spec=%learner_observation_spec
-learner/MultiModalValueNetwork.fc_layer_params=(100, 50, 25)
-learner/MultiModalValueNetwork.activation_fn=@tf.nn.softsign
+learner/MultiModalValueNetwork.fc_layer_params_visual=(100, 50, 25)
+learner/MultiModalValueNetwork.fc_layer_params_state=(100, 50, 25)
+learner/MultiModalValueNetwork.activation_fn=@tf.nn.relu
+learner/MultiModalValueNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 
 teacher/ValueNetwork.input_tensor_spec=%teacher_observation_spec
 teacher/ValueNetwork.fc_layer_params=(100, 50, 25)
