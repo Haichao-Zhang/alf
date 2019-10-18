@@ -210,7 +210,6 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
         """
         experience = self._algorithm.transform_timestep(experience)
         experience = self._algorithm.preprocess_experience(experience)
-        tf.print(experience.observation['learner']['image'])
 
         length = experience.step_type.shape[1]
         mini_batch_length = (mini_batch_length or length)
