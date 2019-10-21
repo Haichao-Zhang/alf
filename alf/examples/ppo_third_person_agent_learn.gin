@@ -1,0 +1,122 @@
+#include 'ppo.gin'
+
+# environment config
+import alf.algorithms.ppo_loss
+import alf.algorithms.ppo_algorithm
+import alf.trainers.off_policy_trainer
+import alf.algorithms.actor_critic_algorithm
+
+import alf.utils.multi_modal_actor_distribution_network
+import alf.utils.multi_modal_value_network
+import alf.algorithms.multi_agent_algorithm
+import alf.environments.suite_socialbot
+
+# expert phase
+#TeacherActorCriticAlgorithm.teacher_training_phase=True
+create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
+
+# imitation phase
+#TeacherActorCriticAlgorithm.teacher_training_phase=False
+#create_environment.env_name='SocialBot-Third-Person-Agent-v0'
+#value/MultiActorValueNetwork.input_tensor_spec=%learner_observation_spec
+
+create_environment.env_load_fn=@suite_socialbot.load
+#suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
+create_environment.num_parallel_environments=60
+
+# algorithm config
+# ActorCriticAlgorithm.gradient_clipping=0.5
+# ActorCriticAlgorithm.clip_by_global_norm=True
+
+PPOLoss.entropy_regularization=0.00
+PPOLoss.gamma=0.99
+PPOLoss.normalize_advantages=True
+PPOLoss.td_lambda=0.95
+PPOLoss.td_error_loss_fn=@element_wise_squared_loss
+PPOLoss.check_numerics=True
+
+learner/get_sub_observation_spec.domain_name="learner"
+teacher/get_sub_observation_spec.domain_name="teacher"
+learner_observation_spec=@learner/get_sub_observation_spec()
+teacher_observation_spec=@teacher/get_sub_observation_spec()
+
+learner/get_sub_action_spec.domain_name="learner"
+teacher/get_sub_action_spec.domain_name="teacher"
+learner_action_spec=@learner/get_sub_action_spec()
+teacher_action_spec=@teacher/get_sub_action_spec()
+
+action_spec=@get_action_spec()
+
+learner/NormalProjectionNetwork.init_means_output_factor=1e-10
+learner/NormalProjectionNetwork.std_bias_initializer_value=5.0
+learner/NormalProjectionNetwork.std_transform=@tf.math.exp
+
+teacher/NormalProjectionNetwork.init_means_output_factor=1e-10
+teacher/NormalProjectionNetwork.std_bias_initializer_value=5.0
+teacher/NormalProjectionNetwork.std_transform=@tf.math.exp
+
+
+CONV_LAYER_PARAMS=((32, 6, 4), (64, 4, 2), (64, 3, 1))
+learner/MultiModalActorDistributionNetwork.input_tensor_spec=%learner_observation_spec
+learner/MultiModalActorDistributionNetwork.output_tensor_spec=%learner_action_spec
+learner/MultiModalActorDistributionNetwork.fc_layer_params_visual=(100, 50, 25)
+learner/MultiModalActorDistributionNetwork.fc_layer_params_state=(100, 50, 25)
+learner/MultiModalActorDistributionNetwork.activation_fn=@tf.nn.relu
+learner/MultiModalActorDistributionNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+learner/MultiModalActorDistributionNetwork.continuous_projection_net=@learner/NormalProjectionNetwork
+
+teacher/ActorDistributionNetwork.input_tensor_spec=%teacher_observation_spec
+teacher/ActorDistributionNetwork.output_tensor_spec=%teacher_action_spec
+teacher/ActorDistributionNetwork.fc_layer_params=(100, 50, 25)
+teacher/ActorDistributionNetwork.activation_fn=@tf.nn.softsign
+teacher/ActorDistributionNetwork.continuous_projection_net=@teacher/NormalProjectionNetwork
+
+learner/MultiModalValueNetwork.input_tensor_spec=%learner_observation_spec
+learner/MultiModalValueNetwork.fc_layer_params_visual=(100, 50, 25)
+learner/MultiModalValueNetwork.fc_layer_params_state=(100, 50, 25)
+learner/MultiModalValueNetwork.activation_fn=@tf.nn.relu
+learner/MultiModalValueNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+
+teacher/ValueNetwork.input_tensor_spec=%teacher_observation_spec
+teacher/ValueNetwork.fc_layer_params=(100, 50, 25)
+teacher/ValueNetwork.activation_fn=@tf.nn.softsign
+
+learner/Adam.learning_rate=0e-4
+teacher/Adam.learning_rate=2e-4
+
+
+learner/PPOAlgorithm.action_spec=%learner_action_spec
+learner/PPOAlgorithm.loss_class=@PPOLoss
+learner/PPOAlgorithm.actor_network=@learner/MultiModalActorDistributionNetwork()
+learner/PPOAlgorithm.value_network=@learner/MultiModalValueNetwork()
+learner/PPOAlgorithm.optimizer=@learner/Adam()
+
+teacher/PPOAlgorithm.action_spec=%teacher_action_spec
+teacher/PPOAlgorithm.loss_class=@PPOLoss
+teacher/PPOAlgorithm.actor_network=@teacher/ActorDistributionNetwork()
+teacher/PPOAlgorithm.value_network=@teacher/ValueNetwork()
+teacher/PPOAlgorithm.optimizer=@teacher/Adam()
+
+common.image_scale_transformer.min=-1.0
+MultiAgentAlgorithm.observation_transformer=@image_scale_transformer
+
+MultiAgentAlgorithm.algo_ctors=[@learner/PPOAlgorithm, @teacher/PPOAlgorithm]
+MultiAgentAlgorithm.domain_names=["learner", "teacher"]
+MultiAgentAlgorithm.action_spec=%action_spec
+
+# training config
+# multi-agent policy trainer
+TrainerConfig.trainer=@sync_off_policy_trainer
+# can append another algorithm or provide a algorithm list
+TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
+TrainerConfig.mini_batch_length=1
+TrainerConfig.unroll_length=100
+TrainerConfig.mini_batch_size=6000
+TrainerConfig.num_iterations=100000
+TrainerConfig.num_updates_per_train_step=5
+TrainerConfig.eval_interval=1000
+TrainerConfig.debug_summaries=True
+TrainerConfig.summarize_grads_and_vars=True
+TrainerConfig.summary_interval=10
+
+TFUniformReplayBuffer.max_length=2000
