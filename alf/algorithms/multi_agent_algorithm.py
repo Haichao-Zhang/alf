@@ -105,17 +105,19 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._domain_names = domain_names
         self._debug_summaries = debug_summaries
 
-    def get_sliced_data(self, data, domain_name):
+    def get_sliced_data(data, domain_name):
         """Extract sliced time step information based on the specified index
         Args:
             data is in the form of named tuple
         """
-        assert type(
-            data) is namedtuple, "input data should instance of namedtuple"
+        #assert type(data) is namedtuple, "input data should instance of namedtuple"
         fields = data._fields
         for fd in fields:
-            if domain_name in data[fd].keys():
-                data = data._replace(fd=data[fd][domain])
+            field_data = getattr(data, fd)
+            if type(field_data) is not OrderedDict:
+                continue
+            if domain_name in field_data.keys():
+                data = data._replace(**{fd: field_data[domain_name]})
         return data
 
     def get_sliced_time_step(self, time_step: ActionTimeStep, idx):
@@ -287,7 +289,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 self.get_sliced_train_info(training_info, i))
 
             loss_infos.append(loss_info_sliced)
-        return self.assemble_loss_info(loss_infos)
+        # return self.assemble_loss_info(loss_infos)
+        return loss_infos[1]  # return teacher loss in this stage
 
     # unnecessary
     # def train_complete(self,
