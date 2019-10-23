@@ -63,6 +63,7 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
                  output_tensor_spec,
                  fc_layer_params_visual=(200, 100),
                  fc_layer_params_state=(200, 100),
+                 fc_layer_params_fusion=(200, 100),
                  dropout_layer_params=None,
                  conv_layer_params_visual=None,
                  conv_layer_params_state=None,
@@ -126,6 +127,16 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
             dropout_layer_params=dropout_layer_params,
             name='input_mlp_state')
 
+        # fusion net
+        mlp_layers_fusion = utils.mlp_layers(
+            None,  # no cnn
+            fc_layer_params_fusion,
+            activation_fn=activation_fn,
+            kernel_initializer=tf.compat.v1.keras.initializers.
+            glorot_uniform(),
+            dropout_layer_params=dropout_layer_params,
+            name='multi_modal_mlp_fusion')
+
         projection_networks = []
         for single_output_spec in tf.nest.flatten(output_tensor_spec):
             if tensor_spec.is_discrete(single_output_spec):
@@ -149,6 +160,7 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
 
         self._mlp_layers_visual = mlp_layers_visual
         self._mlp_layers_state = mlp_layers_state
+        self._mlp_layers_fusion = mlp_layers_fusion
         self._projection_networks = projection_networks
         self._output_tensor_spec = output_tensor_spec
 
@@ -175,7 +187,12 @@ class MultiModalActorDistributionNetwork(network.DistributionNetwork):
         for layer in self._mlp_layers_state:
             s_states = layer(s_states)
 
-        states = v_states + s_states
+        states = tf.concat([v_states, s_states], axis=1)
+        #print(states.shape)
+        for layer in self._mlp_layers_fusion:
+            states = layer(states)
+
+        # states = v_states + s_states
 
         # TODO(oars): Can we avoid unflattening to flatten again
         states = batch_squash.unflatten(states)

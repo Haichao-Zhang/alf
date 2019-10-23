@@ -43,6 +43,7 @@ class MultiModalValueNetwork(network.Network):
                  input_tensor_spec,
                  fc_layer_params_visual=(200, 100),
                  fc_layer_params_state=(200, 100),
+                 fc_layer_params_fusion=(200, 100),
                  dropout_layer_params=None,
                  conv_layer_params_visual=None,
                  conv_layer_params_state=None,
@@ -103,6 +104,15 @@ class MultiModalValueNetwork(network.Network):
             dropout_layer_params=dropout_layer_params,
             name='input_mlp_state')
 
+        self._postprocessing_layers_fusion = utils.mlp_layers(
+            None,  # no cnn
+            fc_layer_params_fusion,
+            activation_fn=activation_fn,
+            kernel_initializer=tf.compat.v1.keras.initializers.
+            glorot_uniform(),
+            dropout_layer_params=dropout_layer_params,
+            name='multi_modal_mlp_fusion')
+
         self._postprocessing_layers_fused = []
         self._postprocessing_layers_fused.append(
             tf.keras.layers.Dense(
@@ -130,7 +140,13 @@ class MultiModalValueNetwork(network.Network):
         for layer in self._postprocessing_layers_state:
             s_states = layer(s_states)
 
-        states = v_states + s_states
+        #states = v_states + s_states
+
+        states = tf.concat([v_states, s_states], axis=1)
+        # print(states.shape)
+        for layer in self._postprocessing_layers_fusion:
+            states = layer(states)
+
         for layer in self._postprocessing_layers_fused:
             states = layer(states)
 
