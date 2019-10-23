@@ -210,6 +210,7 @@ class PolicyDriver(driver.Driver):
         policy_state = common.reset_state_if_necessary(policy_state,
                                                        self._initial_state,
                                                        time_step.is_first())
+
         step_func = self._algorithm.rollout if self._training else (
             self._algorithm.greedy_predict
             if self._greedy_predict else self._algorithm.predict)
@@ -227,7 +228,7 @@ class PolicyDriver(driver.Driver):
         if self._exp_observers:
             action_distribution_param = common.get_distribution_params(
                 policy_step.action)
-            print(action_distribution_param)
+
             exp = make_experience(
                 time_step,
                 policy_step._replace(action=action),
@@ -273,7 +274,9 @@ class PolicyDriver(driver.Driver):
             time_step = self.get_initial_time_step()
         if policy_state is None:
             policy_state = self._initial_state
-        return self._run(max_num_steps, time_step, policy_state)
+        res = self._run(max_num_steps, time_step, policy_state)
+        print("before return 88888888")
+        return res
 
     def _run(self, max_num_steps, time_step, policy_state):
         """Different drivers implement different runs."""

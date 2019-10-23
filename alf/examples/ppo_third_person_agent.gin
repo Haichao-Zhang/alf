@@ -12,7 +12,7 @@ import alf.algorithms.multi_agent_algorithm
 import alf.environments.suite_socialbot
 
 # expert phase
-#TeacherActorCriticAlgorithm.teacher_training_phase=True
+MultiAgentAlgorithm.teacher_training_phase=True
 create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
 
 # imitation phase
@@ -22,7 +22,7 @@ create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-create_environment.num_parallel_environments=60
+create_environment.num_parallel_environments=1
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5

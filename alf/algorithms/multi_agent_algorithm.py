@@ -50,6 +50,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  algo_ctors,
                  action_spec,
                  domain_names,
+                 teacher_training_phase,
                  debug_summaries=False,
                  loss_class=ActorCriticLoss,
                  observation_transformer: Callable = None,
@@ -104,6 +105,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._algos = algos
         self._domain_names = domain_names
         self._debug_summaries = debug_summaries
+        self._teacher_training_phase = teacher_training_phase
 
     def get_sliced_data(data, domain_name):
         """Extract sliced time step information based on the specified index
@@ -162,6 +164,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             actions[dn] = ps.action
             action_distributions[dn] = ps.action_distribution
             infos[dn] = ps.info
+            #reward[dn] = ps.reward
             #states[dn] = ps.state
         # for i, ps in enumerate(policy_steps):
         #     actions.append(ps.action)
@@ -233,7 +236,10 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         """
         optimizer_and_module_sets = super().get_optimizer_and_module_sets()
         #for opt, module_set in optimizer_and_module_sets:
-        return optimizer_and_module_sets[1:]
+        if self._teacher_training_phase:
+            return optimizer_and_module_sets[1:]
+        else:
+            return optimizer_and_module_sets[0:1]
 
     # @property
     # def trainable_variables(self):
@@ -242,13 +248,32 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     #     print("=======================")
     #     print(res)
     #     return res
+    def calc_training_reward(self, external_reward, info):
+        """Calculate the reward actually used for training.
+
+        The training_reward includes both intrinsic reward (if there's any) and
+        the external reward.
+        Args:
+            external_reward (Tensor): reward from environment
+            info (ActorCriticInfo): (batched) policy_step.info from train_step()
+        Returns:
+            reward used for training.
+        """
+        # record shaped extrinsic rewards actually used for training
+        self.add_reward_summary("reward/extrinsic", external_reward)
+        reward = external_reward
+        return reward
 
     def preprocess_experience(self, exp: Experience):
         exps = []
         for (i, algo) in enumerate(self._algos):
             exp_sliced = self.get_sliced_experience(exp, i)
-            exps.append(algo.preprocess_experience(exp_sliced))
-        return self.assemble_experience(exps)
+            reward = self.calc_training_reward(exp_sliced.reward,
+                                               exp_sliced.info)
+            exps.append(
+                algo.preprocess_experience(exp_sliced._replace(reward=reward)))
+        # reward is the same
+        return self.assemble_experience(exps)._replace(reward=reward)
 
     # def transform_timestep(self, exp: Experience):
     #     exps = []
@@ -258,6 +283,14 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     #     return self.assemble_experience(exps)
 
     # rollout and train complete
+    def predict(self, time_step: ActionTimeStep, state):
+        """Predict for one step."""
+        policy_steps = []
+        for (i, algo) in enumerate(self._algos):
+            time_step_sliced = self.get_sliced_time_step(time_step, i)
+            state_sliced = self.get_sliced_state(state, i)
+            policy_steps.append(algo.predict(time_step_sliced, state_sliced))
+        return self.assemble_policy_step(policy_steps)
 
     def rollout(self,
                 time_step: ActionTimeStep,
@@ -290,7 +323,10 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
 
             loss_infos.append(loss_info_sliced)
         # return self.assemble_loss_info(loss_infos)
-        return loss_infos[1]  # return teacher loss in this stage
+        if self._teacher_training_phase:
+            return loss_infos[1]  # return teacher loss in this stage
+        else:
+            return loss_infos[0]  # return learner loss in this stage
 
     # unnecessary
     # def train_complete(self,
