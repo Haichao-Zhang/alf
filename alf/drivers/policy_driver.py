@@ -108,7 +108,6 @@ class PolicyDriver(driver.Driver):
         else:
             self._policy_state_spec = algorithm.predict_state_spec
         self._initial_state = self.get_initial_policy_state()
-        print(self._initial_state)
 
     def add_experience_observer(self, observer: Callable):
         """Add an observer to receive experience.
@@ -275,7 +274,6 @@ class PolicyDriver(driver.Driver):
         if policy_state is None:
             policy_state = self._initial_state
         res = self._run(max_num_steps, time_step, policy_state)
-        print("before return 88888888")
         return res
 
     def _run(self, max_num_steps, time_step, policy_state):
