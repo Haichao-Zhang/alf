@@ -53,6 +53,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  teacher_training_phase,
                  debug_summaries=False,
                  loss_class=ActorCriticLoss,
+                 reward_shaping_fn: Callable = None,
                  observation_transformer: Callable = None,
                  name="MultiAgentAlgorithm"):
         """Create an MultiAgentAlgorithm
@@ -97,6 +98,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             debug_summaries=debug_summaries,
             optimizer=[],
             trainable_module_sets=[],
+            reward_shaping_fn=reward_shaping_fn,
             observation_transformer=observation_transformer,
             name=name)
         # input_tensor_spec provides the observation dictionary
@@ -107,10 +109,11 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._debug_summaries = debug_summaries
         self._teacher_training_phase = teacher_training_phase
 
-    def get_sliced_data(data, domain_name):
+    def get_sliced_data(self, data, domain_name):
         """Extract sliced time step information based on the specified index
         Args:
             data is in the form of named tuple
+            or dictionary
         """
         #assert type(data) is namedtuple, "input data should instance of namedtuple"
         fields = data._fields
@@ -287,7 +290,10 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         """Predict for one step."""
         policy_steps = []
         for (i, algo) in enumerate(self._algos):
-            time_step_sliced = self.get_sliced_time_step(time_step, i)
+            # time_step_sliced = self.get_sliced_time_step(time_step, i)
+            #state_sliced = self.get_sliced_state(state, i)
+            time_step_sliced = self.get_sliced_data(time_step,
+                                                    self._domain_names[i])
             state_sliced = self.get_sliced_state(state, i)
             policy_steps.append(algo.predict(time_step_sliced, state_sliced))
         return self.assemble_policy_step(policy_steps)

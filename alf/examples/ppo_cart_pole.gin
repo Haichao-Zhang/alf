@@ -1,7 +1,11 @@
 include 'ppo.gin'
 
+import alf.environments.suite_socialbot
+
 # environment config
-create_environment.env_name="CartPole-v0"
+#create_environment.env_name="SocialBot-CartPole-v0"
+create_environment.env_name="SocialBot-ThirdPersonCartPole-v0"
+create_environment.env_load_fn=@suite_socialbot.load
 create_environment.num_parallel_environments=8
 
 # reward scaling
@@ -34,7 +38,7 @@ TrainerConfig.mini_batch_length=1
 TrainerConfig.unroll_length=32
 TrainerConfig.mini_batch_size=128
 TrainerConfig.num_updates_per_train_step=4
-TrainerConfig.num_iterations=200
+TrainerConfig.num_iterations=10000
 TrainerConfig.checkpoint_interval=100000
 TrainerConfig.use_tf_functions=True
 TrainerConfig.evaluate=True
