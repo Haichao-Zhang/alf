@@ -217,6 +217,7 @@ class PolicyDriver(driver.Driver):
         policy_step = common.algorithm_step(step_func, transformed_time_step,
                                             policy_state)
         action = common.sample_action_distribution(policy_step.action)
+
         next_time_step = self._env_step(action)
         if self._observers:
             traj = from_transition(time_step,

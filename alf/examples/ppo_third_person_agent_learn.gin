@@ -22,7 +22,7 @@ create_environment.env_name='SocialBot-Third-Person-Agent-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-create_environment.num_parallel_environments=60
+create_environment.num_parallel_environments=10
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5
@@ -32,7 +32,7 @@ PPOLoss.entropy_regularization=1e-4
 PPOLoss.gamma=0.99
 PPOLoss.normalize_advantages=False #----------
 PPOLoss.td_lambda=0.95
-PPOLoss.td_error_loss_fn=@element_wise_huber_loss
+PPOLoss.td_error_loss_fn=@element_wise_squared_loss
 PPOLoss.check_numerics=True
 
 learner/get_sub_observation_spec.domain_name="learner"
@@ -47,7 +47,8 @@ teacher_action_spec=@teacher/get_sub_action_spec()
 
 action_spec=@get_action_spec()
 
-learner/NormalProjectionNetwork.init_means_output_factor=1e2
+learner/NormalProjectionNetwork.init_means_output_factor=1e4
+#learner/NormalProjectionNetwork.mean_transform=None
 learner/NormalProjectionNetwork.std_bias_initializer_value=3.0
 learner/NormalProjectionNetwork.std_transform=@tf.math.exp
 
@@ -99,7 +100,7 @@ teacher/PPOAlgorithm.actor_network=@teacher/ActorDistributionNetwork()
 teacher/PPOAlgorithm.value_network=@teacher/ValueNetwork()
 teacher/PPOAlgorithm.optimizer=@teacher/Adam()
 
-common.image_scale_transformer.min=-1.0
+#common.image_scale_transformer.min=-1.0
 #MultiAgentAlgorithm.observation_transformer=@image_scale_transformer
 
 MultiAgentAlgorithm.algo_ctors=[@learner/PPOAlgorithm, @teacher/PPOAlgorithm]
@@ -116,10 +117,10 @@ TrainerConfig.trainer=@sync_off_policy_trainer
 # can append another algorithm or provide a algorithm list
 TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
 TrainerConfig.mini_batch_length=1
-TrainerConfig.unroll_length=32
+TrainerConfig.unroll_length=100
 TrainerConfig.mini_batch_size=1000
 TrainerConfig.num_iterations=100000
-TrainerConfig.num_updates_per_train_step=4
+TrainerConfig.num_updates_per_train_step=1
 TrainerConfig.eval_interval=1000
 TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=True
