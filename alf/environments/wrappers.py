@@ -27,7 +27,11 @@ from tf_agents.trajectories.time_step import StepType
 class FrameStack(gym.Wrapper):
     """Stack previous `stack_size` frames, applied to Gym env."""
 
-    def __init__(self, env, stack_size=4, channel_order='channels_last'):
+    def __init__(self,
+                 env,
+                 stack_size=4,
+                 channel_order='channels_last',
+                 fields_to_stack=None):
         """Create a FrameStack object.
 
         Args:
@@ -43,6 +47,7 @@ class FrameStack(gym.Wrapper):
         self._frames = collections.deque(maxlen=stack_size)
         self._channel_order = channel_order
         self._stack_size = stack_size
+        self._fields_to_stack = fields_to_stack
 
         space = self.env.observation_space
         assert channel_order in ['channels_last', 'channels_first']
