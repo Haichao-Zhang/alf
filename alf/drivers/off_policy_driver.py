@@ -217,6 +217,12 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
             "length=%s not a multiple of mini_batch_length=%s" %
             (length, mini_batch_length))
 
+        print("-----------=========")
+        print(self._algorithm.train_state_spec)
+        print(tf.nest.flatten(self._algorithm.train_state_spec))
+        print(len(tf.nest.flatten(self._algorithm.train_state_spec)))
+        print("mini-batch length")
+        print(mini_batch_length)
         if len(tf.nest.flatten(self._algorithm.train_state_spec)
                ) > 0 and not self._use_rollout_state:
             if mini_batch_length == 1:

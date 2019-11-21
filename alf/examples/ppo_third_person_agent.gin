@@ -22,7 +22,7 @@ create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-create_environment.num_parallel_environments=1
+create_environment.num_parallel_environments=30
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5

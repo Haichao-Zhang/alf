@@ -5,9 +5,11 @@ import alf.algorithms.ppo_loss
 import alf.algorithms.ppo_algorithm
 import alf.trainers.off_policy_trainer
 import alf.algorithms.actor_critic_algorithm
+import alf.algorithms.reward_estimation
 
 import alf.utils.multi_modal_actor_distribution_network
 import alf.utils.multi_modal_value_network
+import alf.utils.multi_modal_encoding_network
 import alf.algorithms.multi_agent_algorithm
 import alf.environments.suite_socialbot
 
@@ -103,6 +105,25 @@ teacher/PPOAlgorithm.optimizer=@teacher/Adam()
 #common.image_scale_transformer.min=-1.0
 #MultiAgentAlgorithm.observation_transformer=@image_scale_transformer
 
+
+# reward learning module
+# need a multi-modal network shared with policy and value net
+feature_size=200
+reward/MultiModalEncodingNetwork.last_layer_size=%feature_size
+reward/MultiModalEncodingNetwork.input_tensor_spec=%learner_observation_spec
+reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, 25)
+reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, 25)
+reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, 25)
+reward/MultiModalEncodingNetwork.activation_fn=@tf.nn.softsign
+reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+reward/TensorSpec.shape=(%feature_size,)
+
+RewardAlgorithm.action_spec=%learner_action_spec
+RewardAlgorithm.feature_spec=@reward/TensorSpec()
+RewardAlgorithm.encoding_net=@reward/MultiModalEncodingNetwork()
+RewardAlgorithm.hidden_size=(200, 200)
+
+
 MultiAgentAlgorithm.algo_ctors=[@learner/PPOAlgorithm, @teacher/PPOAlgorithm]
 MultiAgentAlgorithm.domain_names=["learner", "teacher"]
 MultiAgentAlgorithm.action_spec=%action_spec
@@ -110,13 +131,16 @@ MultiAgentAlgorithm.action_spec=%action_spec
 MultiAgentAlgorithm.reward_shaping_fn=@reward_scaling
 common.reward_scaling.scale = 1
 
+# intrinsic or reward estimation module
+#MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithm()
+
 
 # training config
 # multi-agent policy trainer
 TrainerConfig.trainer=@sync_off_policy_trainer
 # can append another algorithm or provide a algorithm list
 TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
-TrainerConfig.mini_batch_length=1
+#TrainerConfig.mini_batch_length=1 # no need to set
 TrainerConfig.unroll_length=100
 TrainerConfig.checkpoint_interval=100
 TrainerConfig.mini_batch_size=1000

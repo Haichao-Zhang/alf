@@ -41,7 +41,14 @@ from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 # a meta-algorithm that can take multiple algorithms as input
 
 MultiAgentState = namedtuple(
-    "MultiAgentState", ["teacher_state", "learner_state"], default_value=())
+    "MultiAgentState", ["teacher_state", "learner_state", "icm"],
+    default_value=())
+
+AgentState = namedtuple("AgentState", ["rl", "icm", "value"], default_value=())
+
+AgentInfo = namedtuple("AgentInfo", ["rl", "icm", "value"], default_value=())
+
+AgentLossInfo = namedtuple("AgentLossInfo", ["rl", "icm"], default_value=())
 
 
 @gin.configurable
@@ -51,6 +58,9 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  action_spec,
                  domain_names,
                  teacher_training_phase,
+                 intrinsic_curiosity_module=None,
+                 intrinsic_reward_coef=1.0,
+                 extrinsic_reward_coef=1.0,
                  debug_summaries=False,
                  loss_class=ActorCriticLoss,
                  reward_shaping_fn: Callable = None,
@@ -73,15 +83,34 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         ]
 
         def get_train_specs(algos):
+            # no need to consider intrinsic module in this function
             specs = OrderedDict()
             for i, algo in enumerate(algos):
-                specs[domain_names[i]] = algo.train_state_spec
+                if ((not teacher_training_phase and i == 0) or
+                    (teacher_training_phase
+                     and i == 1)) and intrinsic_curiosity_module is not None:
+                    train_state_spec = AgentState(rl=algo.train_state_spec)
+                    train_state_spec = train_state_spec._replace(
+                        icm=intrinsic_curiosity_module.train_state_spec)
+                else:
+                    train_state_spec = algo.train_state_spec
+
+                specs[domain_names[i]] = train_state_spec
             return specs
 
         def get_predict_specs(algos):
             specs = OrderedDict()
             for i, algo in enumerate(algos):
-                specs[domain_names[i]] = algo.predict_state_spec
+                if ((not teacher_training_phase and i == 0) or
+                    (teacher_training_phase
+                     and i == 1)) and intrinsic_curiosity_module is not None:
+                    predict_state_spec = AgentState(rl=algo.predict_state_spec)
+                    predict_state_spec = predict_state_spec._replace(
+                        icm=intrinsic_curiosity_module.predict_state_spec)
+                else:
+                    predict_state_spec = algo.predict_state_spec
+
+                specs[domain_names[i]] = predict_state_spec
             return specs
 
         def get_action_distribution_specs(algos):
@@ -108,6 +137,10 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._domain_names = domain_names
         self._debug_summaries = debug_summaries
         self._teacher_training_phase = teacher_training_phase
+
+        self._intrinsic_reward_coef = intrinsic_reward_coef
+        self._extrinsic_reward_coef = extrinsic_reward_coef
+        self._icm = intrinsic_curiosity_module
 
     def get_sliced_data(self, data, domain_name):
         """Extract sliced time step information based on the specified index
@@ -251,7 +284,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     #     print("=======================")
     #     print(res)
     #     return res
-    def calc_training_reward(self, external_reward, info):
+    def calc_training_reward(self, external_reward, info, with_icm_flag):
         """Calculate the reward actually used for training.
 
         The training_reward includes both intrinsic reward (if there's any) and
@@ -265,16 +298,39 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         # record shaped extrinsic rewards actually used for training
         self.add_reward_summary("reward/extrinsic", external_reward)
         reward = external_reward
+
+        if with_icm_flag:
+            self.add_reward_summary("reward/icm", info.icm.reward)
+            reward += self._intrinsic_reward_coef * info.icm.reward
+
+        if id(reward) != id(external_reward):
+            self.add_reward_summary("reward/overall", reward)
+
         return reward
 
     def preprocess_experience(self, exp: Experience):
         exps = []
         for (i, algo) in enumerate(self._algos):
             exp_sliced = self.get_sliced_experience(exp, i)
-            reward = self.calc_training_reward(exp_sliced.reward,
-                                               exp_sliced.info)
-            exps.append(
-                algo.preprocess_experience(exp_sliced._replace(reward=reward)))
+            if ((not self._teacher_training_phase and i == 0) or
+                (self._teacher_training_phase
+                 and i == 1)) and self._icm is not None:
+                reward = self.calc_training_reward(
+                    exp_sliced.reward, exp_sliced.info, True)  #info.rl
+                exp_sliced = exp_sliced._replace(reward=reward)
+
+                new_info = exp_sliced.info._replace(
+                    value=exp_sliced.info.rl.value)
+                exp_sliced = exp_sliced._replace(info=new_info)
+                exp_sliced = algo.preprocess_experience(exp_sliced)
+
+                exps.append(exp_sliced)
+            else:
+                reward = self.calc_training_reward(
+                    exp_sliced.reward, exp_sliced.info, False)  #info.rl
+                exps.append(
+                    algo.preprocess_experience(
+                        exp_sliced._replace(reward=reward)))
         # reward is the same
         return self.assemble_experience(exps)._replace(reward=reward)
 
@@ -295,7 +351,17 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             time_step_sliced = self.get_sliced_data(time_step,
                                                     self._domain_names[i])
             state_sliced = self.get_sliced_state(state, i)
-            policy_steps.append(algo.predict(time_step_sliced, state_sliced))
+            rl_step = algo.predict(time_step_sliced, state_sliced)
+
+            if self._icm is not None:
+                new_state = AgentState()
+                new_state = new_state._replace(rl=rl_step.state)
+                rl_step = PolicyStep(
+                    action=rl_step.action, state=new_state, info=())
+                policy_steps.append(rl_step)
+            else:
+                policy_steps.append(rl_step)
+
         return self.assemble_policy_step(policy_steps)
 
     def rollout(self,
@@ -304,10 +370,41 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 with_experience=False):
         policy_steps = []
         for (i, algo) in enumerate(self._algos):
+            new_state = AgentState()
+            info = AgentInfo()
+            #observation = self._encode(time_step)
+
             time_step_sliced = self.get_sliced_time_step(time_step, i)
             state_sliced = self.get_sliced_state(state, i)
-            policy_steps.append(
-                algo.rollout(time_step_sliced, state_sliced, with_experience))
+            # seperate algo.rollout
+            # todo: only add icm to one of the algorithm
+            if ((not self._teacher_training_phase and i == 0) or
+                (self._teacher_training_phase
+                 and i == 1)) and self._icm is not None:
+                print("agent training-----")
+                icm_step = self._icm.train_step(
+                    (time_step_sliced.observation,
+                     time_step_sliced.prev_action),
+                    state=state_sliced.icm,
+                    calc_intrinsic_reward=not with_experience)
+                info = info._replace(icm=icm_step.info)
+                new_state = new_state._replace(icm=icm_step.state)
+
+                rl_step = algo.rollout(time_step_sliced, state_sliced.rl,
+                                       with_experience)
+
+                new_state = new_state._replace(rl=rl_step.state)
+                info = info._replace(rl=rl_step.info)
+                # create new policy step
+                new_policy_step = PolicyStep(
+                    action=rl_step.action, state=new_state, info=info)
+                policy_steps.append(new_policy_step)
+            else:
+
+                rl_step = algo.rollout(time_step_sliced, state_sliced,
+                                       with_experience)
+                policy_steps.append(rl_step)
+
         return self.assemble_policy_step(policy_steps)
 
     def train_step(self, exp: Experience, state):

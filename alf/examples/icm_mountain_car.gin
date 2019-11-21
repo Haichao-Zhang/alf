@@ -1,5 +1,6 @@
 import alf.algorithms.actor_critic_algorithm
 import alf.trainers.on_policy_trainer
+import alf.trainers.off_policy_trainer
 
 # environment config
 create_environment.num_parallel_environments=30
@@ -49,7 +50,7 @@ EntropyTargetAlgorithm.optimizer=@EntropyTargetAlgorithm/Adam()
 EncodingNetwork.activation_fn=@tf.nn.relu
 
 # training config
-TrainerConfig.trainer=@on_policy_trainer
+TrainerConfig.trainer=@sync_off_policy_trainer
 TrainerConfig.unroll_length=100
 TrainerConfig.algorithm_ctor=@Agent
 TrainerConfig.num_iterations=1000000
