@@ -151,7 +151,5 @@ class MultiModalValueNetwork(network.Network):
             states = layer(states)
 
         value = tf.reshape(states, [-1])
-        print("value ------")
-        print(value)
         value = batch_squash.unflatten(value)
         return value, network_state

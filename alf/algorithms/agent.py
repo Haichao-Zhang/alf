@@ -30,11 +30,11 @@ from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, LossInfo, 
 
 AgentState = namedtuple("AgentState", ["rl", "icm"], default_value=())
 
-AgentInfo = namedtuple("AgentInfo", ["rl", "icm", "entropy_target"],
-                       default_value=())
+AgentInfo = namedtuple(
+    "AgentInfo", ["rl", "icm", "entropy_target"], default_value=())
 
-AgentLossInfo = namedtuple("AgentLossInfo", ["rl", "icm", "entropy_target"],
-                           default_value=())
+AgentLossInfo = namedtuple(
+    "AgentLossInfo", ["rl", "icm", "entropy_target"], default_value=())
 
 
 @gin.configurable
@@ -43,6 +43,7 @@ class Agent(OnPolicyAlgorithm):
 
     Agent is a master algorithm that integrates different algorithms together.
     """
+
     def __init__(self,
                  action_spec,
                  rl_algorithm_cls=ActorCriticAlgorithm,
@@ -86,8 +87,8 @@ class Agent(OnPolicyAlgorithm):
             debug_summaries (bool): True if debug summaries should be created.
             name (str): Name of this algorithm.
             """
-        rl_algorithm = rl_algorithm_cls(action_spec=action_spec,
-                                        debug_summaries=debug_summaries)
+        rl_algorithm = rl_algorithm_cls(
+            action_spec=action_spec, debug_summaries=debug_summaries)
         train_state_spec = AgentState(rl=rl_algorithm.train_state_spec)
         predict_state_spec = AgentState(rl=rl_algorithm.predict_state_spec)
 
@@ -154,6 +155,7 @@ class Agent(OnPolicyAlgorithm):
                 state=state.icm,
                 calc_intrinsic_reward=not with_experience)
             info = info._replace(icm=icm_step.info)
+
             new_state = new_state._replace(icm=icm_step.state)
         rl_step = self._rl_algorithm.rollout(
             time_step._replace(observation=observation), state.rl)
@@ -166,6 +168,8 @@ class Agent(OnPolicyAlgorithm):
             et_step = self._entropy_target_algorithm.train_step(rl_step.action)
             info = info._replace(entropy_target=et_step.info)
 
+        print("=========--------------")
+        print(info)
         return PolicyStep(action=rl_step.action, state=new_state, info=info)
 
     def calc_training_reward(self, external_reward, info: AgentInfo):
@@ -187,6 +191,8 @@ class Agent(OnPolicyAlgorithm):
             reward *= self._extrinsic_reward_coef
 
         if self._icm is not None:
+            print("-------reward")
+            print(info.icm.reward)
             self.add_reward_summary("reward/icm", info.icm.reward)
             reward += self._intrinsic_reward_coef * info.icm.reward
 
@@ -198,6 +204,8 @@ class Agent(OnPolicyAlgorithm):
     def calc_loss(self, training_info):
         """Calculate loss."""
         if training_info.collect_info == ():
+            import pdb
+            pdb.set_trance()
             training_info = training_info._replace(
                 reward=self.calc_training_reward(training_info.reward,
                                                  training_info.info))
@@ -223,8 +231,10 @@ class Agent(OnPolicyAlgorithm):
 
         rl_loss_info = self._rl_algorithm.calc_loss(
             training_info._replace(info=training_info.info.rl))
-        loss_info = rl_loss_info._replace(extra=AgentLossInfo(
-            rl=rl_loss_info.extra))
+        loss_info = rl_loss_info._replace(
+            extra=AgentLossInfo(rl=rl_loss_info.extra))
+        import pdb
+        pdb.set_trace()
         loss_info = _update_loss(loss_info, training_info, 'icm', self._icm)
         loss_info = _update_loss(loss_info, training_info, 'entropy_target',
                                  self._entropy_target_algorithm)
@@ -232,6 +242,9 @@ class Agent(OnPolicyAlgorithm):
         return loss_info
 
     def preprocess_experience(self, exp: Experience):
+
+        print('----exp')
+        print(exp.info.icm.reward)
         reward = self.calc_training_reward(exp.reward, exp.info)
         return self._rl_algorithm.preprocess_experience(
             exp._replace(reward=reward, info=exp.info.rl))

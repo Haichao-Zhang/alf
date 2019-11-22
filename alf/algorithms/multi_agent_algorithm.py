@@ -19,8 +19,11 @@ from typing import Callable
 import gin.tf
 
 import tensorflow as tf
+import numpy as np
 
-from tf_agents.agents.tf_agent import LossInfo
+#from tf_agents.agents.tf_agent import LossInfo  # this LossInfo is not correct
+# use the one from common.py
+
 from tf_agents.networks.actor_distribution_network import ActorDistributionNetwork
 from tf_agents.networks.actor_distribution_rnn_network import ActorDistributionRnnNetwork
 from tf_agents.networks.encoding_network import EncodingNetwork
@@ -34,7 +37,7 @@ from alf.algorithms.algorithm import Algorithm
 from alf.algorithms.entropy_target_algorithm import EntropyTargetAlgorithm
 from alf.algorithms.icm_algorithm import ICMAlgorithm
 from alf.algorithms.on_policy_algorithm import OnPolicyAlgorithm
-from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, RLAlgorithm, namedtuple
+from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, LossInfo, RLAlgorithm, namedtuple
 from alf.algorithms.algorithm import Algorithm
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 
@@ -315,6 +318,9 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             if ((not self._teacher_training_phase and i == 0) or
                 (self._teacher_training_phase
                  and i == 1)) and self._icm is not None:
+                # print('----exp')
+                # print(exp_sliced.info.icm.reward)
+
                 reward = self.calc_training_reward(
                     exp_sliced.reward, exp_sliced.info, True)  #info.rl
                 exp_sliced = exp_sliced._replace(reward=reward)
@@ -322,10 +328,12 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 new_info = exp_sliced.info._replace(
                     value=exp_sliced.info.rl.value)
                 exp_sliced = exp_sliced._replace(info=new_info)
+
                 exp_sliced = algo.preprocess_experience(exp_sliced)
 
                 exps.append(exp_sliced)
             else:
+                # print("--preprocessing 2")
                 reward = self.calc_training_reward(
                     exp_sliced.reward, exp_sliced.info, False)  #info.rl
                 exps.append(
@@ -353,7 +361,10 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             state_sliced = self.get_sliced_state(state, i)
             rl_step = algo.predict(time_step_sliced, state_sliced)
 
-            if self._icm is not None:
+            #if self._icm is not None:
+            if ((not self._teacher_training_phase and i == 0) or
+                (self._teacher_training_phase
+                 and i == 1)) and self._icm is not None:
                 new_state = AgentState()
                 new_state = new_state._replace(rl=rl_step.state)
                 rl_step = PolicyStep(
@@ -381,7 +392,6 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             if ((not self._teacher_training_phase and i == 0) or
                 (self._teacher_training_phase
                  and i == 1)) and self._icm is not None:
-                print("agent training-----")
                 icm_step = self._icm.train_step(
                     (time_step_sliced.observation,
                      time_step_sliced.prev_action),
@@ -398,6 +408,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 # create new policy step
                 new_policy_step = PolicyStep(
                     action=rl_step.action, state=new_state, info=info)
+                # missing the reward here
                 policy_steps.append(new_policy_step)
             else:
 
@@ -419,10 +430,60 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     # this is used in train_complete
     def calc_loss(self, training_info):
         """Calculate loss."""
+
+        def _add(x, y):
+            if not isinstance(y, tf.Tensor):
+                return x
+            elif not isinstance(x, tf.Tensor):
+                return y
+            else:
+                return x + y
+
+        def _update_loss(loss_info, training_info, name, algorithm):
+            if algorithm is None:
+                return loss_info
+            new_loss_info = algorithm.calc_loss(
+                getattr(training_info.info, name))
+            return LossInfo(
+                loss=_add(loss_info.loss, new_loss_info.loss),
+                scalar_loss=_add(loss_info.scalar_loss,
+                                 new_loss_info.scalar_loss),
+                extra=loss_info.extra._replace(**{name: new_loss_info.extra}))
+
         loss_infos = []
         for (i, algo) in enumerate(self._algos):
-            loss_info_sliced = algo.calc_loss(
-                self.get_sliced_train_info(training_info, i))
+            #print(training_info)
+            if ((not self._teacher_training_phase and i == 0) or
+                (self._teacher_training_phase
+                 and i == 1)) and self._icm is not None:
+
+                # RL loss plus reward prediction loss
+                sliced_info = self.get_sliced_train_info(training_info, i)
+
+                info_rl = sliced_info.info.rl
+                # print('---loss=====')
+                # print(sliced_info.info.icm)
+                # import pdb
+                # pdb.set_trace()
+                if sliced_info.collect_info == ():
+                    # import pdb
+                    # pdb.set_trace()
+                    sliced_info = sliced_info._replace(
+                        reward=self.calc_training_reward(
+                            sliced_info.reward, sliced_info.info, True))
+
+                loss_info_sliced_rl = algo.calc_loss(
+                    sliced_info._replace(info=sliced_info.info.rl))
+                # ToDo: reward prediction loss
+                # import pdb
+                # pdb.set_trace()
+                loss_info_sliced = loss_info_sliced_rl._replace(
+                    extra=AgentLossInfo(rl=loss_info_sliced_rl.extra))
+                loss_info_sliced = _update_loss(loss_info_sliced, sliced_info,
+                                                'icm', self._icm)
+            else:
+                loss_info_sliced = algo.calc_loss(
+                    self.get_sliced_train_info(training_info, i))
 
             loss_infos.append(loss_info_sliced)
         # return self.assemble_loss_info(loss_infos)
