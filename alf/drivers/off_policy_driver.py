@@ -354,9 +354,6 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
                 action_distribution=action_distribution,
                 collect_action_distribution=collect_action_distribution)
 
-        print("policy driver-----------")
-        print(training_info.info)
-        # print(training_info.info["learner"])
         loss_info, grads_and_vars = self._algorithm.train_complete(
             tape=tape, training_info=training_info, weight=weight)
 

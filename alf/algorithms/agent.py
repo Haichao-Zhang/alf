@@ -167,9 +167,6 @@ class Agent(OnPolicyAlgorithm):
         if self._entropy_target_algorithm:
             et_step = self._entropy_target_algorithm.train_step(rl_step.action)
             info = info._replace(entropy_target=et_step.info)
-
-        print("=========--------------")
-        print(info)
         return PolicyStep(action=rl_step.action, state=new_state, info=info)
 
     def calc_training_reward(self, external_reward, info: AgentInfo):
@@ -243,8 +240,6 @@ class Agent(OnPolicyAlgorithm):
 
     def preprocess_experience(self, exp: Experience):
 
-        print('----exp')
-        print(exp.info.icm.reward)
         reward = self.calc_training_reward(exp.reward, exp.info)
         return self._rl_algorithm.preprocess_experience(
             exp._replace(reward=reward, info=exp.info.rl))
