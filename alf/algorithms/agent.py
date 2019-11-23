@@ -188,8 +188,6 @@ class Agent(OnPolicyAlgorithm):
             reward *= self._extrinsic_reward_coef
 
         if self._icm is not None:
-            print("-------reward")
-            print(info.icm.reward)
             self.add_reward_summary("reward/icm", info.icm.reward)
             reward += self._intrinsic_reward_coef * info.icm.reward
 
@@ -201,8 +199,6 @@ class Agent(OnPolicyAlgorithm):
     def calc_loss(self, training_info):
         """Calculate loss."""
         if training_info.collect_info == ():
-            import pdb
-            pdb.set_trance()
             training_info = training_info._replace(
                 reward=self.calc_training_reward(training_info.reward,
                                                  training_info.info))
@@ -230,8 +226,6 @@ class Agent(OnPolicyAlgorithm):
             training_info._replace(info=training_info.info.rl))
         loss_info = rl_loss_info._replace(
             extra=AgentLossInfo(rl=rl_loss_info.extra))
-        import pdb
-        pdb.set_trace()
         loss_info = _update_loss(loss_info, training_info, 'icm', self._icm)
         loss_info = _update_loss(loss_info, training_info, 'entropy_target',
                                  self._entropy_target_algorithm)

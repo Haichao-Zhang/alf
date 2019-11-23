@@ -142,7 +142,7 @@ TrainerConfig.trainer=@sync_off_policy_trainer
 # can append another algorithm or provide a algorithm list
 TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
 #TrainerConfig.mini_batch_length=1 # no need to set
-TrainerConfig.use_tf_functions=False
+TrainerConfig.use_tf_functions=True
 TrainerConfig.unroll_length=100
 TrainerConfig.checkpoint_interval=100
 TrainerConfig.mini_batch_size=1000
