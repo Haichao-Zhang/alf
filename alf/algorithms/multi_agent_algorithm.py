@@ -395,8 +395,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 (self._teacher_training_phase
                  and i == 1)) and self._icm is not None:
                 icm_step = self._icm.train_step(
-                    (time_step_sliced.observation,
-                     time_step_sliced.prev_action),
+                    (time_step_sliced.observation, time_step_sliced.reward),
                     state=state_sliced.icm,
                     calc_intrinsic_reward=not with_experience)
                 info = info._replace(icm=icm_step.info)

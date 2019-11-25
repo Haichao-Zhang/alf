@@ -134,15 +134,23 @@ class RewardAlgorithm(Algorithm):
                 state: empty tuple ()
                 info (ICMInfo):
         """
-        inputs_obs, prev_action = inputs
+        inputs_obs, reward_external = inputs
         if self._encoding_net is not None:
             feature, _, goal_state = self._encoding_net(inputs_obs)
 
         #goal_state = inputs_obs[1]
         goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)
 
-        forward_loss = 0.5 * tf.reduce_mean(
-            tf.square(feature - goal_pos), axis=-1)
+        binary_mask = tf.dtypes.cast(
+            tf.math.greater(reward_external, tf.zeros_like(reward_external)),
+            tf.float32)
+        masked_reward = tf.multiply(binary_mask, reward_external)
+        # print(binary_mask)
+        # print(reward_external)
+        # print(masked_reward)
+        forward_loss = 0.5 * tf.multiply(
+            tf.reduce_mean(tf.square(feature - goal_pos), axis=-1),
+            tf.stop_gradient(masked_reward))  # reduce the last dim
 
         intrinsic_reward = ()
         if calc_intrinsic_reward:
