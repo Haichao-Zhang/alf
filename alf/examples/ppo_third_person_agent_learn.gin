@@ -25,7 +25,7 @@ create_environment.env_name='SocialBot-Third-Person-Agent-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-create_environment.num_parallel_environments=30
+create_environment.num_parallel_environments=3
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5
@@ -133,7 +133,7 @@ MultiAgentAlgorithm.reward_shaping_fn=@reward_scaling
 common.reward_scaling.scale = 1
 
 # intrinsic or reward estimation module
-# MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithm()
+MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithm()
 
 
 # training config

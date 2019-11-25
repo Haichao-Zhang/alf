@@ -274,6 +274,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         Return specified optimizer and module sets
         """
         optimizer_and_module_sets = super().get_optimizer_and_module_sets()
+        print("=======optimizer------")
+        print(optimizer_and_module_sets)
         #for opt, module_set in optimizer_and_module_sets:
         if self._teacher_training_phase:
             return optimizer_and_module_sets[1:]
