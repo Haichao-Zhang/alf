@@ -43,7 +43,7 @@ class RewardAlgorithm(Algorithm):
                  reward_adapt_speed=8.0,
                  encoding_net: Network = None,
                  forward_net: Network = None,
-                 inverse_net: Network = None,
+                 fuse_net: Network = None,
                  name="ICMAlgorithm"):
         """Create an ICMAlgorithm.
 
@@ -62,10 +62,7 @@ class RewardAlgorithm(Algorithm):
                 feature_spec. For discrete action, encoded_action is an one-hot
                 representation of the action. For continuous action, encoded
                 action is same as the original action.
-            inverse_net (Network): network for predicting previous action given
-                the previous feature and current feature. It should accept input
-                with spec [feature_spec, feature_spec] and output tensor of
-                shape (num_actions,).
+            fuse_net (Network): from distance to reward.
         """
         super(RewardAlgorithm, self).__init__(
             train_state_spec=feature_spec, name=name)
@@ -103,15 +100,16 @@ class RewardAlgorithm(Algorithm):
                 fc_layer_params=hidden_size,
                 last_layer_size=feature_dim)
         self._forward_net = forward_net
-        if inverse_net is None:
-            inverse_net = EncodingNetwork(
-                name="inverse_net",
-                input_tensor_spec=[feature_spec, feature_spec],
-                fc_layer_params=hidden_size,
-                last_layer_size=self._num_actions,
-                last_kernel_initializer=tf.initializers.Zeros())
 
-        self._inverse_net = inverse_net
+        # if fuse_net is None:
+        #     fuse_net = EncodingNetwork(
+        #         name="inverse_net",
+        #         input_tensor_spec=[feature_spec, feature_spec],
+        #         fc_layer_params=hidden_size,
+        #         last_layer_size=self._num_actions,
+        #         last_kernel_initializer=tf.initializers.Zeros())
+
+        self._fuse_net = fuse_net
 
         self._reward_normalizer = ScalarAdaptiveNormalizer(
             speed=reward_adapt_speed)
@@ -139,25 +137,43 @@ class RewardAlgorithm(Algorithm):
             feature, _, goal_state = self._encoding_net(inputs_obs)
 
         #goal_state = inputs_obs[1]
-        goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)
+        # goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)
+        self_pos = self_state  # all position based state now, no need to split
 
-        binary_mask = tf.dtypes.cast(
-            tf.math.greater(reward_external, tf.zeros_like(reward_external)),
-            tf.float32)
-        masked_reward = tf.multiply(binary_mask, reward_external)
+        # binary_mask = tf.dtypes.cast(
+        #     tf.math.greater(reward_external, tf.zeros_like(reward_external)),
+        #     tf.float32)
+        # masked_reward = tf.multiply(binary_mask, reward_external)
+
         # print(binary_mask)
         # print(reward_external)
         # print(masked_reward)
-        forward_loss = 0.5 * tf.multiply(
-            tf.reduce_mean(tf.square(feature - goal_pos), axis=-1),
-            tf.stop_gradient(masked_reward))  # reduce the last dim
+        # forward_loss = 0.5 * tf.multiply(
+        #     tf.reduce_mean(tf.square(feature - goal_pos), axis=-1),
+        #     tf.stop_gradient(masked_reward))  # reduce the last dim
+
+        # reward_pred = self._fuse_net(
+        #     tf.reduce_mean(tf.square(feature - goal_pos), axis=-1))
+
+        reward_pred, _ = self._fuse_net(feature - self_pos)
+        # print("====pred")
+        # print(reward_pred)
+        # print("------")
+        # print(reward_external)
+        forward_loss = 0.5 * tf.square(
+            reward_pred - reward_external)  # reduce the last dim
 
         intrinsic_reward = ()
         if calc_intrinsic_reward:
             # negative forward (pose estimation) loss as reward
-            intrinsic_reward = tf.stop_gradient(-forward_loss)
-            intrinsic_reward = self._reward_normalizer.normalize(
-                intrinsic_reward)
+            intrinsic_reward = tf.stop_gradient(
+                reward_pred
+            )  # can either use reward pred as reward of forward loss as reward
+            # intrinsic_reward = tf.stop_gradient(
+            #     -forward_loss
+            # )  # can either use reward pred as reward of forward loss as reward
+            # intrinsic_reward = self._reward_normalizer.normalize(
+            #     intrinsic_reward)
 
         return AlgorithmStep(
             outputs=(),
