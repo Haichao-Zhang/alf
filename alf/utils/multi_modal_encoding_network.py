@@ -122,8 +122,9 @@ class MultiModalEncodingNetwork(TFAEncodingNetwork):
 
         for layer in self._postprocessing_layers_visual:
             v_states = layer(v_states)
-        # for layer in self._postprocessing_layers_state:
-        #     s_states = layer(s_states)
+
+        for layer in self._postprocessing_layers_state:
+            s_states = layer(s_states)
 
         #states = v_states + s_states
 
@@ -139,5 +140,5 @@ class MultiModalEncodingNetwork(TFAEncodingNetwork):
 
         states = batch_squash.unflatten(states)
 
-        goal_state = s_states
-        return self._last_layer(states), network_state, goal_state
+        self_state = s_states
+        return self._last_layer(states), network_state, self_state

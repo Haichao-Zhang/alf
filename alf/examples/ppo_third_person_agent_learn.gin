@@ -109,18 +109,20 @@ teacher/PPOAlgorithm.optimizer=@teacher/Adam()
 
 # reward learning module
 # need a multi-modal network shared with policy and value net
-feature_size=4 # reward 4 # num_of_joints * DoF_per_joint * 2
+feature_size=25 # reward 4 # num_of_joints * DoF_per_joint * 2
+feature_size_double=50 #feature_size*2
 reward/MultiModalEncodingNetwork.last_layer_size=%feature_size
 reward/MultiModalEncodingNetwork.input_tensor_spec=%learner_observation_spec
-reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, 25)
-reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, 25)
-reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, 25)
+reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, %feature_size)
+reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, %feature_size)
+reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, %feature_size)
 reward/MultiModalEncodingNetwork.activation_fn=@tf.nn.softsign
 #reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 reward/TensorSpec.shape=(%feature_size,)
+reward_pred/TensorSpec.shape=(%feature_size_double,)
 
 
-reward/ValueNetwork.input_tensor_spec=@reward/TensorSpec()
+reward/ValueNetwork.input_tensor_spec=@reward_pred/TensorSpec()
 reward/ValueNetwork.fc_layer_params=(50, 1)
 reward/ValueNetwork.activation_fn=@tf.nn.softsign
 

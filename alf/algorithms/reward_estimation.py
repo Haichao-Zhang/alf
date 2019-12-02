@@ -89,6 +89,8 @@ class RewardAlgorithm(Algorithm):
 
         feature_dim = flat_feature_spec[0].shape[-1]
 
+        self.feature_dim = feature_dim
+
         self._encoding_net = encoding_net
 
         if isinstance(hidden_size, int):
@@ -146,7 +148,7 @@ class RewardAlgorithm(Algorithm):
         """
         feature, prev_action, reward_external = inputs
         if self._encoding_net is not None:
-            feature, _, goal_state = self._encoding_net(feature)
+            goal_feature, _, self_state_feature = self._encoding_net(feature)
 
         prev_feature = state
         prev_action = self._encode_action(prev_action)
@@ -156,10 +158,13 @@ class RewardAlgorithm(Algorithm):
         # the encoding net if not learned
         forward_pred, _ = self._forward_net(
             inputs=[tf.stop_gradient(prev_feature), prev_action])
-        forward_loss = 0.5 * tf.reduce_mean(
-            tf.square(tf.stop_gradient(feature) - forward_pred), axis=-1)
 
-        action_pred, _ = self._inverse_net(inputs=[prev_feature, feature])
+        forward_loss = 0.5 * tf.reduce_mean(
+            tf.square(tf.stop_gradient(self_state_feature) - forward_pred),
+            axis=-1)
+
+        action_pred, _ = self._inverse_net(
+            inputs=[prev_feature, self_state_feature])
 
         if tensor_spec.is_discrete(self._action_spec):
             inverse_loss = tf.nn.softmax_cross_entropy_with_logits(
@@ -167,6 +172,33 @@ class RewardAlgorithm(Algorithm):
         else:
             inverse_loss = 0.5 * tf.reduce_mean(
                 tf.square(prev_action - action_pred), axis=-1)
+
+        # reward prediction loss based on forward_pred
+        self_pose = self_state_feature  # all position based state now, no need to split
+
+        # reward estimation based on one-step forward prediction
+        reward_input_feature = tf.concat(
+            [
+                tf.stop_gradient(forward_pred),  # stop gradient
+                goal_feature,  # train goal encoding
+            ],
+            axis=1)
+
+        reward_pred, _ = self._fuse_net(reward_input_feature)
+
+        binary_mask = tf.dtypes.cast(
+            tf.math.greater(reward_external, tf.zeros_like(reward_external)),
+            tf.float32)
+
+        scaled_mask = binary_mask * 1 + 1e-3 * (1 - binary_mask)
+
+        masked_reward = tf.multiply(scaled_mask, reward_external)
+
+        pred_reward_mse = 0.5 * tf.square(
+            reward_pred - reward_external)  # reduce the last dim
+        reward_loss = 0.5 * tf.multiply(
+            pred_reward_mse,
+            tf.stop_gradient(masked_reward))  # reduce the last dim
 
         #goal_state = inputs_obs[1]
         # goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)
@@ -216,14 +248,15 @@ class RewardAlgorithm(Algorithm):
 
         return AlgorithmStep(
             outputs=(),
-            state=feature,
+            state=self_state_feature,
             info=ICMInfo(
                 reward=intrinsic_reward,
                 loss=LossInfo(
-                    loss=forward_loss + inverse_loss,
+                    loss=forward_loss + inverse_loss + reward_loss,
                     extra=dict(
                         forward_loss=forward_loss,
-                        inverse_loss=inverse_loss))))
+                        inverse_loss=inverse_loss,
+                        reward_loss=reward_loss))))
 
     def calc_loss(self, info: ICMInfo):
         loss = tf.nest.map_structure(tf.reduce_mean, info.loss)
