@@ -138,30 +138,34 @@ class RewardAlgorithm(Algorithm):
 
         #goal_state = inputs_obs[1]
         # goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)
-        self_pos = self_state  # all position based state now, no need to split
+        self_pose = goal_state  # all position based state now, no need to split
 
-        # binary_mask = tf.dtypes.cast(
-        #     tf.math.greater(reward_external, tf.zeros_like(reward_external)),
-        #     tf.float32)
-        # masked_reward = tf.multiply(binary_mask, reward_external)
+        binary_mask = tf.dtypes.cast(
+            tf.math.greater(reward_external, tf.zeros_like(reward_external)),
+            tf.float32)
+        masked_reward = tf.multiply(binary_mask, reward_external)
 
         # print(binary_mask)
         # print(reward_external)
         # print(masked_reward)
-        # forward_loss = 0.5 * tf.multiply(
-        #     tf.reduce_mean(tf.square(feature - goal_pos), axis=-1),
-        #     tf.stop_gradient(masked_reward))  # reduce the last dim
+        pred_mse = tf.reduce_mean(tf.square(feature - self_pose), axis=-1)
+        forward_loss = 0.5 * tf.multiply(
+            pred_mse, tf.stop_gradient(masked_reward))  # reduce the last dim
+
+        reward_pred = -pred_mse
 
         # reward_pred = self._fuse_net(
         #     tf.reduce_mean(tf.square(feature - goal_pos), axis=-1))
 
-        reward_pred, _ = self._fuse_net(feature - self_pos)
-        # print("====pred")
-        # print(reward_pred)
-        # print("------")
-        # print(reward_external)
-        forward_loss = 0.5 * tf.square(
-            reward_pred - reward_external)  # reduce the last dim
+        # reward_pred, _ = self._fuse_net(feature - self_pos)
+        # print(inputs_obs)
+        # print(self_pose)
+        print("====pred")
+        print(reward_pred)
+        # # print("------")
+        # # print(reward_external)
+        # forward_loss = 0.5 * tf.square(
+        #     reward_pred - reward_external)  # reduce the last dim
 
         intrinsic_reward = ()
         if calc_intrinsic_reward:
