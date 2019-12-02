@@ -394,8 +394,11 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             if ((not self._teacher_training_phase and i == 0) or
                 (self._teacher_training_phase
                  and i == 1)) and self._icm is not None:
+                #print("osbervation") # ['image', 'state']
+                # print(time_step_sliced.observation)
                 icm_step = self._icm.train_step(
-                    (time_step_sliced.observation, time_step_sliced.reward),
+                    (time_step_sliced.observation,
+                     time_step_sliced.prev_action, time_step_sliced.reward),
                     state=state_sliced.icm,
                     calc_intrinsic_reward=not with_experience)
                 info = info._replace(icm=icm_step.info)

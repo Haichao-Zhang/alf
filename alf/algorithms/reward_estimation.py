@@ -43,6 +43,7 @@ class RewardAlgorithm(Algorithm):
                  reward_adapt_speed=8.0,
                  encoding_net: Network = None,
                  forward_net: Network = None,
+                 inverse_net: Network = None,
                  fuse_net: Network = None,
                  name="ICMAlgorithm"):
         """Create an ICMAlgorithm.
@@ -70,6 +71,8 @@ class RewardAlgorithm(Algorithm):
         flat_action_spec = tf.nest.flatten(action_spec)
         assert len(
             flat_action_spec) == 1, "ICM doesn't suport nested action_spec"
+
+        print(feature_spec)
 
         flat_feature_spec = tf.nest.flatten(feature_spec)
         assert len(
@@ -101,6 +104,15 @@ class RewardAlgorithm(Algorithm):
                 last_layer_size=feature_dim)
         self._forward_net = forward_net
 
+        if inverse_net is None:
+            inverse_net = EncodingNetwork(
+                name="inverse_net",
+                input_tensor_spec=[feature_spec, feature_spec],
+                fc_layer_params=hidden_size,
+                last_layer_size=self._num_actions,
+                last_kernel_initializer=tf.initializers.Zeros())
+
+        self._inverse_net = inverse_net
         # if fuse_net is None:
         #     fuse_net = EncodingNetwork(
         #         name="inverse_net",
@@ -132,27 +144,44 @@ class RewardAlgorithm(Algorithm):
                 state: empty tuple ()
                 info (ICMInfo):
         """
-        inputs_obs, reward_external = inputs
+        feature, prev_action, reward_external = inputs
         if self._encoding_net is not None:
-            feature, _, goal_state = self._encoding_net(inputs_obs)
+            feature, _, goal_state = self._encoding_net(feature)
+
+        prev_feature = state
+        prev_action = self._encode_action(prev_action)
+
+        # the reward estimation module should estimate next state and reward jointly (a complete forward model)
+
+        # the encoding net if not learned
+        forward_pred, _ = self._forward_net(
+            inputs=[tf.stop_gradient(prev_feature), prev_action])
+        forward_loss = 0.5 * tf.reduce_mean(
+            tf.square(tf.stop_gradient(feature) - forward_pred), axis=-1)
+
+        action_pred, _ = self._inverse_net(inputs=[prev_feature, feature])
+
+        if tensor_spec.is_discrete(self._action_spec):
+            inverse_loss = tf.nn.softmax_cross_entropy_with_logits(
+                labels=prev_action, logits=action_pred)
+        else:
+            inverse_loss = 0.5 * tf.reduce_mean(
+                tf.square(prev_action - action_pred), axis=-1)
 
         #goal_state = inputs_obs[1]
         # goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)
-        self_pose = goal_state  # all position based state now, no need to split
+        #--------------------
+        # self_pose = goal_state  # all position based state now, no need to split
 
-        binary_mask = tf.dtypes.cast(
-            tf.math.greater(reward_external, tf.zeros_like(reward_external)),
-            tf.float32)
-        masked_reward = tf.multiply(binary_mask, reward_external)
-
-        # print(binary_mask)
-        # print(reward_external)
-        # print(masked_reward)
-        pred_mse = tf.reduce_mean(tf.square(feature - self_pose), axis=-1)
-        forward_loss = 0.5 * tf.multiply(
-            pred_mse, tf.stop_gradient(masked_reward))  # reduce the last dim
-
-        reward_pred = -pred_mse
+        # binary_mask = tf.dtypes.cast(
+        #     tf.math.greater(reward_external, tf.zeros_like(reward_external)),
+        #     tf.float32)
+        # masked_reward = tf.multiply(binary_mask, reward_external)
+        # pred_mse = tf.reduce_mean(tf.square(feature - self_pose), axis=-1)
+        # forward_loss = 0.5 * tf.multiply(
+        #     pred_mse, tf.stop_gradient(masked_reward))  # reduce the last dim
+        # reward_pred = -pred_mse
+        #---------------------
 
         # reward_pred = self._fuse_net(
         #     tf.reduce_mean(tf.square(feature - goal_pos), axis=-1))
@@ -160,24 +189,30 @@ class RewardAlgorithm(Algorithm):
         # reward_pred, _ = self._fuse_net(feature - self_pos)
         # print(inputs_obs)
         # print(self_pose)
-        print("====pred")
-        print(reward_pred)
+        # print("====pred")
+        # print(reward_pred)
         # # print("------")
         # # print(reward_external)
         # forward_loss = 0.5 * tf.square(
         #     reward_pred - reward_external)  # reduce the last dim
 
+        # intrinsic_reward = ()
+        # if calc_intrinsic_reward:
+        #     # negative forward (pose estimation) loss as reward
+        #     intrinsic_reward = tf.stop_gradient(
+        #         reward_pred
+        #     )  # can either use reward pred as reward of forward loss as reward
+        #     # intrinsic_reward = tf.stop_gradient(
+        #     #     -forward_loss
+        #     # )  # can either use reward pred as reward of forward loss as reward
+        #     # intrinsic_reward = self._reward_normalizer.normalize(
+        #     #     intrinsic_reward)
+
         intrinsic_reward = ()
         if calc_intrinsic_reward:
-            # negative forward (pose estimation) loss as reward
-            intrinsic_reward = tf.stop_gradient(
-                reward_pred
-            )  # can either use reward pred as reward of forward loss as reward
-            # intrinsic_reward = tf.stop_gradient(
-            #     -forward_loss
-            # )  # can either use reward pred as reward of forward loss as reward
-            # intrinsic_reward = self._reward_normalizer.normalize(
-            #     intrinsic_reward)
+            intrinsic_reward = tf.stop_gradient(forward_loss)
+            intrinsic_reward = self._reward_normalizer.normalize(
+                intrinsic_reward)
 
         return AlgorithmStep(
             outputs=(),
@@ -185,8 +220,10 @@ class RewardAlgorithm(Algorithm):
             info=ICMInfo(
                 reward=intrinsic_reward,
                 loss=LossInfo(
-                    loss=forward_loss,
-                    extra=dict(forward_loss=forward_loss, ))))
+                    loss=forward_loss + inverse_loss,
+                    extra=dict(
+                        forward_loss=forward_loss,
+                        inverse_loss=inverse_loss))))
 
     def calc_loss(self, info: ICMInfo):
         loss = tf.nest.map_structure(tf.reduce_mean, info.loss)
