@@ -19,7 +19,7 @@ import alf.environments.suite_socialbot
 
 # imitation phase
 MultiAgentAlgorithm.teacher_training_phase=False
-ThirdPersonAgentEnv.image_observation=False # change with conv layers
+ThirdPersonAgentEnv.image_observation=True # change with conv layers
 create_environment.env_name='SocialBot-Third-Person-Agent-v0'
 
 
@@ -67,7 +67,7 @@ learner/MultiModalActorDistributionNetwork.fc_layer_params_visual=(100, 50, 25)
 learner/MultiModalActorDistributionNetwork.fc_layer_params_state=(100, 50, 25)
 learner/MultiModalActorDistributionNetwork.fc_layer_params_fusion=(50, 25, 25)
 learner/MultiModalActorDistributionNetwork.activation_fn=@tf.nn.softsign
-#learner/MultiModalActorDistributionNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+learner/MultiModalActorDistributionNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 learner/MultiModalActorDistributionNetwork.continuous_projection_net=@learner/NormalProjectionNetwork
 
 teacher/ActorDistributionNetwork.input_tensor_spec=%teacher_observation_spec
@@ -81,7 +81,7 @@ learner/MultiModalValueNetwork.fc_layer_params_visual=(100, 50, 25)
 learner/MultiModalValueNetwork.fc_layer_params_state=(100, 50, 25)
 learner/MultiModalValueNetwork.fc_layer_params_fusion=(50, 25, 25)
 learner/MultiModalValueNetwork.activation_fn=@tf.nn.softsign
-#learner/MultiModalValueNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+learner/MultiModalValueNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 
 teacher/ValueNetwork.input_tensor_spec=%teacher_observation_spec
 teacher/ValueNetwork.fc_layer_params=(100, 50, 25)
@@ -117,7 +117,7 @@ reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, %feature_size)
 reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, %feature_size)
 reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, %feature_size)
 reward/MultiModalEncodingNetwork.activation_fn=@tf.nn.softsign
-#reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 reward/TensorSpec.shape=(%feature_size,)
 reward_pred/TensorSpec.shape=(%feature_size_double,)
 
