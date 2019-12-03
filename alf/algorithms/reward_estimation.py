@@ -147,6 +147,9 @@ class RewardAlgorithm(Algorithm):
                 info (ICMInfo):
         """
         feature, prev_action, reward_external = inputs
+
+        prev_action = tf.math.floormod(prev_action, 3.142)  # mod operation
+
         if self._encoding_net is not None:
             goal_feature, _, self_state_feature = self._encoding_net(feature)
 
@@ -172,6 +175,10 @@ class RewardAlgorithm(Algorithm):
         else:
             inverse_loss = 0.5 * tf.reduce_mean(
                 tf.square(prev_action - action_pred), axis=-1)
+            # print(prev_action)
+            # print(action_pred)
+            # print("inverse")
+            # print(inverse_loss)
 
         # reward prediction loss based on forward_pred
         self_pose = self_state_feature  # all position based state now, no need to split
@@ -192,13 +199,13 @@ class RewardAlgorithm(Algorithm):
 
         scaled_mask = binary_mask * 1 + 1e-3 * (1 - binary_mask)
 
-        masked_reward = tf.multiply(scaled_mask, reward_external)
+        #masked_reward = tf.multiply(scaled_mask, reward_external)
 
         pred_reward_mse = 0.5 * tf.square(
             reward_pred - reward_external)  # reduce the last dim
         reward_loss = 0.5 * tf.multiply(
             pred_reward_mse,
-            tf.stop_gradient(masked_reward))  # reduce the last dim
+            tf.stop_gradient(scaled_mask))  # reduce the last dim
 
         #goal_state = inputs_obs[1]
         # goal_pos, goal_vol = tf.split(goal_state, num_or_size_splits=2, axis=1)

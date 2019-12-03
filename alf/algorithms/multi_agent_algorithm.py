@@ -409,6 +409,11 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
 
                 new_state = new_state._replace(rl=rl_step.state)
                 info = info._replace(rl=rl_step.info)
+                # clipped_action = tf.clip_by_value(rl_step.action,
+                #                                   clip_value_min=-3.142,
+                #                                   clip_value_max=3.142)
+                # print("----action")
+                # print(clipped_action)
                 # create new policy step
                 new_policy_step = PolicyStep(
                     action=rl_step.action, state=new_state, info=info)
