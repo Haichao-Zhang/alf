@@ -242,9 +242,10 @@ class RewardAlgorithm(Algorithm):
 
         intrinsic_reward = ()
         if calc_intrinsic_reward:
-            intrinsic_reward = tf.stop_gradient(forward_loss)
-            intrinsic_reward = self._reward_normalizer.normalize(
-                intrinsic_reward)
+            # intrinsic_reward = tf.stop_gradient(forward_loss)
+            intrinsic_reward = tf.stop_gradient(reward_pred)
+            # intrinsic_reward = self._reward_normalizer.normalize(
+            #     intrinsic_reward)
 
         return AlgorithmStep(
             outputs=(),

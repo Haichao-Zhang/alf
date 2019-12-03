@@ -145,7 +145,7 @@ common.reward_scaling.scale=1
 
 # intrinsic or reward estimation module
 MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithm()
-MultiAgentAlgorithm.intrinsic_reward_coef=0.0 #0.1
+MultiAgentAlgorithm.intrinsic_reward_coef=0.1 #0.1
 
 
 # training config
