@@ -405,8 +405,8 @@ class RewardAlgorithmState(Algorithm):
         state_goal = feature['image']
         state_self = feature['state']
 
-        print(state_goal)
-        print(state_self)
+        # print(state_goal)
+        # print(state_self)
 
         prev_feature = state
         prev_action = self._encode_action(prev_action)
@@ -426,8 +426,11 @@ class RewardAlgorithmState(Algorithm):
 
         reward_pred, _ = self._fuse_net(reward_input_feature)
         # mse based reward prediction
-        reward_pred = tf.exp(-tf.reduce_mean(
-            tf.square(state_self - state_goal), axis=-1)) * 2 - 1
+        # reward_pred = tf.exp(-tf.reduce_mean(
+        #     tf.square(state_self - state_goal), axis=-1)) * 2 - 1
+
+        # reward_pred = 0.5 - tf.reduce_mean(tf.abs(state_self - state_goal),
+        #                                    axis=-1)
 
         # print("---reward-----")
         # print(reward_pred)
@@ -448,14 +451,14 @@ class RewardAlgorithmState(Algorithm):
         pred_reward_mse = 0.5 * tf.square(
             reward_pred - reward_external)  # reduce the last dim
 
-        # reward_loss = 0.5 * tf.multiply(
-        #     pred_reward_mse,
-        #     tf.stop_gradient(scaled_mask))  # reduce the last dim
-
-        # # use a dummy reward loss in the second stage
-        reward_loss = 0. * tf.multiply(
+        reward_loss = 1e2 * tf.multiply(
             pred_reward_mse,
             tf.stop_gradient(scaled_mask))  # reduce the last dim
+
+        # # # use a dummy reward loss in the second stage
+        # reward_loss = 0. * tf.multiply(
+        #     pred_reward_mse,
+        #     tf.stop_gradient(scaled_mask))  # reduce the last dim
 
         intrinsic_reward = ()
         if calc_intrinsic_reward:

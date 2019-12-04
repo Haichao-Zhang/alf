@@ -166,9 +166,9 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 #print(self._icm._fuse_net.variables)
 
     def save_part_model(self, root_dir):
-        # ckpt_dir = os.path.join(root_dir, 'icm')
-        # self._icm_checkpoint.save(ckpt_dir + '/ck')
-        return
+        ckpt_dir = os.path.join(root_dir, 'icm')
+        self._icm_checkpoint.save(ckpt_dir + '/ck')
+        #return
 
     def get_sliced_data(self, data, domain_name):
         """Extract sliced time step information based on the specified index
@@ -327,7 +327,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         """
         # record shaped extrinsic rewards actually used for training
         self.add_reward_summary("reward/extrinsic", external_reward)
-        reward = external_reward
+        reward = self._extrinsic_reward_coef * external_reward
 
         if with_icm_flag:
             self.add_reward_summary("reward/icm", info.icm.reward)
@@ -347,6 +347,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  and i == 1)) and self._icm is not None:
                 # print('----exp')
                 # print(exp_sliced.info.icm.reward)
+                print('---pre-process-------')
 
                 reward = self.calc_training_reward(
                     exp_sliced.reward, exp_sliced.info, True)  #info.rl
@@ -361,8 +362,11 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 exps.append(exp_sliced)
             else:
                 # print("--preprocessing 2")
-                reward = self.calc_training_reward(
-                    exp_sliced.reward, exp_sliced.info, False)  #info.rl
+                # reward = self.calc_training_reward(exp_sliced.reward,
+                #                                    exp_sliced.info,
+                #                                    False)  #info.rl
+                # avoid calling the calc_training_reward (for avoiding recording into tb)
+                reward = exp_sliced.reward
                 exps.append(
                     algo.preprocess_experience(
                         exp_sliced._replace(reward=reward)))
