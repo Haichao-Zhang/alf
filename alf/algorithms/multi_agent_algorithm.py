@@ -156,17 +156,19 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
                 print("-------load ICM model-----")
+                print(latest)
                 self._icm_checkpoint.restore(latest)
                 #print(self._icm._fuse_net.summary())
-                #print(self._icm._fuse_net.variables)
+                print(self._icm._fuse_net.variables)
             else:
                 print("-------No ICM checkpoint-----")
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
 
     def save_part_model(self, root_dir):
-        ckpt_dir = os.path.join(root_dir, 'icm')
-        self._icm_checkpoint.save(ckpt_dir + '/ck')
+        # ckpt_dir = os.path.join(root_dir, 'icm')
+        # self._icm_checkpoint.save(ckpt_dir + '/ck')
+        return
 
     def get_sliced_data(self, data, domain_name):
         """Extract sliced time step information based on the specified index

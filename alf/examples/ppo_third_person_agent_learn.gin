@@ -125,6 +125,8 @@ reward_pred/TensorSpec.shape=(%feature_size_double,)
 reward/ValueNetwork.input_tensor_spec=@reward_pred/TensorSpec()
 reward/ValueNetwork.fc_layer_params=(50, 1)
 reward/ValueNetwork.activation_fn=@tf.nn.softsign
+# reward/ValueNetwork.fc_layer_params=(50, 25, 1)
+# reward/ValueNetwork.activation_fn=@tf.nn.relu
 
 
 # RewardAlgorithm.action_spec=%learner_action_spec
@@ -152,8 +154,8 @@ common.reward_scaling.scale=1
 # intrinsic or reward estimation module
 # MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithm()
 MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithmState()
-MultiAgentAlgorithm.intrinsic_reward_coef=0.1 #0.1
-
+MultiAgentAlgorithm.intrinsic_reward_coef=1 #0.1
+MultiAgentAlgorithm.extrinsic_reward_coef=0 #0.1
 
 # training config
 # multi-agent policy trainer
