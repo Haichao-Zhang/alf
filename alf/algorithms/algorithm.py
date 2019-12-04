@@ -234,6 +234,14 @@ class Algorithm(tf.Module):
         """Returns the RNN state spec for train_step()."""
         return self._train_state_spec
 
+    def load_part_model(self, root_dir):
+        """User can override this function for customized loading"""
+        return
+
+    def save_part_model(self, root_dir):
+        """User can override this function for customized saving"""
+        return
+
     #------------- User need to implement the following functions -------
 
     # Subclass may override predict() to allow more efficient implementation

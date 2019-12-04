@@ -20,6 +20,7 @@ import gin.tf
 
 import tensorflow as tf
 import numpy as np
+import os
 
 #from tf_agents.agents.tf_agent import LossInfo  # this LossInfo is not correct
 # use the one from common.py
@@ -144,6 +145,28 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._intrinsic_reward_coef = intrinsic_reward_coef
         self._extrinsic_reward_coef = extrinsic_reward_coef
         self._icm = intrinsic_curiosity_module
+
+    def load_part_model(self, root_dir):
+        # load pre-trained variables
+        if self._icm is not None:
+            self._icm_checkpoint = tf.train.Checkpoint(icm=self._icm)
+            ckpt_dir = os.path.join(root_dir, 'icm')
+            latest = tf.train.latest_checkpoint(ckpt_dir)
+            if latest is not None:
+                #print(self._icm._fuse_net.summary())
+                #print(self._icm._fuse_net.variables)
+                print("-------load ICM model-----")
+                self._icm_checkpoint.restore(latest)
+                #print(self._icm._fuse_net.summary())
+                #print(self._icm._fuse_net.variables)
+            else:
+                print("-------No ICM checkpoint-----")
+                #print(self._icm._fuse_net.summary())
+                #print(self._icm._fuse_net.variables)
+
+    def save_part_model(self, root_dir):
+        ckpt_dir = os.path.join(root_dir, 'icm')
+        self._icm_checkpoint.save(ckpt_dir + '/ck')
 
     def get_sliced_data(self, data, domain_name):
         """Extract sliced time step information based on the specified index
@@ -434,6 +457,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             discount=exp.discount,
             observation=exp.observation,
             prev_action=exp.prev_action)
+
         return self.rollout(time_step, state, with_experience=True)
 
     # this is used in train_complete

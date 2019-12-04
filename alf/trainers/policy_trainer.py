@@ -330,9 +330,15 @@ class Trainer(object):
         checkpointer.initialize_or_restore()
         self._checkpointer = checkpointer
 
+        # restore ppart model
+        self._algorithm.load_part_model(self._train_dir)
+
     def _save_checkpoint(self):
         global_step = get_global_counter()
         self._checkpointer.save(global_step=global_step.numpy())
+        # perform custermized saving here
+        print("====save part model")
+        self._algorithm.save_part_model(self._train_dir)
 
     def _eval(self):
         global_step = get_global_counter()

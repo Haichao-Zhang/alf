@@ -434,6 +434,11 @@ class RewardAlgorithmState(Algorithm):
             pred_reward_mse,
             tf.stop_gradient(scaled_mask))  # reduce the last dim
 
+        # # use a dummy reward loss in the second stage
+        # reward_loss = 0. * tf.multiply(
+        #     pred_reward_mse,
+        #     tf.stop_gradient(scaled_mask))  # reduce the last dim
+
         intrinsic_reward = ()
         if calc_intrinsic_reward:
             # intrinsic_reward = tf.stop_gradient(forward_loss)
