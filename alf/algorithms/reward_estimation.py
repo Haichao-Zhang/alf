@@ -424,16 +424,18 @@ class RewardAlgorithmState(Algorithm):
             ],
             axis=1)
 
-        reward_pred, _ = self._fuse_net(reward_input_feature)
+        # reward_pred, _ = self._fuse_net(reward_input_feature)
         # mse based reward prediction
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self - state_goal), axis=-1)) * 2 - 1
 
-        # reward_pred = 0.5 - tf.reduce_mean(tf.abs(state_self - state_goal),
-        #                                    axis=-1)
+        reward_pred = tf.exp(
+            -tf.compat.v1.losses.huber_loss(state_goal, state_self) * 5)
 
         # print("---reward-----")
         # print(reward_pred)
+        # print("---reward est-----")
+        # print(reward_external)
 
         pos_mask = tf.dtypes.cast(
             tf.math.greater(reward_external, tf.zeros_like(reward_external)),
@@ -442,18 +444,29 @@ class RewardAlgorithmState(Algorithm):
             tf.math.greater(-reward_external, tf.zeros_like(reward_external)),
             tf.float32)
 
-        # scaled_mask = binary_mask * 1 + 1e-1 * (1 - binary_mask)
+        pos_total = tf.math.reduce_sum(pos_mask) + 1e-5
+        neg_total = tf.math.reduce_sum(neg_mask) + 1e-5
+        # print(pos_total)
+        # print(neg_total)
+        reward_external_fuse = pos_mask - neg_mask
 
-        scaled_mask = pos_mask * 1 + neg_mask * 1
+        # mse = 0.5 * tf.square(reward_pred - reward_external)
+        mse = 0.5 * tf.square(reward_pred - reward_external_fuse)
+        pos_reward_mse = tf.multiply(pos_mask, mse) / pos_total
+        neg_reward_mse = tf.multiply(neg_mask, mse) / neg_total
 
         #masked_reward = tf.multiply(scaled_mask, reward_external)
 
-        pred_reward_mse = 0.5 * tf.square(
-            reward_pred - reward_external)  # reduce the last dim
+        pred_reward_mse = 0.5 * (pos_reward_mse + neg_reward_mse)
+        # reward_loss = 1e2 * pred_reward_mse
+        reward_loss = 0 * pred_reward_mse
 
-        reward_loss = 1e2 * tf.multiply(
-            pred_reward_mse,
-            tf.stop_gradient(scaled_mask))  # reduce the last dim
+        # pred_reward_mse = 0.5 * tf.square(
+        #     reward_pred - reward_external) / total_sum  # reduce the last dim
+
+        # reward_loss = 1e2 * tf.multiply(
+        #     pred_reward_mse,
+        #     tf.stop_gradient(scaled_mask))  # reduce the last dim
 
         # # # use a dummy reward loss in the second stage
         # reward_loss = 0. * tf.multiply(
