@@ -126,8 +126,15 @@ reward_pred/TensorSpec.shape=(%feature_size_double,)
 reward/ValueNetwork.input_tensor_spec=@reward_pred/TensorSpec()
 # reward/ValueNetwork.fc_layer_params=(50, 1)
 # reward/ValueNetwork.activation_fn=@tf.nn.softsign
-reward/ValueNetwork.fc_layer_params=(10, 25, 5, 1)
+reward/ValueNetwork.fc_layer_params=(10, 25, 5)
 reward/ValueNetwork.activation_fn=@tf.nn.relu
+
+
+
+
+reward/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
+reward/EncodingNetwork.fc_layer_params=(10, 25, 5)
+reward/EncodingNetwork.activation_fn=@tf.nn.relu
 
 
 # RewardAlgorithm.action_spec=%learner_action_spec
@@ -142,8 +149,8 @@ RewardAlgorithmState.feature_spec=@reward/TensorSpec()
 RewardAlgorithmState.observation_spec=%learner_observation_spec
 #RewardAlgorithmState.encoding_net=@reward/MultiModalEncodingNetwork()
 RewardAlgorithmState.hidden_size=(200, 200)
-RewardAlgorithmState.fuse_net=@reward/ValueNetwork()
-
+#RewardAlgorithmState.fuse_net=@reward/ValueNetwork()
+RewardAlgorithmState.fuse_net=@reward/EncodingNetwork()
 
 
 MultiAgentAlgorithm.batch_size=%batch_size

@@ -426,17 +426,22 @@ class RewardAlgorithmState(Algorithm):
             ],
             axis=1)
 
-        state_self_trans = self._fuse_net(state_self)
-        state_goal_trans = self._fuse_net(state_self)
+        state_self_trans, _ = self._fuse_net(state_self)
+        state_goal_trans, _ = self._fuse_net(state_goal)
 
         # reward_pred, _ = self._fuse_net(reward_input_feature)
         # mse based reward prediction
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self - state_goal), axis=-1)) * 2 - 1
 
-        reward_pred = tf.exp(
-            -tf.compat.v1.losses.huber_loss(state_self_trans, state_self_trans)
-            * 1)
+        # reward_pred = tf.exp(-tf.reduce_mean(
+        #     tf.square(state_self_trans - state_goal_trans), axis=-1)) * 2 - 1
+
+        reward_pred = 1 - 2 * tf.exp(-tf.compat.v1.losses.huber_loss(
+            state_self_trans, state_goal_trans) * 1)
+
+        # reward_pred = -tf.compat.v1.losses.huber_loss(state_self_trans,
+        #                                               state_goal_trans)
 
         # print("---reward-----")
         # print(reward_pred)
