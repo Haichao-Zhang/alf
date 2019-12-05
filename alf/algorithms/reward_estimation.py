@@ -436,9 +436,9 @@ class RewardAlgorithmState(Algorithm):
 
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self_trans - state_goal_trans), axis=-1)) * 2 - 1
-
-        reward_pred = 1 - 2 * tf.exp(-tf.compat.v1.losses.huber_loss(
-            state_self_trans, state_goal_trans) * 1)
+        h_loss = tf.keras.losses.Huber()
+        reward_pred = 1 - 2 * tf.exp(
+            -h_loss(state_self_trans, state_goal_trans) * 1)
 
         # reward_pred = -tf.compat.v1.losses.huber_loss(state_self_trans,
         #                                               state_goal_trans)
