@@ -463,8 +463,8 @@ class RewardAlgorithmState(Algorithm):
 
         # mse = 0.5 * tf.square(reward_pred - reward_external)
         mse = 0.5 * tf.square(reward_pred - reward_external_fuse)
-        pos_reward_mse = tf.multiply(pos_mask, reward_pred) / pos_total
-        neg_reward_mse = tf.multiply(neg_mask, reward_pred) / neg_total
+        pos_reward_mse = tf.multiply(pos_mask, mse) / pos_total
+        neg_reward_mse = tf.multiply(neg_mask, mse) / neg_total
 
         #masked_reward = tf.multiply(scaled_mask, reward_external)
 
