@@ -42,6 +42,8 @@ from alf.algorithms.rl_algorithm import ActionTimeStep, TrainingInfo, LossInfo, 
 from alf.algorithms.algorithm import Algorithm
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm, Experience
 
+from alf.experience_replayers.experience_replay import SyncUniformExperienceReplayer
+
 # a meta-algorithm that can take multiple algorithms as input
 
 MultiAgentState = namedtuple(
@@ -54,6 +56,24 @@ AgentInfo = namedtuple("AgentInfo", ["rl", "icm", "value"], default_value=())
 
 AgentLossInfo = namedtuple("AgentLossInfo", ["rl", "icm"], default_value=())
 
+Experience_ICM = namedtuple("Experience_ICM", [
+    'observation_self',
+    'observation_teacher',
+    'prev_action',
+    'reward',
+])
+
+
+def make_experience_ICM(observation_self, observation_teacher, prev_action,
+                        reward):
+    """Make an instance of Experience_ICM."""
+    return Experience_ICM(
+        observation_self=observation_self,
+        observation_teacher=observation_teacher,
+        prev_action=prev_action,
+        reward=reward,
+    )
+
 
 @gin.configurable
 class MultiAgentAlgorithm(OffPolicyAlgorithm):
@@ -62,6 +82,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  action_spec,
                  domain_names,
                  teacher_training_phase,
+                 batch_size,
                  intrinsic_curiosity_module=None,
                  intrinsic_reward_coef=1.0,
                  extrinsic_reward_coef=1.0,
@@ -146,6 +167,17 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._extrinsic_reward_coef = extrinsic_reward_coef
         self._icm = intrinsic_curiosity_module
 
+        # adding experience replayer
+        self._experience_spec_icm = Experience_ICM(
+            observation_self=self._icm._observation_spec['state'],
+            observation_teacher=self._icm._observation_spec['image'],
+            prev_action=self._icm._action_spec,
+            reward=tf.TensorSpec((), tf.float32),
+        )
+
+        self._exp_replayer = SyncUniformExperienceReplayer(
+            self._experience_spec_icm, batch_size)
+
     def load_part_model(self, root_dir):
         # load pre-trained variables
         if self._icm is not None:
@@ -166,8 +198,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 #print(self._icm._fuse_net.variables)
 
     def save_part_model(self, root_dir):
-        # ckpt_dir = os.path.join(root_dir, 'icm')
-        # self._icm_checkpoint.save(ckpt_dir + '/ck')
+        ckpt_dir = os.path.join(root_dir, 'icm')
+        self._icm_checkpoint.save(ckpt_dir + '/ck')
         return
 
     def get_sliced_data(self, data, domain_name):
@@ -425,6 +457,15 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  and i == 1)) and self._icm is not None:
                 #print("osbervation") # ['image', 'state']
                 # print(time_step_sliced.observation)
+
+                # # observe and sample batch
+                # exp_icm = make_experience_ICM(
+                #     time_step_sliced.observation['state'],
+                #     time_step_sliced.observation['image'],
+                #     time_step_sliced.prev_action, time_step_sliced.reward)
+                # # self._exp_replayer.observe(exp_icm)
+                # # print("after observe----")
+
                 icm_step = self._icm.train_step(
                     (time_step_sliced.observation,
                      time_step_sliced.prev_action, time_step_sliced.reward),

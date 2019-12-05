@@ -286,6 +286,7 @@ class RewardAlgorithmState(Algorithm):
     def __init__(self,
                  action_spec,
                  feature_spec,
+                 observation_spec,
                  hidden_size=256,
                  reward_adapt_speed=8.0,
                  encoding_net: Network = None,
@@ -319,7 +320,8 @@ class RewardAlgorithmState(Algorithm):
         assert len(
             flat_action_spec) == 1, "ICM doesn't suport nested action_spec"
 
-        print(feature_spec)
+        self._feature_spec = feature_spec
+        self._observation_spec = observation_spec
 
         flat_feature_spec = tf.nest.flatten(feature_spec)
         assert len(
@@ -424,13 +426,17 @@ class RewardAlgorithmState(Algorithm):
             ],
             axis=1)
 
+        state_self_trans = self._fuse_net(state_self)
+        state_goal_trans = self._fuse_net(state_self)
+
         # reward_pred, _ = self._fuse_net(reward_input_feature)
         # mse based reward prediction
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self - state_goal), axis=-1)) * 2 - 1
 
         reward_pred = tf.exp(
-            -tf.compat.v1.losses.huber_loss(state_goal, state_self) * 5)
+            -tf.compat.v1.losses.huber_loss(state_self_trans, state_self_trans)
+            * 1)
 
         # print("---reward-----")
         # print(reward_pred)
@@ -452,14 +458,14 @@ class RewardAlgorithmState(Algorithm):
 
         # mse = 0.5 * tf.square(reward_pred - reward_external)
         mse = 0.5 * tf.square(reward_pred - reward_external_fuse)
-        pos_reward_mse = tf.multiply(pos_mask, mse) / pos_total
-        neg_reward_mse = tf.multiply(neg_mask, mse) / neg_total
+        pos_reward_mse = tf.multiply(pos_mask, reward_pred) / pos_total
+        neg_reward_mse = tf.multiply(neg_mask, reward_pred) / neg_total
 
         #masked_reward = tf.multiply(scaled_mask, reward_external)
 
         pred_reward_mse = 0.5 * (pos_reward_mse + neg_reward_mse)
-        # reward_loss = 1e2 * pred_reward_mse
-        reward_loss = 0 * pred_reward_mse
+        reward_loss = 1e2 * pred_reward_mse
+        #reward_loss = 0 * pred_reward_mse
 
         # pred_reward_mse = 0.5 * tf.square(
         #     reward_pred - reward_external) / total_sum  # reduce the last dim

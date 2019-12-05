@@ -88,6 +88,8 @@ class OffPolicyDriver(policy_driver.PolicyDriver):
             train_step_counter=train_step_counter)
         self._prepare_specs(algorithm)
         self._trainable_variables = algorithm.trainable_variables
+        print("---evn batch size")
+        print(self._env.batch_size)
         if exp_replayer == "one_time":
             self._exp_replayer = OnetimeExperienceReplayer()
         elif exp_replayer == "uniform":
