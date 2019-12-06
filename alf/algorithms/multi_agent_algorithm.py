@@ -181,25 +181,32 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     def load_part_model(self, root_dir):
         # load pre-trained variables
         if self._icm is not None:
-            self._icm_checkpoint = tf.train.Checkpoint(icm=self._icm)
+            self._icm_checkpoint = tf.train.Checkpoint(icm=self._icm._fuse_net)
             ckpt_dir = os.path.join(root_dir, 'icm')
             latest = tf.train.latest_checkpoint(ckpt_dir)
             if latest is not None:
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
-                print("-------load ICM model-----")
+                print(
+                    "---------------------load ICM model---------------------------"
+                )
                 print(latest)
+                import pdb
+                pdb.set_trace()
                 self._icm_checkpoint.restore(latest)
                 #print(self._icm._fuse_net.summary())
                 print(self._icm._fuse_net.variables)
+
+                print(self._algos[0]._actor_network._feature_mapping.variables)
+                pdb.set_trace()
             else:
                 print("-------No ICM checkpoint-----")
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
 
     def save_part_model(self, root_dir):
-        ckpt_dir = os.path.join(root_dir, 'icm')
-        self._icm_checkpoint.save(ckpt_dir + '/ck')
+        # ckpt_dir = os.path.join(root_dir, 'icm')
+        # self._icm_checkpoint.save(ckpt_dir + '/ck')
         return
 
     def get_sliced_data(self, data, domain_name):

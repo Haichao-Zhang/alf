@@ -25,7 +25,7 @@ create_environment.env_name='SocialBot-Third-Person-Agent-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-batch_size=30
+batch_size=1
 create_environment.num_parallel_environments=%batch_size
 
 # algorithm config
@@ -61,6 +61,41 @@ teacher/NormalProjectionNetwork.std_bias_initializer_value=1.0
 teacher/NormalProjectionNetwork.std_transform=@tf.math.exp
 
 
+# reward learning
+
+# reward learning module
+# need a multi-modal network shared with policy and value net
+feature_size=4 # reward 4 # num_of_joints * DoF_per_joint * 2
+feature_size_double=4 #feature_size*2
+reward/MultiModalEncodingNetwork.last_layer_size=%feature_size
+reward/MultiModalEncodingNetwork.input_tensor_spec=%learner_observation_spec
+reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, %feature_size)
+reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, %feature_size)
+reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, %feature_size)
+reward/MultiModalEncodingNetwork.activation_fn=@tf.nn.softsign
+#reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+reward/TensorSpec.shape=(%feature_size,)
+reward_pred/TensorSpec.shape=(%feature_size_double,)
+
+
+reward/ValueNetwork.input_tensor_spec=@reward_pred/TensorSpec()
+# reward/ValueNetwork.fc_layer_params=(50, 1)
+# reward/ValueNetwork.activation_fn=@tf.nn.softsign
+reward/ValueNetwork.fc_layer_params=(10, 25, 5)
+reward/ValueNetwork.activation_fn=@tf.nn.relu
+
+reward/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
+reward/EncodingNetwork.fc_layer_params=(10, 25, 5)
+reward/EncodingNetwork.activation_fn=@tf.nn.relu
+# should be the joint name of the other submodules
+reward/EncodingNetwork.name='EncodingNetwork'
+
+# policy/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
+# policy/EncodingNetwork.fc_layer_params=(10, 25, 5)
+# policy/EncodingNetwork.activation_fn=@tf.nn.relu
+# policy/EncodingNetwork.name='EncodingNetwork'
+
+
 CONV_LAYER_PARAMS=((32, 6, 4), (64, 4, 2), (64, 3, 1))
 learner/MultiModalActorDistributionNetwork.input_tensor_spec=%learner_observation_spec
 learner/MultiModalActorDistributionNetwork.output_tensor_spec=%learner_action_spec
@@ -70,6 +105,19 @@ learner/MultiModalActorDistributionNetwork.fc_layer_params_fusion=(50, 25, 25)
 learner/MultiModalActorDistributionNetwork.activation_fn=@tf.nn.softsign
 #learner/MultiModalActorDistributionNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 learner/MultiModalActorDistributionNetwork.continuous_projection_net=@learner/NormalProjectionNetwork
+
+
+# shared state-transformation net
+learner/MultiModalActorDistributionNetworkMapping.name="MultiModalActorDistributionNetworkMapping"
+learner/MultiModalActorDistributionNetworkMapping.input_tensor_spec=%learner_observation_spec
+learner/MultiModalActorDistributionNetworkMapping.output_tensor_spec=%learner_action_spec
+# network sharing
+learner/MultiModalActorDistributionNetworkMapping.feature_mapping=@reward/EncodingNetwork()
+learner/MultiModalActorDistributionNetworkMapping.fc_layer_params_fusion=(50, 25, 25)
+learner/MultiModalActorDistributionNetworkMapping.activation_fn=@tf.nn.softsign
+#learner/MultiModalActorDistributionNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
+learner/MultiModalActorDistributionNetworkMapping.continuous_projection_net=@learner/NormalProjectionNetwork
+
 
 teacher/ActorDistributionNetwork.input_tensor_spec=%teacher_observation_spec
 teacher/ActorDistributionNetwork.output_tensor_spec=%teacher_action_spec
@@ -94,7 +142,8 @@ teacher/Adam.learning_rate=0e-4
 
 learner/PPOAlgorithm.action_spec=%learner_action_spec
 learner/PPOAlgorithm.loss_class=@PPOLoss
-learner/PPOAlgorithm.actor_network=@learner/MultiModalActorDistributionNetwork()
+#learner/PPOAlgorithm.actor_network=@learner/MultiModalActorDistributionNetwork()
+learner/PPOAlgorithm.actor_network=@learner/MultiModalActorDistributionNetworkMapping()
 learner/PPOAlgorithm.value_network=@learner/MultiModalValueNetwork()
 learner/PPOAlgorithm.optimizer=@learner/Adam()
 
@@ -107,34 +156,6 @@ teacher/PPOAlgorithm.optimizer=@teacher/Adam()
 #common.image_scale_transformer.min=-1.0
 #MultiAgentAlgorithm.observation_transformer=@image_scale_transformer
 
-
-# reward learning module
-# need a multi-modal network shared with policy and value net
-feature_size=4 # reward 4 # num_of_joints * DoF_per_joint * 2
-feature_size_double=4 #feature_size*2
-reward/MultiModalEncodingNetwork.last_layer_size=%feature_size
-reward/MultiModalEncodingNetwork.input_tensor_spec=%learner_observation_spec
-reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, %feature_size)
-reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, %feature_size)
-reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, %feature_size)
-reward/MultiModalEncodingNetwork.activation_fn=@tf.nn.softsign
-#reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
-reward/TensorSpec.shape=(%feature_size,)
-reward_pred/TensorSpec.shape=(%feature_size_double,)
-
-
-reward/ValueNetwork.input_tensor_spec=@reward_pred/TensorSpec()
-# reward/ValueNetwork.fc_layer_params=(50, 1)
-# reward/ValueNetwork.activation_fn=@tf.nn.softsign
-reward/ValueNetwork.fc_layer_params=(10, 25, 5)
-reward/ValueNetwork.activation_fn=@tf.nn.relu
-
-
-
-
-reward/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
-reward/EncodingNetwork.fc_layer_params=(10, 25, 5)
-reward/EncodingNetwork.activation_fn=@tf.nn.relu
 
 
 # RewardAlgorithm.action_spec=%learner_action_spec
@@ -175,7 +196,7 @@ TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
 #TrainerConfig.mini_batch_length=1 # no need to set
 TrainerConfig.use_tf_functions=True
 TrainerConfig.unroll_length=100
-TrainerConfig.checkpoint_interval=100
+TrainerConfig.checkpoint_interval=1
 TrainerConfig.mini_batch_size=1000
 TrainerConfig.num_iterations=100000
 TrainerConfig.num_updates_per_train_step=1

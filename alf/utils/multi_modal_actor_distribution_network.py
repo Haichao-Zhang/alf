@@ -220,8 +220,7 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
     def __init__(self,
                  input_tensor_spec,
                  output_tensor_spec,
-                 visual_mapping=None,
-                 fc_layer_params_state=(200, 100),
+                 feature_mapping=None,
                  fc_layer_params_fusion=(200, 100),
                  dropout_layer_params=None,
                  conv_layer_params_visual=None,
@@ -229,7 +228,7 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
                  activation_fn=tf.keras.activations.relu,
                  discrete_projection_net=_categorical_projection_net,
                  continuous_projection_net=_normal_projection_net,
-                 name='MultiModalActorDistributionNetwork'):
+                 name='MultiModalActorDistributionNetworkMapping'):
         """Creates an instance of `MultiModalActorDistributionNetwork`.
 
     Args:
@@ -277,15 +276,6 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
         #     dropout_layer_params=dropout_layer_params,
         #     name='input_mlp_visual')
 
-        mlp_layers_state = utils.mlp_layers(
-            conv_layer_params_state,
-            fc_layer_params_state,
-            activation_fn=activation_fn,
-            kernel_initializer=tf.compat.v1.keras.initializers.
-            glorot_uniform(),
-            dropout_layer_params=dropout_layer_params,
-            name='input_mlp_state')
-
         # fusion net
         mlp_layers_fusion = utils.mlp_layers(
             None,  # no cnn
@@ -311,14 +301,16 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
         output_spec = tf.nest.pack_sequence_as(output_tensor_spec,
                                                projection_distribution_specs)
 
-        super(MultiModalActorDistributionNetwork, self).__init__(
+        super(MultiModalActorDistributionNetworkMapping, self).__init__(
             input_tensor_spec=input_tensor_spec,
             state_spec=(),
             output_spec=output_spec,
             name=name)
 
-        self._mlp_layers_visual = visual_mapping  # shared with reward estimation, which can be reused as a metric based reward for RL training
-        self._mlp_layers_state = mlp_layers_state
+        self._feature_mapping = feature_mapping  # feature mapping shared with reward estimation
+
+        # self._mlp_layers_visual = visual_mapping  # shared with reward estimation, which can be reused as a metric based reward for RL training
+        # self._mlp_layers_state = mlp_layers_state
         self._mlp_layers_fusion = mlp_layers_fusion
         self._projection_networks = projection_networks
         self._output_tensor_spec = output_tensor_spec
@@ -343,12 +335,12 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
 
         # for layer in self._mlp_layers_visual:
         #     v_states = layer(v_states)
+        print("policy----------")
+        print(self.feature_mapping.variables)
 
-        v_states = self._mlp_layers_visual(v_states)
-
-        # skip state transformation if None
-        for layer in self._mlp_layers_state:
-            s_states = layer(s_states)
+        # assuming both are states
+        v_states, _ = self._feature_mapping(v_states)
+        s_states, _ = self._feature_mapping(s_states)
 
         states = tf.concat([v_states, s_states], axis=1)
         #print(states.shape)
@@ -430,23 +422,23 @@ class MultiModalActorDistributionNetworkState(network.DistributionNetwork):
         #     raise ValueError(
         #         'Only a single observation is supported by this network')
 
-        mlp_layers_visual = utils.mlp_layers(
-            conv_layer_params_visual,
-            fc_layer_params_visual,
-            activation_fn=activation_fn,
-            kernel_initializer=tf.compat.v1.keras.initializers.
-            glorot_uniform(),
-            dropout_layer_params=dropout_layer_params,
-            name='input_mlp_visual')
+        # mlp_layers_visual = utils.mlp_layers(
+        #     conv_layer_params_visual,
+        #     fc_layer_params_visual,
+        #     activation_fn=activation_fn,
+        #     kernel_initializer=tf.compat.v1.keras.initializers.
+        #     glorot_uniform(),
+        #     dropout_layer_params=dropout_layer_params,
+        #     name='input_mlp_visual')
 
-        mlp_layers_state = utils.mlp_layers(
-            conv_layer_params_state,
-            fc_layer_params_state,
-            activation_fn=activation_fn,
-            kernel_initializer=tf.compat.v1.keras.initializers.
-            glorot_uniform(),
-            dropout_layer_params=dropout_layer_params,
-            name='input_mlp_state')
+        # mlp_layers_state = utils.mlp_layers(
+        #     conv_layer_params_state,
+        #     fc_layer_params_state,
+        #     activation_fn=activation_fn,
+        #     kernel_initializer=tf.compat.v1.keras.initializers.
+        #     glorot_uniform(),
+        #     dropout_layer_params=dropout_layer_params,
+        #     name='input_mlp_state')
 
         # fusion net
         mlp_layers_fusion = utils.mlp_layers(
