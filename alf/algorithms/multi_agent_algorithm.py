@@ -83,6 +83,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                  domain_names,
                  teacher_training_phase,
                  batch_size,
+                 algos=None,
                  intrinsic_curiosity_module=None,
                  intrinsic_reward_coef=1.0,
                  extrinsic_reward_coef=1.0,
@@ -102,10 +103,12 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         # need actor_network
         # action_distribution_spec = actor_network.output_spec
 
-        algos = [
-            algo_ctor(debug_summaries=debug_summaries)
-            for algo_ctor in algo_ctors
-        ]
+        # only construct if algo instance is not provided
+        if algos is None:
+            algos = [
+                algo_ctor(debug_summaries=debug_summaries)
+                for algo_ctor in algo_ctors
+            ]
 
         def get_train_specs(algos):
             # no need to consider intrinsic module in this function

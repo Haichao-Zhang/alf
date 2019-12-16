@@ -30,7 +30,6 @@ class ProcessPyEnvironment(parallel_py_environment.ProcessPyEnvironment):
 
     def _worker(self, conn, env_constructor, flatten=False):
         """It's a little different with `super()._worker`, it closes environment when
-        receives _CLOSE.
 
         Args:
             conn (Pipe): Connection for communication to the main process.

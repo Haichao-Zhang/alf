@@ -213,7 +213,10 @@ class Trainer(object):
         self._summarize_grads_and_vars = config.summarize_grads_and_vars
         self._config = config
 
-    def initialize(self):
+        # set env during construction
+        #self.set_env()
+
+    def set_env(self):
         """Initializes the Trainer."""
         if self._random_seed is not None:
             random.seed(self._random_seed)
@@ -224,6 +227,21 @@ class Trainer(object):
             not self._use_tf_functions)
         env = self._create_environment()
         common.set_global_env(env)
+
+    def initialize(self):
+        """Initializes the Trainer."""
+        if self._random_seed is not None:
+            random.seed(self._random_seed)
+            np.random.seed(self._random_seed)
+            tf.random.set_seed(self._random_seed)
+
+        tf.config.experimental_run_functions_eagerly(
+            not self._use_tf_functions)
+        print("before env creating -------")
+        env = self._create_environment()
+        print("after env creating -------")
+        common.set_global_env(env)
+        print("after env creating -------")
 
         self._algorithm = self._algorithm_ctor(
             debug_summaries=self._debug_summaries)

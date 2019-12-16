@@ -336,7 +336,7 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
         # for layer in self._mlp_layers_visual:
         #     v_states = layer(v_states)
         print("policy----------")
-        print(self.feature_mapping.variables)
+        print(self._feature_mapping.variables)
 
         # assuming both are states
         v_states, _ = self._feature_mapping(v_states)

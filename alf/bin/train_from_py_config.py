@@ -52,7 +52,17 @@ import alf.utils.external_configurables
 from alf.trainers import policy_trainer
 
 from alf.trainers import on_policy_trainer
+from alf.trainers import off_policy_trainer
 from alf.algorithms import agent
+from alf.algorithms import multi_agent_algorithm
+from alf.algorithms import reward_estimation
+from alf.algorithms import ppo_algorithm
+
+from alf.utils import multi_modal_actor_distribution_network
+from tf_agents.networks.encoding_network import EncodingNetwork
+
+from alf.environments.utils import create_environment
+from alf.utils import common
 
 flags.DEFINE_string('root_dir', os.getenv('TEST_UNDECLARED_OUTPUTS_DIR'),
                     'Root directory for writing logs/summaries/checkpoints.')
@@ -61,20 +71,58 @@ flags.DEFINE_multi_string('gin_param', None, 'Gin binding parameters.')
 
 FLAGS = flags.FLAGS
 
+# def get_trainer_config(root_dir):
+#     trainer_config = policy_trainer.TrainerConfig(
+#         root_dir=root_dir,
+#         trainer=on_policy_trainer.OnPolicyTrainer,  # no (), only class name
+#         unroll_length=8,
+#         algorithm_ctor=agent.Agent,  # no (), only class name
+#         num_iterations=20,
+#         checkpoint_interval=20,
+#         evaluate=True,
+#         eval_interval=5,
+#         debug_summaries=False,
+#         summarize_grads_and_vars=False,
+#         summary_interval=5)
 
+#     return trainer_config
+
+
+# ------------------------------------------------------------------
+# for imitation learning ==============================
 def get_trainer_config(root_dir):
+    # multi-agent algorithm
+    # use instances instead of constructors
+
+    # feature net will be shared between policy (thus algorithm) and reward estimation
+    with gin.config_scope('reward'):
+        feature_net = EncodingNetwork()
+
+    with gin.config_scope('learner'):
+        learner_policy = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
+            feature_mapping=feature_net)
+        learner_ppo_algo = ppo_algorithm.PPOAlgorithm(
+            actor_network=learner_policy)
+    with gin.config_scope('teacher'):
+        teacher_ppo_algo = ppo_algorithm.PPOAlgorithm()
+
+    reward_estimator = reward_estimation.RewardAlgorithmState(
+        fuse_net=feature_net)
+
+    m_alg = multi_agent_algorithm.MultiAgentAlgorithm(
+        intrinsic_curiosity_module=reward_estimator,
+        algos=[learner_ppo_algo, teacher_ppo_algo])
+
+    print("before trainder_config")
+
     trainer_config = policy_trainer.TrainerConfig(
         root_dir=root_dir,
-        trainer=on_policy_trainer.OnPolicyTrainer,  # no (), only class name
-        unroll_length=8,
-        algorithm_ctor=agent.Agent,  # no (), only class name
-        num_iterations=20,
-        checkpoint_interval=20,
-        evaluate=True,
-        eval_interval=5,
-        debug_summaries=False,
-        summarize_grads_and_vars=False,
-        summary_interval=5)
+        trainer=off_policy_trainer.
+        SyncOffPolicyTrainer,  # no (), only class name
+        algorithm_ctor=multi_agent_algorithm.
+        MultiAgentAlgorithm  # no (), only class name)
+    )
+    print("=======here")
 
     return trainer_config
 
@@ -89,6 +137,11 @@ def train_eval(root_dir):
 
     #trainer_conf = policy_trainer.TrainerConfig(root_dir=root_dir)
     trainer_conf = get_trainer_config(root_dir)
+    print('------before-------')
+    # global _env
+    # print(_env)
+    # del _env
+
     trainer = trainer_conf.create_trainer()
     trainer.initialize()
     trainer.train()
@@ -99,6 +152,13 @@ def main(_):
     # still need to parse
     gin.parse_config_files_and_bindings(gin_file, FLAGS.gin_param)
     # python file
+    # create the environment first
+    # env = create_environment(nonparallel=True)
+    env = create_environment(nonparallel=False)
+    common.set_global_env(env)
+    # #global _env
+    # print(env)
+    # del env
 
     train_eval(FLAGS.root_dir)
 
