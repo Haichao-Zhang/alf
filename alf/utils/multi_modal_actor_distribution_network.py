@@ -23,6 +23,7 @@ import tensorflow as tf
 
 from tf_agents.networks import categorical_projection_network
 from tf_agents.networks import network
+from tf_agents.networks.network import Network
 from tf_agents.networks import normal_projection_network
 from tf_agents.networks import utils
 from tf_agents.specs import tensor_spec
@@ -220,7 +221,7 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
     def __init__(self,
                  input_tensor_spec,
                  output_tensor_spec,
-                 feature_mapping=None,
+                 feature_mapping: Network = None,
                  fc_layer_params_fusion=(200, 100),
                  dropout_layer_params=None,
                  conv_layer_params_visual=None,
@@ -309,6 +310,11 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
 
         self._feature_mapping = feature_mapping  # feature mapping shared with reward estimation
 
+        # print("feature_mapping----------")
+        # print(feature_mapping.variables)
+        # print("_feature_mapping----------")
+        # print(self._feature_mapping.variables)
+
         # self._mlp_layers_visual = visual_mapping  # shared with reward estimation, which can be reused as a metric based reward for RL training
         # self._mlp_layers_state = mlp_layers_state
         self._mlp_layers_fusion = mlp_layers_fusion
@@ -335,8 +341,8 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
 
         # for layer in self._mlp_layers_visual:
         #     v_states = layer(v_states)
-        print("policy----------")
-        print(self._feature_mapping.variables)
+        # print("policy----------")
+        # print(self._feature_mapping.variables)
 
         # assuming both are states
         v_states, _ = self._feature_mapping(v_states)

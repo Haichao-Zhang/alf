@@ -373,6 +373,10 @@ class RewardAlgorithmState(Algorithm):
         #         last_kernel_initializer=tf.initializers.Zeros())
 
         self._fuse_net = fuse_net
+        print("_fuse_net----------")
+        import pdb
+        pdb.set_trace()
+        print(self._fuse_net.variables)
 
         self._reward_normalizer = ScalarAdaptiveNormalizer(
             speed=reward_adapt_speed)

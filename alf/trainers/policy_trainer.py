@@ -214,7 +214,7 @@ class Trainer(object):
         self._config = config
 
         # set env during construction
-        #self.set_env()
+        # self.set_env()
 
     def set_env(self):
         """Initializes the Trainer."""
@@ -237,14 +237,15 @@ class Trainer(object):
 
         tf.config.experimental_run_functions_eagerly(
             not self._use_tf_functions)
-        print("before env creating -------")
         env = self._create_environment()
-        print("after env creating -------")
         common.set_global_env(env)
-        print("after env creating -------")
 
-        self._algorithm = self._algorithm_ctor(
-            debug_summaries=self._debug_summaries)
+        # self._algorithm = self._algorithm_ctor(
+        #     debug_summaries=self._debug_summaries)
+
+        # already algorithm instances
+        self._algorithm = self._algorithm_ctor
+
         self._algorithm.use_rollout_state = self._config.use_rollout_state
 
         self._driver = self.init_driver()

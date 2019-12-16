@@ -98,6 +98,8 @@ def get_trainer_config(root_dir):
     with gin.config_scope('reward'):
         feature_net = EncodingNetwork()
 
+    print("para value after creation-----=====================-----")
+    print(feature_net.variables)
     with gin.config_scope('learner'):
         learner_policy = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
             feature_mapping=feature_net)
@@ -115,12 +117,25 @@ def get_trainer_config(root_dir):
 
     print("before trainder_config")
 
+    #
+    print("========================================")
+    print(reward_estimator._fuse_net.variables)
+    print('----------------------------------------')
+    print(m_alg._algos[0]._actor_network._feature_mapping.variables)
+
+    # trainer_config = policy_trainer.TrainerConfig(
+    #     root_dir=root_dir,
+    #     trainer=off_policy_trainer.
+    #     SyncOffPolicyTrainer,  # no (), only class name
+    #     algorithm_ctor=multi_agent_algorithm.
+    #     MultiAgentAlgorithm  # no (), only class name)
+    # )
+
     trainer_config = policy_trainer.TrainerConfig(
         root_dir=root_dir,
         trainer=off_policy_trainer.
         SyncOffPolicyTrainer,  # no (), only class name
-        algorithm_ctor=multi_agent_algorithm.
-        MultiAgentAlgorithm  # no (), only class name)
+        algorithm_ctor=m_alg  # no (), only class name)
     )
     print("=======here")
 

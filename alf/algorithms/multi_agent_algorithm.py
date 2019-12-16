@@ -190,6 +190,9 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             if latest is not None:
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
+                print(self._icm._fuse_net.variables)
+
+                print(self._algos[0]._actor_network._feature_mapping.variables)
                 print(
                     "---------------------load ICM model---------------------------"
                 )
@@ -198,8 +201,9 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
                 pdb.set_trace()
                 self._icm_checkpoint.restore(latest)
                 #print(self._icm._fuse_net.summary())
+                print("fusion--------------------")
                 print(self._icm._fuse_net.variables)
-
+                print("actor_network--------------------")
                 print(self._algos[0]._actor_network._feature_mapping.variables)
                 pdb.set_trace()
             else:
