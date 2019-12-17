@@ -112,8 +112,9 @@ def get_trainer_config(root_dir):
         fuse_net=feature_net)
 
     m_alg = multi_agent_algorithm.MultiAgentAlgorithm(
-        intrinsic_curiosity_module=reward_estimator,
-        algos=[learner_ppo_algo, teacher_ppo_algo])
+        #intrinsic_curiosity_module=reward_estimator,
+        algos=[learner_ppo_algo, teacher_ppo_algo],
+        debug_summaries=True)
 
     print("before trainder_config")
 

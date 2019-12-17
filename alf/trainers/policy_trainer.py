@@ -34,6 +34,8 @@ from alf.utils import common
 from alf.utils.common import run_under_record_context, get_global_counter
 from alf.environments.utils import create_environment
 
+from alf.algorithms.algorithm import Algorithm
+
 
 @gin.configurable
 class TrainerConfig(object):
@@ -240,11 +242,12 @@ class Trainer(object):
         env = self._create_environment()
         common.set_global_env(env)
 
-        # self._algorithm = self._algorithm_ctor(
-        #     debug_summaries=self._debug_summaries)
-
-        # already algorithm instances
-        self._algorithm = self._algorithm_ctor
+        if not isinstance(self._algorithm_ctor, Algorithm):
+            self._algorithm = self._algorithm_ctor(
+                debug_summaries=self._debug_summaries)
+        else:
+            # already algorithm instances
+            self._algorithm = self._algorithm_ctor
 
         self._algorithm.use_rollout_state = self._config.use_rollout_state
 

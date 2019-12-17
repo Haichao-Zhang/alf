@@ -29,8 +29,7 @@ class ProcessPyEnvironment(parallel_py_environment.ProcessPyEnvironment):
             env_constructor, flatten=flatten)
 
     def _worker(self, conn, env_constructor, flatten=False):
-        """It's a little different with `super()._worker`, it closes environment when
-
+        """It's a little different with `super()._worker`, it closes environment when receives _CLOSE
         Args:
             conn (Pipe): Connection for communication to the main process.
             env_constructor (Callable): env_constructor for the OpenAI Gym environment.
