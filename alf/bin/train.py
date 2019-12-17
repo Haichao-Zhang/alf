@@ -65,7 +65,7 @@ def train_eval(root_dir):
 
     Args:
         root_dir (str): directory for saving summary and checkpoints
-    """
+"""
 
     trainer_conf = policy_trainer.TrainerConfig(root_dir=root_dir)
     trainer = trainer_conf.create_trainer()

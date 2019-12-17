@@ -97,14 +97,16 @@ def get_trainer_config(root_dir):
     # feature net will be shared between policy (thus algorithm) and reward estimation
     with gin.config_scope('reward'):
         feature_net = EncodingNetwork()
+    print("----feature net==============")
+    print(feature_net.__dict__)
 
     print("para value after creation-----=====================-----")
     print(feature_net.variables)
     with gin.config_scope('learner'):
-        learner_policy = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
+        learner_network = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
             feature_mapping=feature_net)
         learner_ppo_algo = ppo_algorithm.PPOAlgorithm(
-            actor_network=learner_policy)
+            actor_network=learner_network)
     with gin.config_scope('teacher'):
         teacher_ppo_algo = ppo_algorithm.PPOAlgorithm()
 
@@ -116,13 +118,13 @@ def get_trainer_config(root_dir):
         algos=[learner_ppo_algo, teacher_ppo_algo],
         debug_summaries=True)
 
-    print("before trainder_config")
+    print("-------algorithm--------")
+    print(m_alg.__dict__)
 
-    #
-    print("========================================")
-    print(reward_estimator._fuse_net.variables)
-    print('----------------------------------------')
-    print(m_alg._algos[0]._actor_network._feature_mapping.variables)
+    # print("========================================")
+    # print(reward_estimator._fuse_net.variables)
+    # print('----------------------------------------')
+    # print(m_alg._algos[0]._actor_network._feature_mapping.variables)
 
     # trainer_config = policy_trainer.TrainerConfig(
     #     root_dir=root_dir,
@@ -134,11 +136,8 @@ def get_trainer_config(root_dir):
 
     trainer_config = policy_trainer.TrainerConfig(
         root_dir=root_dir,
-        trainer=off_policy_trainer.
-        SyncOffPolicyTrainer,  # no (), only class name
         algorithm_ctor=m_alg  # no (), only class name)
     )
-    print("=======here")
 
     return trainer_config
 

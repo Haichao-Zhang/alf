@@ -170,16 +170,16 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         self._extrinsic_reward_coef = extrinsic_reward_coef
         self._icm = intrinsic_curiosity_module
 
-        # adding experience replayer
-        self._experience_spec_icm = Experience_ICM(
-            observation_self=self._icm._observation_spec['state'],
-            observation_teacher=self._icm._observation_spec['image'],
-            prev_action=self._icm._action_spec,
-            reward=tf.TensorSpec((), tf.float32),
-        )
+        # # adding experience replayer
+        # self._experience_spec_icm = Experience_ICM(
+        #     observation_self=self._icm._observation_spec['state'],
+        #     observation_teacher=self._icm._observation_spec['image'],
+        #     prev_action=self._icm._action_spec,
+        #     reward=tf.TensorSpec((), tf.float32),
+        # )
 
-        self._exp_replayer = SyncUniformExperienceReplayer(
-            self._experience_spec_icm, batch_size)
+        # self._exp_replayer = SyncUniformExperienceReplayer(
+        #     self._experience_spec_icm, batch_size)
 
     def load_part_model(self, root_dir):
         # load pre-trained variables
