@@ -98,23 +98,33 @@ def get_trainer_config(root_dir):
     with gin.config_scope('reward'):
         feature_net = EncodingNetwork()
     print("----feature net==============")
-    print(feature_net.__dict__)
+    print(feature_net)
 
-    print("para value after creation-----=====================-----")
-    print(feature_net.variables)
+    print('featurenet before reward estimator')
+    print(feature_net)
+    # as separate fixed network
+    with gin.config_scope('reward'):
+        feature_net2 = EncodingNetwork()
+    reward_estimator = reward_estimation.RewardAlgorithmState(
+        fuse_net=feature_net)
+
+    # print("para value after creation-----=====================-----")
+    # print(feature_net.variables)
     with gin.config_scope('learner'):
         learner_network = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
-            feature_mapping=feature_net)
+            feature_mapping=feature_net2)
         learner_ppo_algo = ppo_algorithm.PPOAlgorithm(
             actor_network=learner_network)
     with gin.config_scope('teacher'):
         teacher_ppo_algo = ppo_algorithm.PPOAlgorithm()
 
-    reward_estimator = reward_estimation.RewardAlgorithmState(
-        fuse_net=feature_net)
+    # print("------reward estimator==================")
+    # print(reward_estimator._fuse_net.variables)
+    # print("------ppo*******************************")
+    # print(learner_ppo_algo._actor_network._feature_mapping.variables)
 
     m_alg = multi_agent_algorithm.MultiAgentAlgorithm(
-        #intrinsic_curiosity_module=reward_estimator,
+        intrinsic_curiosity_module=reward_estimator,
         algos=[learner_ppo_algo, teacher_ppo_algo],
         debug_summaries=True)
 

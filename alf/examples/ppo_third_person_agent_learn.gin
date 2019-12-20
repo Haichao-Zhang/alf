@@ -67,12 +67,6 @@ teacher/NormalProjectionNetwork.std_transform=@tf.math.exp
 # need a multi-modal network shared with policy and value net
 feature_size=4 # reward 4 # num_of_joints * DoF_per_joint * 2
 feature_size_double=4 #feature_size*2
-reward/MultiModalEncodingNetwork.last_layer_size=%feature_size
-reward/MultiModalEncodingNetwork.input_tensor_spec=%learner_observation_spec
-reward/MultiModalEncodingNetwork.fc_layer_params_visual=(100, 50, %feature_size)
-reward/MultiModalEncodingNetwork.fc_layer_params_state=(100, 50, %feature_size)
-reward/MultiModalEncodingNetwork.fc_layer_params_fusion=(50, 25, %feature_size)
-reward/MultiModalEncodingNetwork.activation_fn=@tf.nn.softsign
 #reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 reward/TensorSpec.shape=(%feature_size,)
 reward_pred/TensorSpec.shape=(%feature_size_double,)
@@ -85,8 +79,8 @@ reward/ValueNetwork.fc_layer_params=(10, 25, 5)
 reward/ValueNetwork.activation_fn=@tf.nn.relu
 
 reward/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
-reward/EncodingNetwork.fc_layer_params=(10, 25, 5)
-reward/EncodingNetwork.activation_fn=@tf.nn.relu
+reward/EncodingNetwork.fc_layer_params=(4, 2, 2)
+reward/EncodingNetwork.activation_fn=@tf.nn.softsign
 # should be the joint name of the other submodules
 reward/EncodingNetwork.name='EncodingNetwork'
 
@@ -202,7 +196,7 @@ TrainerConfig.num_iterations=100000
 TrainerConfig.num_updates_per_train_step=1
 TrainerConfig.eval_interval=100
 TrainerConfig.debug_summaries=True
-TrainerConfig.summarize_grads_and_vars=False
+TrainerConfig.summarize_grads_and_vars=True
 TrainerConfig.summary_interval=10
 
 TFUniformReplayBuffer.max_length=2000

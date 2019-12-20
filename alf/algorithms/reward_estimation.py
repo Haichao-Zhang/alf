@@ -373,6 +373,9 @@ class RewardAlgorithmState(Algorithm):
         #         last_kernel_initializer=tf.initializers.Zeros())
 
         self._fuse_net = fuse_net
+        print("in----reward----------")
+        print(fuse_net)
+        print(self._fuse_net)
         # print("_fuse_net----------")
         # import pdb
         # pdb.set_trace()
@@ -435,6 +438,8 @@ class RewardAlgorithmState(Algorithm):
         state_self_trans, _ = self._fuse_net(state_self)
         state_goal_trans, _ = self._fuse_net(state_goal)
 
+        state_self_trans = tf.stop_gradient(state_self_trans)
+
         # reward_pred, _ = self._fuse_net(reward_input_feature)
         # mse based reward prediction
         # reward_pred = tf.exp(-tf.reduce_mean(
@@ -443,16 +448,18 @@ class RewardAlgorithmState(Algorithm):
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self_trans - state_goal_trans), axis=-1)) * 2 - 1
         h_loss = tf.keras.losses.Huber()
-        reward_pred = 1 - 2 * tf.exp(
-            -h_loss(state_self_trans, state_goal_trans) * 1)
+        # reward_pred = 1 - 2 * tf.exp(
+        #     -h_loss(state_self_trans, state_goal_trans) * 1)
 
-        # reward_pred = -tf.compat.v1.losses.huber_loss(state_self_trans,
-        #                                               state_goal_trans)
+        # reward_pred = tf.exp(
+        #     -h_loss(state_self_trans, state_goal_trans) * 0.5)
 
-        # print("---reward-----")
-        # print(reward_pred)
-        # print("---reward est-----")
-        # print(reward_external)
+        # pred_reward_mse = reward_pred
+
+        pred_reward_mse = tf.reduce_mean(
+            tf.square(state_self_trans - state_goal_trans), axis=-1)
+        reward_pred = -pred_reward_mse  # maximize reward, minimize difference through policy
+        # # minimize loss difference
 
         pos_mask = tf.dtypes.cast(
             tf.math.greater(reward_external, tf.zeros_like(reward_external)),
@@ -465,18 +472,21 @@ class RewardAlgorithmState(Algorithm):
         neg_total = tf.math.reduce_sum(neg_mask) + 1e-5
         # print(pos_total)
         # print(neg_total)
-        reward_external_fuse = pos_mask - neg_mask
+        #reward_external_fuse = pos_mask - neg_mask
+
+        pred_reward_mse = tf.multiply(pos_mask, pred_reward_mse) / pos_total
 
         # mse = 0.5 * tf.square(reward_pred - reward_external)
-        mse = 0.5 * tf.square(reward_pred - reward_external_fuse)
-        pos_reward_mse = tf.multiply(pos_mask, mse) / pos_total
-        neg_reward_mse = tf.multiply(neg_mask, mse) / neg_total
+        # mse = 0.5 * tf.square(reward_pred - reward_external_fuse)
+        # pos_reward_mse = tf.multiply(pos_mask, mse) / pos_total
+        # neg_reward_mse = tf.multiply(neg_mask, mse) / neg_total
 
         #masked_reward = tf.multiply(scaled_mask, reward_external)
 
-        pred_reward_mse = 0.5 * (pos_reward_mse + neg_reward_mse)
-        #reward_loss = 1e2 * pred_reward_mse
-        reward_loss = 0 * pred_reward_mse
+        # pred_reward_mse = 0.5 * (pos_reward_mse + neg_reward_mse)
+        # reward_loss = 1e2 * pred_reward_mse
+        reward_loss = 1 * pred_reward_mse
+        #reward_loss = 0 * pred_reward_mse
 
         # pred_reward_mse = 0.5 * tf.square(
         #     reward_pred - reward_external) / total_sum  # reduce the last dim
@@ -490,12 +500,14 @@ class RewardAlgorithmState(Algorithm):
         #     pred_reward_mse,
         #     tf.stop_gradient(scaled_mask))  # reduce the last dim
 
+        #print(reward_pred)
         intrinsic_reward = ()
         if calc_intrinsic_reward:
             # intrinsic_reward = tf.stop_gradient(forward_loss)
             intrinsic_reward = tf.stop_gradient(reward_pred)
             # intrinsic_reward = self._reward_normalizer.normalize(
             #     intrinsic_reward)
+            print(intrinsic_reward)
 
         return AlgorithmStep(
             outputs=(),

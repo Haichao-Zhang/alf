@@ -184,34 +184,54 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
     def load_part_model(self, root_dir):
         # load pre-trained variables
         if self._icm is not None:
-            self._icm_checkpoint = tf.train.Checkpoint(icm=self._icm._fuse_net)
+            # self._icm_checkpoint = tf.train.Checkpoint(
+            #     icm=self._icm._fuse_net,
+            #     fea_net=self._algos[0]._actor_network._feature_mapping) # temp solution
+            self._icm_checkpoint = tf.train.Checkpoint(
+                icm=self._icm._fuse_net,
+                #fea_net=self._icm._fuse_net,
+                fea_net=self._algos[0]._actor_network._feature_mapping,
+            )  # temp solution
             ckpt_dir = os.path.join(root_dir, 'icm')
             latest = tf.train.latest_checkpoint(ckpt_dir)
             if latest is not None:
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
-                print(self._icm._fuse_net.variables)
+                # print(self._icm._fuse_net.variables)
 
+                print("fusion--------------------")
+                print(self._icm._fuse_net.variables)
+                print("actor_network--------------------")
                 print(self._algos[0]._actor_network._feature_mapping.variables)
+                # print(self._algos[0]._actor_network._feature_mapping.variables)
                 print(
                     "---------------------load ICM model---------------------------"
                 )
                 # print(latest)
-                # import pdb
+
                 # pdb.set_trace()
                 self._icm_checkpoint.restore(latest)
                 #print(self._icm._fuse_net.summary())
+                print("fusion--------------------")
+                print(self._icm._fuse_net.variables)
+                print("actor_network--------------------")
+                print(self._algos[0]._actor_network._feature_mapping.variables)
                 # print("fusion--------------------")
-                # print(self._icm._fuse_net.variables)
+                # print(vars(self._icm))
                 # print("actor_network--------------------")
-                # print(self._algos[0]._actor_network._feature_mapping.variables)
-                #pdb.set_trace()
+                # print(vars(self._algos[0]._actor_network))
+                # pdb.set_trace()
             else:
                 print("-------No ICM checkpoint-----")
                 #print(self._icm._fuse_net.summary())
                 #print(self._icm._fuse_net.variables)
 
     def save_part_model(self, root_dir):
+        print("--------------save ---icm")
+        print(self._icm._fuse_net.variables)
+        print("--------------save ---feature_map")
+        print(self._algos[0]._actor_network._feature_mapping.variables)
+
         ckpt_dir = os.path.join(root_dir, 'icm')
         self._icm_checkpoint.save(ckpt_dir + '/ck')
         return
@@ -347,6 +367,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         optimizer_and_module_sets = super().get_optimizer_and_module_sets()
         print("=======optimizer------")
         print(optimizer_and_module_sets)
+        print(optimizer_and_module_sets[1])
         #for opt, module_set in optimizer_and_module_sets:
         if self._teacher_training_phase:
             return optimizer_and_module_sets[1:]

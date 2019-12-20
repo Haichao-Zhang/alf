@@ -348,7 +348,12 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
         v_states, _ = self._feature_mapping(v_states)
         s_states, _ = self._feature_mapping(s_states)
 
-        states = tf.concat([v_states, s_states], axis=1)
+        # print(v_states)
+        # print(s_states)
+
+        #states = tf.concat([v_states, s_states], axis=1)
+        s_states = tf.stop_gradient(s_states)
+        states = v_states - s_states
         #print(states.shape)
         for layer in self._mlp_layers_fusion:
             states = layer(states)

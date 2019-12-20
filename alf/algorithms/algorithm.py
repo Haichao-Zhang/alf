@@ -161,6 +161,12 @@ class Algorithm(tf.Module):
                     and not isinstance(obj, Algorithm))
 
         module_sets = [copy.copy(s) for s in self._init_module_sets]
+
+        # import pdb
+        # pdb.set_trace()
+
+        # print("-----------module sets ========")
+        # print(module_sets)
         # optimizers = [
         #     copy.copy(opt) for opt in self._init_optimizers if opt is not None
         # ]
@@ -178,6 +184,11 @@ class Algorithm(tf.Module):
         for module in self._get_children(_is_module_or_var):
             if id(module) not in module_ids:
                 module_sets[0].append(module)
+
+        # print("-----------module sets ========")
+        # print(module_sets)
+        # import pdb
+        # pdb.set_trace()
 
         return list(zip(optimizers, module_sets))
 
