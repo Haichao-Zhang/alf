@@ -79,8 +79,8 @@ reward/ValueNetwork.fc_layer_params=(10, 25, 5)
 reward/ValueNetwork.activation_fn=@tf.nn.relu
 
 reward/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
-reward/EncodingNetwork.fc_layer_params=(4, 2, 2)
-reward/EncodingNetwork.activation_fn=@tf.nn.softsign
+reward/EncodingNetwork.fc_layer_params=(10, 25, 5)
+reward/EncodingNetwork.activation_fn=@tf.nn.relu
 # should be the joint name of the other submodules
 reward/EncodingNetwork.name='EncodingNetwork'
 

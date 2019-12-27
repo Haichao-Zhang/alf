@@ -485,8 +485,8 @@ class RewardAlgorithmState(Algorithm):
 
         # pred_reward_mse = 0.5 * (pos_reward_mse + neg_reward_mse)
         # reward_loss = 1e2 * pred_reward_mse
-        reward_loss = 1 * pred_reward_mse
-        #reward_loss = 0 * pred_reward_mse
+        #reward_loss = 1 * pred_reward_mse
+        reward_loss = 0 * pred_reward_mse
 
         # pred_reward_mse = 0.5 * tf.square(
         #     reward_pred - reward_external) / total_sum  # reduce the last dim

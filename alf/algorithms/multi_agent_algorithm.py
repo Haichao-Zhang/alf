@@ -232,8 +232,8 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         print("--------------save ---feature_map")
         print(self._algos[0]._actor_network._feature_mapping.variables)
 
-        ckpt_dir = os.path.join(root_dir, 'icm')
-        self._icm_checkpoint.save(ckpt_dir + '/ck')
+        # ckpt_dir = os.path.join(root_dir, 'icm')
+        # self._icm_checkpoint.save(ckpt_dir + '/ck')
         return
 
     def get_sliced_data(self, data, domain_name):

@@ -105,6 +105,7 @@ def get_trainer_config(root_dir):
     # as separate fixed network
     with gin.config_scope('reward'):
         feature_net2 = EncodingNetwork()
+
     reward_estimator = reward_estimation.RewardAlgorithmState(
         fuse_net=feature_net)
 
