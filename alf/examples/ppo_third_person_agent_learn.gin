@@ -25,7 +25,7 @@ create_environment.env_name='SocialBot-Third-Person-Agent-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-batch_size=30
+batch_size=5
 create_environment.num_parallel_environments=%batch_size
 
 # algorithm config
@@ -65,8 +65,8 @@ teacher/NormalProjectionNetwork.std_transform=@tf.math.exp
 
 # reward learning module
 # need a multi-modal network shared with policy and value net
-feature_size=4 # reward 4 # num_of_joints * DoF_per_joint * 2
-feature_size_double=4 #feature_size*2
+feature_size=2 # reward 4 # num_of_joints * DoF_per_joint * 2
+feature_size_double=2 #feature_size*2
 #reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 reward/TensorSpec.shape=(%feature_size,)
 reward_pred/TensorSpec.shape=(%feature_size_double,)

@@ -113,7 +113,7 @@ def get_trainer_config(root_dir):
     # print(feature_net.variables)
     with gin.config_scope('learner'):
         learner_network = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
-            feature_mapping=feature_net2)
+            feature_mapping=feature_net)
         learner_ppo_algo = ppo_algorithm.PPOAlgorithm(
             actor_network=learner_network)
     with gin.config_scope('teacher'):

@@ -203,7 +203,7 @@ class RewardAlgorithm(Algorithm):
 
         pred_reward_mse = 0.5 * tf.square(
             reward_pred - reward_external)  # reduce the last dim
-        reward_loss = 0.5 * tf.multiply(
+        reward_loss = 0. * tf.multiply(
             pred_reward_mse,
             tf.stop_gradient(scaled_mask))  # reduce the last dim
 
@@ -416,6 +416,10 @@ class RewardAlgorithmState(Algorithm):
         state_goal = feature['image']
         state_self = feature['state']
 
+        # print("==========inside intrinsic module--------")
+        # print(state_goal)
+        # print(state_self)
+
         # print(state_goal)
         # print(state_self)
 
@@ -445,8 +449,10 @@ class RewardAlgorithmState(Algorithm):
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self - state_goal), axis=-1)) * 2 - 1
 
-        # reward_pred = tf.exp(-tf.reduce_mean(
-        #     tf.square(state_self_trans - state_goal_trans), axis=-1)) * 2 - 1
+        diff = state_self - state_goal
+        dist = tf.sqrt(tf.reduce_sum(tf.square(diff), axis=-1))
+        reward_pred = tf.exp(-dist * 2)
+        # print(dist)
         h_loss = tf.keras.losses.Huber()
         # reward_pred = 1 - 2 * tf.exp(
         #     -h_loss(state_self_trans, state_goal_trans) * 1)
@@ -458,7 +464,7 @@ class RewardAlgorithmState(Algorithm):
 
         pred_reward_mse = tf.reduce_mean(
             tf.square(state_self_trans - state_goal_trans), axis=-1)
-        reward_pred = -pred_reward_mse  # maximize reward, minimize difference through policy
+        # reward_pred = -pred_reward_mse  # maximize reward, minimize difference through policy
         # # minimize loss difference
 
         pos_mask = tf.dtypes.cast(
@@ -507,7 +513,7 @@ class RewardAlgorithmState(Algorithm):
             intrinsic_reward = tf.stop_gradient(reward_pred)
             # intrinsic_reward = self._reward_normalizer.normalize(
             #     intrinsic_reward)
-            print(intrinsic_reward)
+            #print(intrinsic_reward)
 
         return AlgorithmStep(
             outputs=(),
