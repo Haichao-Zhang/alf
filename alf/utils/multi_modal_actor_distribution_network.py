@@ -368,6 +368,7 @@ class MultiModalActorDistributionNetworkMapping(network.DistributionNetwork):
             for projection in self._projection_networks
         ]
 
+        print(outputs)
         output_actions = tf.nest.pack_sequence_as(self._output_tensor_spec,
                                                   outputs)
         return output_actions, network_state

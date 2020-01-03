@@ -88,13 +88,7 @@ FLAGS = flags.FLAGS
 #     return trainer_config
 
 
-# ------------------------------------------------------------------
-# for imitation learning ==============================
-def get_trainer_config(root_dir):
-    # multi-agent algorithm
-    # use instances instead of constructors
-
-    # feature net will be shared between policy (thus algorithm) and reward estimation
+def get_m_algo():
     with gin.config_scope('reward'):
         feature_net = EncodingNetwork()
     print("----feature net==============")
@@ -129,8 +123,19 @@ def get_trainer_config(root_dir):
         algos=[learner_ppo_algo, teacher_ppo_algo],
         debug_summaries=True)
 
-    print("-------algorithm--------")
-    print(m_alg.__dict__)
+    return m_alg
+
+
+# ------------------------------------------------------------------
+# for imitation learning ==============================
+def get_trainer_config(root_dir):
+    # multi-agent algorithm
+    # use instances instead of constructors
+
+    # feature net will be shared between policy (thus algorithm) and reward estimation
+
+    # print("-------algorithm--------")
+    # print(m_alg.__dict__)
 
     # print("========================================")
     # print(reward_estimator._fuse_net.variables)
@@ -147,7 +152,7 @@ def get_trainer_config(root_dir):
 
     trainer_config = policy_trainer.TrainerConfig(
         root_dir=root_dir,
-        algorithm_ctor=m_alg  # no (), only class name)
+        algorithm_ctor=get_m_algo()  # no (), only class name)
     )
 
     return trainer_config
@@ -180,7 +185,7 @@ def main(_):
     # python file
     # create the environment first
     # env = create_environment(nonparallel=True)
-    env = create_environment(nonparallel=False)
+    env = create_environment(num_parallel_environments=1, nonparallel=False)
     common.set_global_env(env)
     # #global _env
     # print(env)

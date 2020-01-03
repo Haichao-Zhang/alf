@@ -13,6 +13,8 @@ import alf.utils.multi_modal_encoding_network
 import alf.algorithms.multi_agent_algorithm
 import alf.environments.suite_socialbot
 
+import alf.bin.m_alg
+
 # expert phase
 #MultiAgentAlgorithm.teacher_training_phase=True
 #create_environment.env_name='SocialBot-Third-Person-Teacher-v0'
@@ -25,14 +27,14 @@ create_environment.env_name='SocialBot-Third-Person-Agent-v0'
 
 create_environment.env_load_fn=@suite_socialbot.load
 #suite_socialbot.load.gym_env_wrappers=(@FrameStack,)
-batch_size=5
+batch_size=30
 create_environment.num_parallel_environments=%batch_size
 
 # algorithm config
 # ActorCriticAlgorithm.gradient_clipping=0.5
 # ActorCriticAlgorithm.clip_by_global_norm=True
 
-PPOLoss.entropy_regularization=0e-4
+PPOLoss.entropy_regularization=1e-2
 PPOLoss.gamma=0.99
 PPOLoss.normalize_advantages=False #----------
 PPOLoss.td_lambda=0.95
@@ -51,7 +53,7 @@ teacher_action_spec=@teacher/get_sub_action_spec()
 
 action_spec=@get_action_spec()
 
-learner/NormalProjectionNetwork.init_means_output_factor=1e2
+learner/NormalProjectionNetwork.init_means_output_factor=1e-10
 #learner/NormalProjectionNetwork.mean_transform=None
 learner/NormalProjectionNetwork.std_bias_initializer_value=1.0
 learner/NormalProjectionNetwork.std_transform=@tf.math.exp
@@ -181,19 +183,21 @@ common.reward_scaling.scale=1
 MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithmState()
 MultiAgentAlgorithm.intrinsic_reward_coef=0 #0.1
 MultiAgentAlgorithm.extrinsic_reward_coef=1 #0.1
+MultiAgentAlgorithm.debug_summaries=True
 
 # training config
 # multi-agent policy trainer
 TrainerConfig.trainer=@sync_off_policy_trainer
 # can append another algorithm or provide a algorithm list
 TrainerConfig.algorithm_ctor=@MultiAgentAlgorithm
+#TrainerConfig.algorithm_ctor=@m_alg.get_m_algo()
 #TrainerConfig.mini_batch_length=1 # no need to set
 TrainerConfig.use_tf_functions=True
 TrainerConfig.unroll_length=100
 TrainerConfig.checkpoint_interval=100
 TrainerConfig.mini_batch_size=1000
 TrainerConfig.num_iterations=100000
-TrainerConfig.num_updates_per_train_step=1
+TrainerConfig.num_updates_per_train_step=4
 TrainerConfig.eval_interval=100
 TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=True

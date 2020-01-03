@@ -418,6 +418,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
 
                 reward = self.calc_training_reward(
                     exp_sliced.reward, exp_sliced.info, True)  #info.rl
+
                 exp_sliced = exp_sliced._replace(reward=reward)
 
                 new_info = exp_sliced.info._replace(
