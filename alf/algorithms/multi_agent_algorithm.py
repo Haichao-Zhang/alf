@@ -190,7 +190,7 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
             self._icm_checkpoint = tf.train.Checkpoint(
                 icm=self._icm._fuse_net,
                 #fea_net=self._icm._fuse_net,
-                fea_net=self._algos[0]._actor_network._feature_mapping,
+                #fea_net=self._algos[0]._actor_network._feature_mapping,
             )  # temp solution
             ckpt_dir = os.path.join(root_dir, 'icm')
             latest = tf.train.latest_checkpoint(ckpt_dir)

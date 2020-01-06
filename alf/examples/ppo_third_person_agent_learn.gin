@@ -67,8 +67,8 @@ teacher/NormalProjectionNetwork.std_transform=@tf.math.exp
 
 # reward learning module
 # need a multi-modal network shared with policy and value net
-feature_size=2 # reward 4 # num_of_joints * DoF_per_joint * 2
-feature_size_double=2 #feature_size*2
+feature_size=4 # reward 4 # num_of_joints * DoF_per_joint * 2
+feature_size_double=4 #feature_size*2
 #reward/MultiModalEncodingNetwork.conv_layer_params_visual=%CONV_LAYER_PARAMS
 reward/TensorSpec.shape=(%feature_size,)
 reward_pred/TensorSpec.shape=(%feature_size_double,)
@@ -181,8 +181,8 @@ common.reward_scaling.scale=1
 # intrinsic or reward estimation module
 # MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithm()
 MultiAgentAlgorithm.intrinsic_curiosity_module=@RewardAlgorithmState()
-MultiAgentAlgorithm.intrinsic_reward_coef=0 #0.1
-MultiAgentAlgorithm.extrinsic_reward_coef=1 #0.1
+MultiAgentAlgorithm.intrinsic_reward_coef=1 #0.1
+MultiAgentAlgorithm.extrinsic_reward_coef=0 #0.1
 MultiAgentAlgorithm.debug_summaries=True
 
 # training config

@@ -96,18 +96,21 @@ def get_m_algo():
 
     print('featurenet before reward estimator')
     print(feature_net)
-    # as separate fixed network
-    with gin.config_scope('reward'):
-        feature_net2 = EncodingNetwork()
 
     reward_estimator = reward_estimation.RewardAlgorithmState(
         fuse_net=feature_net)
 
-    # print("para value after creation-----=====================-----")
-    # print(feature_net.variables)
+    # --- for Stage II as separate fixed network
+    with gin.config_scope('reward'):
+        feature_net2 = EncodingNetwork()
     with gin.config_scope('learner'):
         learner_network = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
-            feature_mapping=feature_net)
+            feature_mapping=feature_net2)
+
+        # with gin.config_scope('learner'):
+        #     learner_network = multi_modal_actor_distribution_network.MultiModalActorDistributionNetworkMapping(
+        #         feature_mapping=feature_net)
+
         learner_ppo_algo = ppo_algorithm.PPOAlgorithm(
             actor_network=learner_network)
     with gin.config_scope('teacher'):
