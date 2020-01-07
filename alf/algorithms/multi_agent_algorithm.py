@@ -394,11 +394,18 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         """
         # record shaped extrinsic rewards actually used for training
         self.add_reward_summary("reward/extrinsic", external_reward)
-        reward = self._extrinsic_reward_coef * external_reward
+        # reward = self._extrinsic_reward_coef * external_reward
+
+        # if with_icm_flag:
+        #     self.add_reward_summary("reward/icm", info.icm.reward)
+        #     reward += self._intrinsic_reward_coef * info.icm.reward
 
         if with_icm_flag:
+            step_penalty = -0.1
             self.add_reward_summary("reward/icm", info.icm.reward)
-            reward += self._intrinsic_reward_coef * info.icm.reward
+            print(external_reward)
+            print(info.icm.reward)
+            reward = external_reward * info.icm.reward + step_penalty  # my way of reward computation for stage II
 
         if id(reward) != id(external_reward):
             self.add_reward_summary("reward/overall", reward)
