@@ -449,7 +449,8 @@ class RewardAlgorithmState(Algorithm):
         # reward_pred = tf.exp(-tf.reduce_mean(
         #     tf.square(state_self - state_goal), axis=-1)) * 2 - 1
 
-        diff = state_self - state_goal
+        # diff = state_self - state_goal
+        diff = state_self_trans - state_goal_trans
         dist = tf.sqrt(tf.reduce_sum(tf.square(diff), axis=-1))
         step_penalty = -0.1
         # reward_pred = tf.exp(-dist * 10) + step_penalty
