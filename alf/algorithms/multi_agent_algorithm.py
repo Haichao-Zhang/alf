@@ -401,11 +401,13 @@ class MultiAgentAlgorithm(OffPolicyAlgorithm):
         #     reward += self._intrinsic_reward_coef * info.icm.reward
 
         if with_icm_flag:
-            step_penalty = -0.1
+            #step_penalty = -0.1
             self.add_reward_summary("reward/icm", info.icm.reward)
-            print(external_reward)
-            print(info.icm.reward)
-            reward = external_reward * info.icm.reward + step_penalty  # my way of reward computation for stage II
+            # print(external_reward)
+            # print(info.icm.reward)
+            # reward = external_reward * info.icm.reward  # my way of reward computation for stage II
+            pos_mask = tf.cast(tf.greater(external_reward, 0), tf.float32)
+            reward = pos_mask * (info.icm.reward - external_reward * 0.01)
 
         if id(reward) != id(external_reward):
             self.add_reward_summary("reward/overall", reward)
