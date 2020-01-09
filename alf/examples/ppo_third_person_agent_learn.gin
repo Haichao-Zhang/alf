@@ -86,10 +86,6 @@ reward/EncodingNetwork.activation_fn=@tf.nn.relu
 # should be the joint name of the other submodules
 reward/EncodingNetwork.name='EncodingNetwork'
 
-# policy/EncodingNetwork.input_tensor_spec=@reward_pred/TensorSpec()
-# policy/EncodingNetwork.fc_layer_params=(10, 25, 5)
-# policy/EncodingNetwork.activation_fn=@tf.nn.relu
-# policy/EncodingNetwork.name='EncodingNetwork'
 
 
 CONV_LAYER_PARAMS=((32, 6, 4), (64, 4, 2), (64, 3, 1))
