@@ -155,7 +155,7 @@ def params_to_distributions(nest, nest_spec):
 
     Args:
         nest (nested tf.Tensor): nested Tensor and dictionary of the Tensor
-            parameters of Distribution. Typicall, `nest` is obtained using
+            parameters of Distribution. Typically, `nest` is obtained using
             `distributions_to_params()`
         nest_spec (nested DistributionSpec and TensorSpec): The distribution
             params will be converted to Distribution according to the
