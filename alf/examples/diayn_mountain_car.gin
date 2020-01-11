@@ -2,7 +2,7 @@ import alf.algorithms.actor_critic_algorithm
 import alf.trainers.on_policy_trainer
 
 # environment config
-create_environment.num_parallel_environments=1
+create_environment.num_parallel_environments=30
 create_environment.env_name='MountainCar-v0'
 
 # algorithm config
@@ -48,9 +48,6 @@ TrainerConfig.trainer=@on_policy_trainer
 TrainerConfig.unroll_length=100
 TrainerConfig.algorithm_ctor=@Agent
 TrainerConfig.num_iterations=1000000
-#TrainerConfig.use_tf_functions=1
+TrainerConfig.use_tf_functions=1
 TrainerConfig.debug_summaries=1
 TrainerConfig.summarize_grads_and_vars=1
-
-TrainerConfig.use_tf_functions=False
-Trainer._create_environment.nonparallel=True

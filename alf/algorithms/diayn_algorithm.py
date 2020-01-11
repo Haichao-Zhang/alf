@@ -113,7 +113,10 @@ class DIAYNAlgorithm(Algorithm):
                 state: observation
                 info (DIAYNInfo):
         """
-        feature, skill = inputs
+        observations_aug, _ = inputs
+        feature = observations_aug.feature
+        skill = observations_aug.skill
+
         if self._encoding_net is not None:
             feature, _ = self._encoding_net(feature)
         prev_feature = state
