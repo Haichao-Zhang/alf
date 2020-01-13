@@ -128,8 +128,9 @@ class MultiModalEncodingNetwork(TFAEncodingNetwork):
 
         #states = v_states + s_states
 
-        # states = tf.concat([v_states, s_states], axis=1)
+        #states = tf.concat([v_states, s_states], axis=1)
         # for pose estimation, using v_states only
+        #keep only the visual input
         states = v_states
 
         # print(states.shape)

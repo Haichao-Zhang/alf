@@ -45,11 +45,16 @@ class RandomGoalWrapper(gym.Wrapper):
         self._num_of_goals = num_of_goals
         self._p_goal = np.full(self._num_of_goals, 1.0 / self._num_of_goals)
 
-        observation_goal = gym.spaces.Box(
-            low=0, high=self._num_of_goals, shape=(1, ), dtype=np.float32)
+        # observation_goal = gym.spaces.Discrete(
+        #     low=0, high=self._num_of_goals, shape=(1, ), dtype=np.int32)
+        observation_goal = gym.spaces.Discrete(self._num_of_goals)
+        # observation_obs = gym.spaces.Box(
+        #     low=-10.0, high=10.0, shape=(2, ), dtype=np.float32)
 
         self.observation_space = gym.spaces.Dict(
             obs=env.observation_space, goal=observation_goal)
+        # self.observation_space = gym.spaces.Dict(
+        #     obs=observation_obs, goal=observation_goal)
 
         self._goal = self.sample_goal()
 
@@ -62,7 +67,7 @@ class RandomGoalWrapper(gym.Wrapper):
     def aug_obs_with_goal(self, obs_org):
         obs_aug = OrderedDict()
         obs_aug['obs'] = obs_org
-        obs_aug['goal'] = self._goal
+        obs_aug['goal'] = np.asarray(self._goal)  # should be np.array??
         return obs_aug
 
     def step(self, action):

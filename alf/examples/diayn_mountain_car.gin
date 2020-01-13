@@ -1,30 +1,52 @@
 import alf.algorithms.actor_critic_algorithm
+import alf.algorithms.diayn_algorithm
 import alf.trainers.on_policy_trainer
 
 import alf.environments.multi_goal_wrappers
 import alf.utils.multi_modal_encoding_network
+import alf.utils.multi_modal_actor_distribution_network
+import alf.utils.multi_modal_value_network
 
 # environment config
+num_of_goals=5
 
 create_environment.env_load_fn=@suite_gym.load
 # provide multi-goal wrappers
 suite_gym.load.gym_env_wrappers=(@RandomGoalWrapper,)
-RandomGoalWrapper.num_of_goals=5
-create_environment.num_parallel_environments=1
+RandomGoalWrapper.num_of_goals=%num_of_goals
+create_environment.num_parallel_environments=30
 create_environment.env_name='MountainCar-v0'
 
 # algorithm config
 observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
 
-actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
-actor/ActorDistributionNetwork.output_tensor_spec=%action_spec
-actor/ActorDistributionNetwork.fc_layer_params=(256, 256)
-actor/ActorDistributionNetwork.activation_fn=@tf.nn.relu
+#actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
+#actor/ActorDistributionNetwork.output_tensor_spec=%action_spec
+#actor/ActorDistributionNetwork.fc_layer_params=(256, 256)
+#actor/ActorDistributionNetwork.activation_fn=@tf.nn.relu
 
-value/ValueNetwork.input_tensor_spec=%observation_spec
-value/ValueNetwork.fc_layer_params=(256, 256)
-value/ValueNetwork.activation_fn=@tf.nn.relu
+#value/ValueNetwork.input_tensor_spec=%observation_spec
+#value/ValueNetwork.fc_layer_params=(256, 256)
+#value/ValueNetwork.activation_fn=@tf.nn.relu
+
+
+actor/MultiModalActorDistributionNetwork.input_tensor_spec=%observation_spec
+actor/MultiModalActorDistributionNetwork.output_tensor_spec=%action_spec
+actor/MultiModalActorDistributionNetwork.fc_layer_params_visual=(256, 256)
+actor/MultiModalActorDistributionNetwork.fc_layer_params_state=(256, 256)
+actor/MultiModalActorDistributionNetwork.fc_layer_params_fusion=(256, 256)
+actor/MultiModalActorDistributionNetwork.activation_fn=@tf.nn.relu
+
+
+value/MultiModalValueNetwork.input_tensor_spec=%observation_spec
+value/MultiModalValueNetwork.fc_layer_params_visual=(256, 256)
+value/MultiModalValueNetwork.fc_layer_params_state=(256, 256)
+value/MultiModalValueNetwork.fc_layer_params_fusion=(256, 256)
+value/MultiModalValueNetwork.activation_fn=@tf.nn.relu
+
+
+
 
 ac/Adam.learning_rate=1e-3
 feature_size=200
@@ -35,24 +57,27 @@ feature_size=200
 #icm/TensorSpec.shape=(%feature_size,)
 
 
-icm/encoding_net_fc_layer_params=(200, %feature_size)
-icm/MultiModalEncodingNetwork.input_tensor_spec=%observation_spec
-icm/MultiModalEncodingNetwork.fc_layer_params=%icm/encoding_net_fc_layer_params
-icm/MultiModalEncodingNetwork.activation_fn=@tf.nn.relu
-icm/MultiModalEncodingNetwork.last_layer_size=%feature_size
-icm/TensorSpec.shape=(%feature_size,)
+diayn/encoding_net_fc_layer_params=(200, %feature_size)
+diayn/MultiModalEncodingNetwork.input_tensor_spec=%observation_spec
+diayn/MultiModalEncodingNetwork.fc_layer_params_visual=(256, 256)
+diayn/MultiModalEncodingNetwork.fc_layer_params_state=(256, 256)
+diayn/MultiModalEncodingNetwork.fc_layer_params_fusion=(256, 256)
+diayn/MultiModalEncodingNetwork.activation_fn=@tf.nn.relu
+diayn/MultiModalEncodingNetwork.last_layer_size=%feature_size
+diayn/TensorSpec.shape=(%feature_size,)
 
 
 
-ICMAlgorithm.action_spec=%action_spec
-ICMAlgorithm.feature_spec=@icm/TensorSpec()
-ICMAlgorithm.encoding_net=@icm/MultiModalEncodingNetwork()
-ICMAlgorithm.hidden_size=(200, 200)
+# DIAYNAlgorithm.action_spec=%action_spec
+DIAYNAlgorithm.num_of_skills=%num_of_goals
+DIAYNAlgorithm.feature_spec=@diayn/TensorSpec()
+DIAYNAlgorithm.encoding_net=@diayn/MultiModalEncodingNetwork()
+DIAYNAlgorithm.hidden_size=(200, 200)
 
-ActorCriticAlgorithm.actor_network=@actor/ActorDistributionNetwork()
-ActorCriticAlgorithm.value_network=@value/ValueNetwork()
+ActorCriticAlgorithm.actor_network=@actor/MultiModalActorDistributionNetwork()
+ActorCriticAlgorithm.value_network=@value/MultiModalValueNetwork()
 Agent.optimizer=@ac/Adam()
-Agent.intrinsic_curiosity_module=@ICMAlgorithm()
+Agent.intrinsic_curiosity_module=@DIAYNAlgorithm()
 ActorCriticLoss.use_gae=True
 ActorCriticLoss.use_td_lambda_return=True
 
@@ -69,5 +94,5 @@ TrainerConfig.num_iterations=1000000
 TrainerConfig.debug_summaries=1
 TrainerConfig.summarize_grads_and_vars=1
 
-TrainerConfig.use_tf_functions=False
-Trainer._create_environment.nonparallel=True
+TrainerConfig.use_tf_functions=True
+Trainer._create_environment.nonparallel=False

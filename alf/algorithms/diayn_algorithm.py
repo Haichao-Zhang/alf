@@ -37,7 +37,7 @@ class DIAYNAlgorithm(Algorithm):
     """
 
     def __init__(self,
-                 skill_spec,
+                 num_of_skills,
                  feature_spec,
                  hidden_size=256,
                  reward_adapt_speed=8.0,
@@ -47,9 +47,10 @@ class DIAYNAlgorithm(Algorithm):
         """Create a DIAYNAlgorithm.
 
         Args:
+            num_of_skills: number of skills (goals)
             hidden_size (int|tuple): size of hidden layer(s)
             reward_adapt_speed (float): how fast to adapt the reward normalizer.
-                rouphly speaking, the statistics for the normalization is
+                roughly speaking, the statistics for the normalization is
                 calculated mostly based on the most recent T/speed samples,
                 where T is the total number of samples.
             encoding_net (Network): network for encoding observation into a
@@ -60,23 +61,19 @@ class DIAYNAlgorithm(Algorithm):
         super(DIAYNAlgorithm, self).__init__(
             train_state_spec=feature_spec, name=name)
 
-        flat_skill_spec = tf.nest.flatten(skill_spec)
-        assert len(flat_skill_spec
-                   ) == 1, "DIAYNAlgorithm doesn't suport nested skill_spec"
-
         flat_feature_spec = tf.nest.flatten(feature_spec)
         assert len(flat_feature_spec
                    ) == 1, "DIAYNAlgorithm doesn't support nested feature_spec"
 
-        skill_spec = flat_skill_spec[0]
+        self._num_skills = num_of_skills
+        self._skill_spec = tf.TensorSpec(
+            shape=(self._num_skills, ), dtype=tf.int32)
 
-        # should be able to handle both discrete and continious case
-        if tensor_spec.is_discrete(skill_spec):
-            self._num_skills = skill_spec.maximum - skill_spec.minimum + 1
-        else:
-            self._num_skills = skill_spec.shape[-1]
-
-        self._skill_spec = skill_spec
+        # # should be able to handle both discrete and continious case
+        # if tensor_spec.is_discrete(skill_spec):
+        #     self._num_skills = skill_spec.maximum - skill_spec.minimum + 1
+        # else:
+        #     self._num_skills = skill_spec.shape[-1]
 
         #feature_dim = flat_feature_spec[0].shape[-1]
 
@@ -114,12 +111,16 @@ class DIAYNAlgorithm(Algorithm):
                 info (DIAYNInfo):
         """
         observations_aug, _ = inputs
-        feature = observations_aug.feature
-        skill = observations_aug.skill
+        feature = observations_aug['obs']
+        skill = observations_aug['goal']
 
+        # if self._encoding_net is not None:
+        #     feature, _ = self._encoding_net(feature)
         if self._encoding_net is not None:
-            feature, _ = self._encoding_net(feature)
+            feature, _, _ = self._encoding_net(observations_aug)
+
         prev_feature = state
+        skill = tf.cast(skill, tf.int32)
         skill = self._encode_skill(skill)
 
         skill_pred, _ = self._discriminator_net(inputs=[prev_feature, feature])

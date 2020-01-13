@@ -729,6 +729,19 @@ def get_action_spec():
 
 
 @gin.configurable
+def get_skill_spec():
+    """Get the specs of the Tensors expected by `step(action)` of the global environment.
+
+    Returns:
+      An single `TensorSpec`, or a nested dict, list or tuple of
+      `TensorSpec` objects, which describe the shape and
+      dtype of each Tensor expected by `step()`.
+    """
+    assert _env, "set a global env by `set_global_env` before using the function"
+    return _env.action_spec()
+
+
+@gin.configurable
 def get_vocab_size():
     """Get the vocabulary size of observations provided by the global environment.
 
