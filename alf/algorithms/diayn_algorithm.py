@@ -85,7 +85,7 @@ class DIAYNAlgorithm(Algorithm):
         if discriminator_net is None:
             discriminator_net = EncodingNetwork(
                 name="discriminator_net",
-                input_tensor_spec=[feature_spec, feature_spec],
+                input_tensor_spec=feature_spec,
                 fc_layer_params=hidden_size,
                 last_layer_size=self._num_skills,
                 last_kernel_initializer=tf.initializers.Zeros())
@@ -123,7 +123,7 @@ class DIAYNAlgorithm(Algorithm):
         skill = tf.cast(skill, tf.int32)
         skill = self._encode_skill(skill)
 
-        skill_pred, _ = self._discriminator_net(inputs=[prev_feature, feature])
+        skill_pred, _ = self._discriminator_net(inputs=feature)
 
         if tensor_spec.is_discrete(self._skill_spec):
             skill_discriminate_loss = tf.nn.softmax_cross_entropy_with_logits(

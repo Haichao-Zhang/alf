@@ -84,6 +84,9 @@ ActorCriticLoss.use_td_lambda_return=True
 Agent.enforce_entropy_target=True
 EntropyTargetAlgorithm.min_alpha=0.1
 
+Agent.intrinsic_reward_coef=0 #0.1
+Agent.extrinsic_reward_coef=1 #0.1
+
 EncodingNetwork.activation_fn=@tf.nn.relu
 
 # training config
