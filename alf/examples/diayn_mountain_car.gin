@@ -1,8 +1,11 @@
 import alf.algorithms.actor_critic_algorithm
 import alf.trainers.on_policy_trainer
 
-# environment config
 import alf.environments.multi_goal_wrappers
+import alf.utils.multi_modal_encoding_network
+
+# environment config
+
 create_environment.env_load_fn=@suite_gym.load
 # provide multi-goal wrappers
 suite_gym.load.gym_env_wrappers=(@RandomGoalWrapper,)
@@ -25,15 +28,25 @@ value/ValueNetwork.activation_fn=@tf.nn.relu
 
 ac/Adam.learning_rate=1e-3
 feature_size=200
+#icm/encoding_net_fc_layer_params=(200, %feature_size)
+#icm/EncodingNetwork.input_tensor_spec=%observation_spec
+#icm/EncodingNetwork.fc_layer_params=%icm/encoding_net_fc_layer_params
+#icm/EncodingNetwork.activation_fn=@tf.nn.relu
+#icm/TensorSpec.shape=(%feature_size,)
+
+
 icm/encoding_net_fc_layer_params=(200, %feature_size)
-icm/EncodingNetwork.input_tensor_spec=%observation_spec
-icm/EncodingNetwork.fc_layer_params=%icm/encoding_net_fc_layer_params
-icm/EncodingNetwork.activation_fn=@tf.nn.relu
+icm/MultiModalEncodingNetwork.input_tensor_spec=%observation_spec
+icm/MultiModalEncodingNetwork.fc_layer_params=%icm/encoding_net_fc_layer_params
+icm/MultiModalEncodingNetwork.activation_fn=@tf.nn.relu
+icm/MultiModalEncodingNetwork.last_layer_size=%feature_size
 icm/TensorSpec.shape=(%feature_size,)
+
+
 
 ICMAlgorithm.action_spec=%action_spec
 ICMAlgorithm.feature_spec=@icm/TensorSpec()
-ICMAlgorithm.encoding_net=@icm/EncodingNetwork()
+ICMAlgorithm.encoding_net=@icm/MultiModalEncodingNetwork()
 ICMAlgorithm.hidden_size=(200, 200)
 
 ActorCriticAlgorithm.actor_network=@actor/ActorDistributionNetwork()
