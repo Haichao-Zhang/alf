@@ -128,12 +128,16 @@ class MultiModalValueNetwork(network.Network):
         batch_squash = utils.BatchSquash(outer_rank)
 
         observations = tf.nest.flatten(observations)
-        # do multi-modality fusion here
-        v_states = tf.cast(observations[0], tf.float32)
-        s_states = tf.cast(observations[1], tf.float32)
 
+        observations = tf.nest.map_structure(lambda o: tf.cast(o, tf.float32),
+                                             observations)
+        # do multi-modality fusion here:
+        # 0: goal
+        # 1: observation
+        # 2: action
+        v_states = tf.concat([observations[1], observations[2]], -1)
         v_states = batch_squash.flatten(v_states)
-        s_states = batch_squash.flatten(s_states)
+        s_states = batch_squash.flatten(observations[0])
 
         for layer in self._postprocessing_layers_visual:
             v_states = layer(v_states)

@@ -8,13 +8,13 @@ import alf.utils.multi_modal_actor_distribution_network
 import alf.utils.multi_modal_value_network
 
 # environment config
-num_of_goals=5
+num_of_goals=1
 
 create_environment.env_load_fn=@suite_gym.load
 # provide multi-goal wrappers
 suite_gym.load.gym_env_wrappers=(@RandomGoalWrapper,)
 RandomGoalWrapper.num_of_goals=%num_of_goals
-create_environment.num_parallel_environments=10
+create_environment.num_parallel_environments=30
 create_environment.env_name='Pendulum-v0'
 
 # algorithm config
@@ -47,7 +47,7 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 
-critic/MultiModalValueNetwork.input_tensor_spec=%observation_spec
+critic/MultiModalValueNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/MultiModalValueNetwork.fc_layer_params_visual=(256, 256)
 critic/MultiModalValueNetwork.fc_layer_params_state=(256, 256)
 critic/MultiModalValueNetwork.fc_layer_params_fusion=(256, 256)
@@ -111,7 +111,7 @@ TrainerConfig.mini_batch_size=64
 TrainerConfig.num_updates_per_train_step=1
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@Agent
-TrainerConfig.num_iterations=10000
+TrainerConfig.num_iterations=1000000
 TrainerConfig.checkpoint_interval=10000
 TrainerConfig.evaluate=1
 TrainerConfig.eval_interval=500
