@@ -120,8 +120,8 @@ class DIAYNAlgorithm(Algorithm):
             feature, _, _ = self._encoding_net(observations_aug)
 
         prev_feature = state
-        skill = tf.cast(skill, tf.int32)
-        skill = self._encode_skill(skill)
+        skill_index = tf.cast(skill, tf.int32)
+        skill = self._encode_skill(skill_index)
 
         skill_pred, _ = self._discriminator_net(inputs=feature)
 
@@ -133,10 +133,29 @@ class DIAYNAlgorithm(Algorithm):
                 tf.square(skill - skill_pred), axis=-1)
 
         intrinsic_reward = ()
+
+        def vector_slice(A, B):
+            """ Returns values of rows i of A at column B[i]
+
+            where A is a 2D Tensor with shape [None, D]
+            and B is a 1D Tensor with shape [None]
+            with type int32 elements in [0,D)
+
+            Example:
+            A =[[1,2], B = [0,1], vector_slice(A,B) -> [1,4]
+                [3,4]]
+            """
+            B = tf.expand_dims(B, 1)
+            range = tf.expand_dims(tf.range(tf.shape(B)[0]), 1)
+            ind = tf.concat([range, B], 1)
+            return tf.gather_nd(A, ind)
+
         if calc_intrinsic_reward:
             # use negative cross-entropy as reward
             # neglect the constant neg-prior term for now
-            intrinsic_reward = tf.stop_gradient(-skill_discriminate_loss)
+            # intrinsic_reward = tf.stop_gradient(-skill_discriminate_loss)
+            skill_prob = vector_slice(skill_pred, skill_index)
+            intrinsic_reward = tf.stop_gradient(skill_prob)  ###====get prob
 
         return AlgorithmStep(
             outputs=(),
