@@ -8,7 +8,7 @@ import alf.utils.multi_modal_actor_distribution_network
 import alf.utils.multi_modal_value_network
 
 # environment config
-num_of_goals=5
+num_of_goals=50
 NUM_PARALLEL_ENVIRONMENTS=1
 
 create_environment.env_load_fn=@suite_gym.load
@@ -16,8 +16,9 @@ create_environment.env_load_fn=@suite_gym.load
 suite_gym.load.gym_env_wrappers=(@RandomGoalWrapper,)
 RandomGoalWrapper.num_of_goals=%num_of_goals
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
-create_environment.env_name='Pendulum-v0'
-#create_environment.env_name='MountainCar-v0'
+#create_environment.env_name='Pendulum-v0'
+# create_environment.env_name='MountainCarContinuous-v0'
+create_environment.env_name='Ant-v2'
 
 # algorithm config
 observation_spec=@get_observation_spec()

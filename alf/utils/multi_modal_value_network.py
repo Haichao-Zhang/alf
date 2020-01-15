@@ -135,6 +135,10 @@ class MultiModalValueNetwork(network.Network):
         # 0: goal
         # 1: observation
         # 2: action
+
+        # obs2 = observations[2]
+        # if (tf.rank(obs2) < tf.rank(observations[1])):
+        #       obs2 = tf.expand_dims(obs2, -1)
         v_states = tf.concat([observations[1], observations[2]], -1)
         v_states = batch_squash.flatten(v_states)
         s_states = batch_squash.flatten(observations[0])
