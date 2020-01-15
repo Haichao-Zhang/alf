@@ -63,6 +63,7 @@ class RandomGoalWrapper(gym.Wrapper):
         Samples goal according to goal probabilities in self._p_goal
         """
         return np.random.choice(self._num_of_goals, p=self._p_goal)
+        #return 3
 
     def aug_obs_with_goal(self, obs_org):
         obs_aug = OrderedDict()

@@ -153,9 +153,12 @@ class DIAYNAlgorithm(Algorithm):
         if calc_intrinsic_reward:
             # use negative cross-entropy as reward
             # neglect the constant neg-prior term for now
-            # intrinsic_reward = tf.stop_gradient(-skill_discriminate_loss)
-            skill_prob = vector_slice(skill_pred, skill_index)
-            intrinsic_reward = tf.stop_gradient(skill_prob)  ###====get prob
+            intrinsic_reward = tf.stop_gradient(-skill_discriminate_loss)
+
+            # # another equivalent way
+            # skill_prob = tf.nn.log_softmax(skill_pred)
+            # skill_prob = vector_slice(skill_prob, skill_index)
+            # intrinsic_reward0 = tf.stop_gradient(skill_prob)  ###====get prob
 
         return AlgorithmStep(
             outputs=(),

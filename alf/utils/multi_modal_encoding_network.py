@@ -114,8 +114,8 @@ class MultiModalEncodingNetwork(TFAEncodingNetwork):
 
         observations = tf.nest.flatten(observations)
         # do multi-modality fusion here
-        v_states = tf.cast(observations[0], tf.float32)
-        s_states = tf.cast(observations[1], tf.float32)
+        v_states = tf.cast(observations[1], tf.float32)
+        s_states = tf.cast(observations[0], tf.float32)
 
         v_states = batch_squash.flatten(v_states)
         # s_states = batch_squash.flatten(s_states)
