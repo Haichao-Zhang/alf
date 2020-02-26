@@ -170,3 +170,35 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         loss = add_ignore_empty(loss, training_info.info.reward)
         loss = add_ignore_empty(loss, training_info.info.planner)
         return LossInfo(loss=loss.loss, extra=())
+
+
+class QMbrlAlgorithm(MbrlAlgorithm):
+    """MBRL with Q-network
+    """
+
+    def __init__(self,
+                 observation_spec,
+                 feature_spec,
+                 action_spec,
+                 actor_network: Network,
+                 critic_network: Network,
+                 dynamics_module: DynamicsLearningAlgorithm,
+                 reward_module: RewardEstimationAlgorithm,
+                 planner_module: PlanAlgorithm,
+                 actor_optimizer=None,
+                 critic_optimizer=None,
+                 gradient_clipping=None,
+                 debug_summaries=False,
+                 name="QMbrlAlgorithm"):
+        super().__init__(
+            observation_spec=observation_spec,
+            feature_spec=feature_spec,
+            action_spec=action_spec,
+            dynamics_module=dynamics_module,
+            reward_module=reward_module,
+            planner_module=planner_module,
+            gradient_clipping=gradient_clipping,
+            debug_summaries=debug_summaries)
+
+        self._actor_optimizer = actor_optimizer
+        self._critic_optimizer = critic_optimizer
