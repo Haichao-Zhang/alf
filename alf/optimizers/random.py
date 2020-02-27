@@ -62,3 +62,47 @@ class RandomOptimizer(Optimizer):
         ind = tf.concat([batch_ind, population_ind], axis=1)
         solution = tf.gather_nd(solutions, ind)
         return solution
+
+
+class QOptimizer(Optimizer):
+    def __init__(self,
+                 solution_dim,
+                 population_size,
+                 upper_bound=None,
+                 lower_bound=None):
+        """Creates a Q Optimizer
+
+        Args:
+            solution_dim (int): The dimensionality of the problem space
+            population_size (int): The number of candidate solutions to be
+                sampled at every iteration
+            upper_bound (int|tf.Tensor): upper bounds for elements in solution
+            lower_bound (int|tf.Tensor): lower bounds for elements in solution
+        """
+        super().__init__()
+        self._solution_dim = solution_dim
+        self._population_size = population_size
+        self._upper_bound = upper_bound
+        self._lower_bound = lower_bound
+
+    def obtain_solution(self, time_step: ActionTimeStep, state, acs):
+        """Minimize the cost function provided
+
+        Args:
+            time_step (ActionTimeStep): the initial time_step to start rollout
+            state: input state to start rollout
+            acs: for evaluation
+        """
+        init_obs = time_step.observation
+        batch_size = init_obs.shape[0]
+        # solutions = tf.random.uniform(
+        #     [batch_size, self._population_size, self._solution_dim],
+        #     self._lower_bound, self._upper_bound)
+        solutions = acs
+        costs = self.cost_function(time_step, state, solutions)
+        min_ind = tf.cast(tf.argmin(costs, axis=-1), tf.int32)
+        population_ind = tf.expand_dims(min_ind, 1)
+        batch_ind = tf.expand_dims(tf.range(tf.shape(solutions)[0]), 1)
+        ind = tf.concat([batch_ind, population_ind], axis=1)
+        solution = tf.gather_nd(solutions, ind)
+        return solution

@@ -185,6 +185,12 @@ class QMbrlAlgorithm(MbrlAlgorithm):
                  dynamics_module: DynamicsLearningAlgorithm,
                  reward_module: RewardEstimationAlgorithm,
                  planner_module: PlanAlgorithm,
+                 ou_stddev=0.2,
+                 ou_damping=0.15,
+                 critic_loss=None,
+                 target_update_tau=0.05,
+                 target_update_period=1,
+                 dqda_clipping=None,
                  actor_optimizer=None,
                  critic_optimizer=None,
                  gradient_clipping=None,
@@ -200,5 +206,63 @@ class QMbrlAlgorithm(MbrlAlgorithm):
             gradient_clipping=gradient_clipping,
             debug_summaries=debug_summaries)
 
+        self._actor_network = actor_network
+        self._critic_network = critic_network
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
+
+        self._target_actor_network = actor_network.copy(
+            name='target_actor_network')
+        self._target_critic_network = critic_network.copy(
+            name='target_critic_network')
+
+        self._ou_stddev = ou_stddev
+        self._ou_damping = ou_damping
+
+        if critic_loss is None:
+            critic_loss = OneStepTDLoss(debug_summaries=debug_summaries)
+        self._critic_loss = critic_loss
+
+        self._update_target = common.get_target_updater(
+            models=[self._actor_network, self._critic_network],
+            target_models=[
+                self._target_actor_network, self._target_critic_network
+            ],
+            tau=target_update_tau,
+            period=target_update_period)
+
+        self._dqda_clipping = dqda_clipping
+
+    def predict(self, time_step: ActionTimeStep, state, epsilon_greedy):
+
+        # Q-based sampling
+        action, state = self._actor_network(
+            time_step.observation,
+            step_type=time_step.step_type,
+            network_state=state.actor.actor)
+        empty_state = tf.nest.map_structure(lambda x: (),
+                                            self.train_state_spec)
+
+        def _sample(a, ou):
+            return tf.cond(
+                tf.less(tf.random.uniform((), 0, 1),
+                        epsilon_greedy), lambda: a + ou(), lambda: a)
+
+        noisy_action = tf.nest.map_structure(_sample, action, self._ou_process)
+        noisy_action = tf.nest.map_structure(tfa_common.clip_to_spec,
+                                             noisy_action, self._action_spec)
+        state = empty_state._replace(
+            actor=DdpgActorState(actor=state, critic=()))
+
+        return self._predict_with_planning(time_step, state)
+
+    def _predict_with_planning(self, time_step: ActionTimeStep, state):
+        # now adding Q function as guidance
+        action = self._planner_module.generate_plan(time_step, state)
+        dynamics_state = self._dynamics_module.update_state(
+            time_step, state.dynamics)
+
+        return PolicyStep(
+            action=action,
+            state=MbrlState(dynamics=dynamics_state, reward=(), planner=()),
+            info=MbrlInfo())

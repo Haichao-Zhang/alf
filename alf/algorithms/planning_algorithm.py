@@ -22,7 +22,7 @@ import tf_agents.specs.tensor_spec as tensor_spec
 
 from alf.algorithms.algorithm import Algorithm, AlgorithmStep, LossInfo
 from alf.data_structures import ActionTimeStep, namedtuple
-from alf.optimizers.random import RandomOptimizer
+from alf.optimizers.random import RandomOptimizer, QOptimizer
 
 
 @gin.configurable
@@ -196,6 +196,217 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         action = opt_action[:, 0]
         action = tf.reshape(action, [time_step.observation.shape[0], -1])
         return action
+
+    def _expand_to_population(self, data):
+        """Expand the input tensor to a population of replications
+        Args:
+            data (tf.Tensor): input data with shape [batch_size, ...]
+        Returns:
+            data_population (tf.Tensor) with shape
+                                    [batch_size * self._population_size, ...].
+            For example data tensor [[a, b], [c, d]] and a population_size of 2,
+            we have the following data_population tensor as output
+                                    [[a, b], [a, b], [c, d], [c, d]]
+        """
+        data_population = tf.tile(
+            tf.expand_dims(data, 1),
+            [1, self._population_size] + [1] * len(data.shape[1:]))
+        data_population = tf.reshape(data_population,
+                                     [-1] + data.shape[1:].as_list())
+        return data_population
+
+    def _calc_cost_for_action_sequence(self, time_step: ActionTimeStep, state,
+                                       ac_seqs):
+        """
+        Args:
+            time_step (ActionTimeStep): input data for next step prediction
+            state (MbrlState): input state for next step prediction
+            ac_seqs: action_sequence (tf.Tensor) of shape [batch_size,
+                    population_size, solution_dim]), where
+                    solution_dim = planning_horizon * num_actions
+        Returns:
+            cost (tf.Tensor) with shape [batch_size, population_size]
+        """
+        obs = time_step.observation
+        batch_size = obs.shape[0]
+        init_costs = tf.zeros([batch_size, self._population_size])
+        ac_seqs = tf.reshape(
+            ac_seqs,
+            [batch_size, self._population_size, self._planning_horizon, -1])
+        ac_seqs = tf.reshape(
+            tf.transpose(ac_seqs, [2, 0, 1, 3]),
+            [self._planning_horizon, -1, self._num_actions])
+
+        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
+        init_obs = self._expand_to_population(obs)
+        state = tf.nest.map_structure(self._expand_to_population, state)
+
+        obs = init_obs
+        cost = 0
+        for i in range(ac_seqs.shape[0]):
+            action = ac_seqs[i]
+            time_step = time_step._replace(prev_action=action)
+            time_step, state = self._dynamics_func(time_step, state)
+            next_obs = time_step.observation
+            # Note: currently using (next_obs, action), might need to
+            # consider (obs, action) in order to be more compatible
+            # with the conventional definition of reward function
+            reward_step = self._reward_func(next_obs, action)
+            cost = cost - reward_step
+            obs = next_obs
+
+        # reshape cost back to [batch size, population_size]
+        cost = tf.reshape(cost, [batch_size, -1])
+        return cost
+
+
+@gin.configurable
+class QShootingAlgorithm(PlanAlgorithm):
+    """Q-value guided planning method.
+    The method
+    """
+
+    def __init__(self,
+                 feature_spec,
+                 action_spec,
+                 population_size,
+                 planning_horizon,
+                 upper_bound=None,
+                 lower_bound=None,
+                 hidden_size=256,
+                 name="QShootingAlgorithm"):
+        """Create a QShootingAlgorithm.
+
+        Args:
+            population_size (int): the size of polulation for Q shooting
+            planning_horizon (int): planning horizon in terms of time steps
+            upper_bound (int): upper bound for elements in solution;
+                action_spec.maximum will be used if not specified
+            lower_bound (int): lower bound for elements in solution;
+                action_spec.minimum will be used if not specified
+            hidden_size (int|tuple): size of hidden layer(s)
+        """
+        super().__init__(
+            feature_spec=feature_spec,
+            action_spec=action_spec,
+            planning_horizon=planning_horizon,
+            upper_bound=upper_bound,
+            lower_bound=lower_bound,
+            name=name)
+
+        flat_action_spec = tf.nest.flatten(action_spec)
+        assert len(flat_action_spec) == 1, ("QShootingAlgorithm doesn't "
+                                            "support nested action_spec")
+
+        flat_feature_spec = tf.nest.flatten(feature_spec)
+        assert len(flat_feature_spec) == 1, ("QShootingAlgorithm doesn't "
+                                             "support nested feature_spec")
+
+        self._population_size = population_size
+        solution_size = self._planning_horizon * self._num_actions
+        self._plan_optimizer = QOptimizer(
+            solution_size,
+            self._population_size,
+            upper_bound=action_spec.maximum,
+            lower_bound=action_spec.minimum)
+
+    def train_step(self, time_step: ActionTimeStep, state):
+        """
+        Args:
+            time_step (ActionTimeStep): input data for planning
+            state: state for planning (previous observation)
+        Returns:
+            TrainStep:
+                outputs: empty tuple ()
+                state (DynamicsState): state for training
+                info (DynamicsInfo):
+        """
+        return AlgorithmStep(outputs=(), state=(), info=())
+
+    def generate_plan(self, time_step: ActionTimeStep, state):
+        assert self._reward_func is not None, ("specify reward function "
+                                               "before planning")
+
+        assert self._dynamics_func is not None, ("specify dynamics function "
+                                                 "before planning")
+
+        # Q-based action sequence population generation
+        # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
+        ac_q_pop = self._generate_action_sequence(time_step, state)
+        self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
+        opt_action = self._plan_optimizer.obtain_solution(
+            time_step, state, ac_q_pop)
+        action = opt_action[:, 0]
+        action = tf.reshape(action, [time_step.observation.shape[0], -1])
+        return action
+
+    def _get_action_from_Q(self, time_step: ActionTimeStep, state,
+                           epsilon_greedy):
+        action, state = self._actor_network(
+            time_step.observation,
+            step_type=time_step.step_type,
+            network_state=state.actor.actor)
+        empty_state = tf.nest.map_structure(lambda x: (),
+                                            self.train_state_spec)
+
+        def _sample(a, ou):
+            return tf.cond(
+                tf.less(tf.random.uniform((), 0, 1),
+                        epsilon_greedy), lambda: a + ou(), lambda: a)
+
+        noisy_action = tf.nest.map_structure(_sample, action, self._ou_process)
+        noisy_action = tf.nest.map_structure(tfa_common.clip_to_spec,
+                                             noisy_action, self._action_spec)
+
+        return noisy_action
+
+    def _generate_action_sequence(self, time_step: ActionTimeStep, state):
+        """Generate action sequence proposals according to dynamics and Q.
+        The generated action sequences will then be evaluated using the cost.
+        [There is a potential that these two steps can be merged together.]
+
+        Returns:
+            ac_seqs (list): of size [b, p, solution=h*a]
+        """
+
+        obs = time_step.observation
+        batch_size = obs.shape[0]
+
+        # [b, p, h, a]
+        ac_seqs = tf.zeros([
+            batch_size, self._population_size, self._planning_horizon,
+            self._num_actions
+        ])
+
+        # merge population with batch
+        ac_seqs = tf.reshape(
+            tf.transpose(ac_seqs, [2, 0, 1, 3]),
+            [self._planning_horizon, -1, self._num_actions])
+
+        # get the action for the first time step to start with
+        ac_seqs[i] = self._get_action_from_Q(time_step, state, 0.1)
+
+        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
+        init_obs = self._expand_to_population(obs)
+        state = tf.nest.map_structure(self._expand_to_population, state)
+
+        obs = init_obs
+        time_step = time_step._replace(observation=obs)  # for Q
+
+        for i in range(ac_seqs.shape[0]):  # time step
+            # time_step: obs for Q; prev_feature for dynamics
+            ac_seqs[i] = self._get_action_from_Q(time_step, state, 0.1)
+            action = ac_seqs[i]
+            time_step = time_step._replace(prev_action=action)
+            time_step, state = self._dynamics_func(time_step, state)
+
+        ac_seqs = tf.transpose(
+            tf.reshape(ac_seqs, [
+                self._planning_horizon, batch_size, self._population_size,
+                self._num_actions
+            ]), [1, 2, 0, 3])
+        ac_seqs = tf.reshape(ac_seqs, [batch_size, self._population_size, -1])
+        return ac_seqs
 
     def _expand_to_population(self, data):
         """Expand the input tensor to a population of replications
