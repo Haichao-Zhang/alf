@@ -16,13 +16,28 @@ from collections import namedtuple
 
 import gin.tf
 import tensorflow as tf
+import tensorflow_probability as tfp
+from tf_agents.utils import common as tfa_common
 
 from tf_agents.networks.network import Network
 import tf_agents.specs.tensor_spec as tensor_spec
 
 from alf.algorithms.algorithm import Algorithm, AlgorithmStep, LossInfo
-from alf.data_structures import ActionTimeStep, namedtuple
+from alf.data_structures import ActionTimeStep, namedtuple, Experience, TrainingInfo
 from alf.optimizers.random import RandomOptimizer, QOptimizer
+from alf.algorithms.one_step_loss import OneStepTDLoss
+from alf.utils import losses, common
+
+DdpgCriticState = namedtuple("DdpgCriticState",
+                             ['critic', 'target_actor', 'target_critic'])
+DdpgCriticInfo = namedtuple("DdpgCriticInfo", ["q_value", "target_q_value"])
+DdpgActorState = namedtuple("DdpgActorState", ['actor', 'critic'])
+
+PlannerState = namedtuple(
+    "PlannerState", ["actor", "critic"], default_value=())
+PlannerInfo = namedtuple("PlannerInfo", ["loss"])
+
+PlannerLossInfo = namedtuple('PlannerLossInfo', ('actor', 'critic'))
 
 
 @gin.configurable
@@ -37,6 +52,7 @@ class PlanAlgorithm(Algorithm):
                  feature_spec,
                  action_spec,
                  planning_horizon,
+                 train_state_spec=None,
                  upper_bound=None,
                  lower_bound=None,
                  name="PlanningAlgorithm"):
@@ -49,7 +65,11 @@ class PlanAlgorithm(Algorithm):
             lower_bound (int): lower bound for elements in solution;
                 action_spec.minimum will be used if not specified
         """
-        super().__init__(name=name)
+        super().__init__(
+            feature_spec,
+            action_spec,
+            train_state_spec=train_state_spec,
+            name=name)
 
         flat_action_spec = tf.nest.flatten(action_spec)
         assert len(flat_action_spec) == 1, "doesn't support nested action_spec"
@@ -271,9 +291,20 @@ class QShootingAlgorithm(PlanAlgorithm):
                  action_spec,
                  population_size,
                  planning_horizon,
+                 actor_network: Network,
+                 critic_network: Network,
+                 ou_stddev=0.2,
+                 ou_damping=0.15,
+                 critic_loss=None,
+                 target_update_tau=0.05,
+                 target_update_period=1,
+                 dqda_clipping=None,
+                 actor_optimizer=None,
+                 critic_optimizer=None,
                  upper_bound=None,
                  lower_bound=None,
                  hidden_size=256,
+                 debug_summaries=False,
                  name="QShootingAlgorithm"):
         """Create a QShootingAlgorithm.
 
@@ -286,10 +317,19 @@ class QShootingAlgorithm(PlanAlgorithm):
                 action_spec.minimum will be used if not specified
             hidden_size (int|tuple): size of hidden layer(s)
         """
+        train_state_spec = PlannerState(
+            actor=DdpgActorState(
+                actor=actor_network.state_spec,
+                critic=critic_network.state_spec),
+            critic=DdpgCriticState(
+                critic=critic_network.state_spec,
+                target_actor=actor_network.state_spec,
+                target_critic=critic_network.state_spec))
         super().__init__(
             feature_spec=feature_spec,
             action_spec=action_spec,
             planning_horizon=planning_horizon,
+            train_state_spec=train_state_spec,
             upper_bound=upper_bound,
             lower_bound=lower_bound,
             name=name)
@@ -310,10 +350,91 @@ class QShootingAlgorithm(PlanAlgorithm):
             upper_bound=action_spec.maximum,
             lower_bound=action_spec.minimum)
 
-    def train_step(self, time_step: ActionTimeStep, state):
-        """
+        # for Q-network learning
+        self._actor_network = actor_network
+        self._critic_network = critic_network
+        self._actor_optimizer = actor_optimizer
+        self._critic_optimizer = critic_optimizer
+
+        self._target_actor_network = actor_network.copy(
+            name='target_actor_network')
+        self._target_critic_network = critic_network.copy(
+            name='target_critic_network')
+
+        self._ou_stddev = ou_stddev
+        self._ou_damping = ou_damping
+
+        if critic_loss is None:
+            critic_loss = OneStepTDLoss(debug_summaries=debug_summaries)
+        self._critic_loss = critic_loss
+
+        self._ou_process = create_ou_process(action_spec, ou_stddev,
+                                             ou_damping)
+
+        self._update_target = common.get_target_updater(
+            models=[self._actor_network, self._critic_network],
+            target_models=[
+                self._target_actor_network, self._target_critic_network
+            ],
+            tau=target_update_tau,
+            period=target_update_period)
+
+        self._dqda_clipping = dqda_clipping
+
+    def _critic_train_step(self, exp: Experience, state: DdpgCriticState):
+        target_action, target_actor_state = self._target_actor_network(
+            exp.observation,
+            step_type=exp.step_type,
+            network_state=state.target_actor)
+        target_q_value, target_critic_state = self._target_critic_network(
+            (exp.observation, target_action),
+            step_type=exp.step_type,
+            network_state=state.target_critic)
+
+        q_value, critic_state = self._critic_network(
+            (exp.observation, exp.action),
+            step_type=exp.step_type,
+            network_state=state.critic)
+
+        state = DdpgCriticState(
+            critic=critic_state,
+            target_actor=target_actor_state,
+            target_critic=target_critic_state)
+
+        info = DdpgCriticInfo(q_value=q_value, target_q_value=target_q_value)
+
+        return state, info
+
+    def _actor_train_step(self, exp: Experience, state: DdpgActorState):
+        action, actor_state = self._actor_network(
+            exp.observation, exp.step_type, network_state=state.actor)
+
+        with tf.GradientTape(watch_accessed_variables=False) as tape:
+            tape.watch(action)
+            q_value, critic_state = self._critic_network(
+                (exp.observation, action), network_state=state.critic)
+
+        dqda = tape.gradient(q_value, action)
+
+        def actor_loss_fn(dqda, action):
+            if self._dqda_clipping:
+                dqda = tf.clip_by_value(dqda, -self._dqda_clipping,
+                                        self._dqda_clipping)
+            loss = 0.5 * losses.element_wise_squared_loss(
+                tf.stop_gradient(dqda + action), action)
+            loss = tf.reduce_sum(loss, axis=list(range(1, len(loss.shape))))
+            return loss
+
+        actor_loss = tf.nest.map_structure(actor_loss_fn, dqda, action)
+        state = DdpgActorState(actor=actor_state, critic=critic_state)
+        info = LossInfo(
+            loss=tf.add_n(tf.nest.flatten(actor_loss)), extra=actor_loss)
+        return PolicyStep(action=action, state=state, info=info)
+
+    def train_step(self, exp: Experience, state):
+        """ Performing Q (actor and critic) training
         Args:
-            time_step (ActionTimeStep): input data for planning
+            exp (Experience): input data for planning
             state: state for planning (previous observation)
         Returns:
             TrainStep:
@@ -321,7 +442,34 @@ class QShootingAlgorithm(PlanAlgorithm):
                 state (DynamicsState): state for training
                 info (DynamicsInfo):
         """
-        return AlgorithmStep(outputs=(), state=(), info=())
+        critic_state, critic_info = self._critic_train_step(
+            exp=exp, state=state.critic)
+        policy_step = self._actor_train_step(exp=exp, state=state.actor)
+        return policy_step._replace(
+            state=PlannerState(actor=policy_step.state, critic=critic_state),
+            info=PlannerInfo(
+                action_distribution=policy_step.action,
+                critic=critic_info,
+                actor_loss=policy_step.info))
+
+    def calc_loss(self, training_info: TrainingInfo):
+        critic_loss = self._critic_loss(
+            training_info=training_info,
+            value=training_info.info.critic.q_value,
+            target_value=training_info.info.critic.target_q_value)
+
+        actor_loss = training_info.info.actor_loss
+
+        return LossInfo(
+            loss=critic_loss.loss + actor_loss.loss,
+            extra=PlannerLossInfo(
+                critic=critic_loss.extra, actor=actor_loss.extra))
+
+    def after_train(self, training_info):
+        self._update_target()
+
+    def _trainable_attributes_to_ignore(self):
+        return ['_target_actor_network', '_target_critic_network']
 
     def generate_plan(self, time_step: ActionTimeStep, state):
         assert self._reward_func is not None, ("specify reward function "
@@ -345,7 +493,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         action, state = self._actor_network(
             time_step.observation,
             step_type=time_step.step_type,
-            network_state=state.actor.actor)
+            network_state=())  # temp solution
         empty_state = tf.nest.map_structure(lambda x: (),
                                             self.train_state_spec)
 
@@ -383,8 +531,10 @@ class QShootingAlgorithm(PlanAlgorithm):
             tf.transpose(ac_seqs, [2, 0, 1, 3]),
             [self._planning_horizon, -1, self._num_actions])
 
-        # get the action for the first time step to start with
-        ac_seqs[i] = self._get_action_from_Q(time_step, state, 0.1)
+        ac_seqs_np = ac_seqs.numpy()
+
+        # # get the action for the first time step to start with
+        # ac_seqs[i] = self._get_action_from_Q(time_step, state, 0.1)
 
         state = state._replace(dynamics=state.dynamics._replace(feature=obs))
         init_obs = self._expand_to_population(obs)
@@ -395,11 +545,12 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         for i in range(ac_seqs.shape[0]):  # time step
             # time_step: obs for Q; prev_feature for dynamics
-            ac_seqs[i] = self._get_action_from_Q(time_step, state, 0.1)
-            action = ac_seqs[i]
+            action = self._get_action_from_Q(time_step, state, 0.1)
+            ac_seqs_np[i] = action.numpy()
             time_step = time_step._replace(prev_action=action)
             time_step, state = self._dynamics_func(time_step, state)
 
+        ac_seqs = tf.convert_to_tensor(ac_seqs_np, dtype=tf.float32)
         ac_seqs = tf.transpose(
             tf.reshape(ac_seqs, [
                 self._planning_horizon, batch_size, self._population_size,
@@ -469,3 +620,31 @@ class QShootingAlgorithm(PlanAlgorithm):
         # reshape cost back to [batch size, population_size]
         cost = tf.reshape(cost, [batch_size, -1])
         return cost
+
+
+def create_ou_process(action_spec, ou_stddev, ou_damping):
+    """Create nested zero-mean Ornstein-Uhlenbeck processes.
+
+    The temporal update equation is:
+    `x_next = (1 - damping) * x + N(0, std_dev)`
+
+    Args:
+        action_spec (nested BountedTensorSpec): action spec
+        ou_damping (float): Damping rate in the above equation. We must have
+            0 <= damping <= 1.
+        ou_stddev (float): Standard deviation of the Gaussian component.
+    Returns:
+        nested OUProcess with the same structure as action_spec.
+    """
+    # todo with seed None
+    seed_stream = tfp.util.SeedStream(seed=None, salt='ou_noise')
+
+    def _create_ou_process(action_spec):
+        return tfa_common.OUProcess(
+            lambda: tf.zeros(action_spec.shape, dtype=action_spec.dtype),
+            ou_damping,
+            ou_stddev,
+            seed=seed_stream())
+
+    ou_process = tf.nest.map_structure(_create_ou_process, action_spec)
+    return ou_process

@@ -80,7 +80,9 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
         """
         train_state_spec = MbrlState(
-            dynamics=dynamics_module.train_state_spec, reward=(), planner=())
+            dynamics=dynamics_module.train_state_spec,
+            reward=(),
+            planner=planner_module.train_state_spec)
 
         super().__init__(
             feature_spec,

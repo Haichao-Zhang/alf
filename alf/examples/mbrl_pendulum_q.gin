@@ -26,17 +26,32 @@ DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 FixedRewardFunction.reward_func=@reward_function_for_pendulum
 
 # planner config
-RandomShootingAlgorithm.feature_spec=%observation_spec
-RandomShootingAlgorithm.action_spec=%action_spec
-RandomShootingAlgorithm.population_size=5000
-RandomShootingAlgorithm.planning_horizon=25
+actor/ActorNetwork.input_tensor_spec=%observation_spec
+actor/ActorNetwork.output_tensor_spec=%action_spec
+actor/ActorNetwork.fc_layer_params=(100,100)
+actor/Adam.learning_rate=1e-4
+
+critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+critic/CriticNetwork.joint_fc_layer_params=(100,100)
+critic/Adam.learning_rate=1e-3
+
+QShootingAlgorithm.feature_spec=%observation_spec
+QShootingAlgorithm.action_spec=%action_spec
+QShootingAlgorithm.population_size=5000
+QShootingAlgorithm.planning_horizon=25
+QShootingAlgorithm.actor_network=@actor/ActorNetwork()
+QShootingAlgorithm.critic_network=@critic/CriticNetwork()
+QShootingAlgorithm.actor_optimizer=@actor/Adam()
+QShootingAlgorithm.critic_optimizer=@critic/Adam()
+QShootingAlgorithm.target_update_period=5
+
 
 # model-based RL algo config
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
 MbrlAlgorithm.reward_module=@FixedRewardFunction()
-MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
+MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 # agent config
 Agent/Adam.learning_rate=1e-3
@@ -65,6 +80,6 @@ TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
-TrainerConfig.use_tf_functions=True
+TrainerConfig.use_tf_functions=False
 
 ReplayBuffer.max_length=100000
