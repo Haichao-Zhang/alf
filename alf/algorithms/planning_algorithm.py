@@ -373,8 +373,16 @@ class QShootingAlgorithm(PlanAlgorithm):
             critic_loss = OneStepTDLoss(debug_summaries=debug_summaries)
         self._critic_loss = critic_loss
 
-        self._ou_process = create_ou_process(action_spec, ou_stddev,
-                                             ou_damping)
+        expanded_action_spec = BoundedTensorSpec(
+            shape=(population_size, 1),
+            dtype=tf.float32,
+            minimum=[0],
+            maximum=[1])
+        self._ou_process = create_ou_process(expanded_action_spec,
+                                             self._ou_stddev, self._ou_damping)
+
+        # self._ou_process = create_ou_process(action_spec, ou_stddev,
+        #                                      ou_damping)
 
         self._update_target = common.get_target_updater(
             models=[self._actor_network, self._critic_network],
@@ -517,15 +525,15 @@ class QShootingAlgorithm(PlanAlgorithm):
                         epsilon_greedy), lambda: a + ou(), lambda: a)
 
         #=================
-        expanded_action_spec = BoundedTensorSpec(
-            shape=(action.shape[0], 1),
-            dtype=tf.float32,
-            minimum=[0],
-            maximum=[1])
-        self._ou_process = create_ou_process(expanded_action_spec,
-                                             self._ou_stddev, self._ou_damping)
+
         #-----------------
         noisy_action = tf.nest.map_structure(_sample, action, self._ou_process)
+
+        # noise = tf.random.normal(
+        # shape=self._x.shape,
+        # stddev=self._stddev,
+        # dtype=self._x.dtype)
+        # noisy_action = action
         # change self._action_spec to polulation
 
         noisy_action = tf.nest.map_structure(tfa_common.clip_to_spec,
@@ -546,15 +554,15 @@ class QShootingAlgorithm(PlanAlgorithm):
         batch_size = obs.shape[0]
 
         # [b, p, h, a]
-        ac_seqs = tf.zeros([
-            batch_size, self._population_size, self._planning_horizon,
-            self._num_actions
-        ])
+        # ac_seqs = tf.zeros([
+        #     batch_size, self._population_size, self._planning_horizon,
+        #     self._num_actions
+        # ])
 
-        # merge population with batch
-        ac_seqs = tf.reshape(
-            tf.transpose(ac_seqs, [2, 0, 1, 3]),
-            [self._planning_horizon, -1, self._num_actions])
+        # # merge population with batch
+        # ac_seqs = tf.reshape(
+        #     tf.transpose(ac_seqs, [2, 0, 1, 3]),
+        #     [self._planning_horizon, -1, self._num_actions])
 
         # ac_seqs_np = ac_seqs.numpy()
 
@@ -563,10 +571,12 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         state = state._replace(dynamics=state.dynamics._replace(feature=obs))
         init_obs = self._expand_to_population(obs)
+        init_action = self._expand_to_population(time_step.prev_action)
         state = tf.nest.map_structure(self._expand_to_population, state)
 
         obs = init_obs
-        time_step = time_step._replace(observation=obs)  # for Q
+        time_step = time_step._replace(
+            observation=obs, prev_action=init_action)  # for Q
 
         # # convert to tf loop
         # for i in range(ac_seqs.shape[0]):  # time step
@@ -580,30 +590,29 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # # ====================
 
-        def _train_loop_body(counter, time_step, state):
+        counter = tf.zeros((), tf.int32)
+        num_steps = self._planning_horizon
+
+        def create_output_ta(num_steps, dim):
+            return tf.TensorArray(
+                dtype=tf.float32, size=num_steps, element_shape=(dim, 1))
+
+        output_tas = create_output_ta(num_steps,
+                                      batch_size * self._population_size)
+
+        def _train_loop_body(counter, time_step, state, output_tas):
             action = self._get_action_from_Q(time_step, state,
                                              1)  # always add noise
             time_step = time_step._replace(prev_action=action)
             time_step, state = self._dynamics_func(time_step, state)
-            output_tas.write(counter, action)
+            output_tas = output_tas.write(counter, action)
             counter += 1
-            return [counter, time_step, state]
+            return [counter, time_step, state, output_tas]
 
-        counter = tf.zeros((), tf.int32)
-        num_steps = ac_seqs.shape[0]
-
-        def create_output_ta(s):
-            return tf.TensorArray(
-                dtype=tf.float32,
-                size=num_steps,
-                element_shape=(s.shape[1], 1))
-
-        output_tas = create_output_ta(ac_seqs)
-
-        [counter, time_step, state] = tf.while_loop(
+        [counter, time_step, state, output_tas] = tf.while_loop(
             cond=lambda counter, *_: tf.less(counter, num_steps),
             body=_train_loop_body,
-            loop_vars=[counter, time_step, state],
+            loop_vars=[counter, time_step, state, output_tas],
             back_prop=False,
             name="train_loop")
 
@@ -694,15 +703,14 @@ def create_ou_process(action_spec, ou_stddev, ou_damping):
     Returns:
         nested OUProcess with the same structure as action_spec.
     """
+
     # todo with seed None
-    seed_stream = tfp.util.SeedStream(seed=None, salt='ou_noise')
+    # seed_stream = tfp.util.SeedStream(seed=None, salt='ou_noise')
 
     def _create_ou_process(action_spec):
         return tfa_common.OUProcess(
             lambda: tf.zeros(action_spec.shape, dtype=action_spec.dtype),
-            ou_damping,
-            ou_stddev,
-            seed=seed_stream())
+            ou_damping, ou_stddev)
 
     ou_process = tf.nest.map_structure(_create_ou_process, action_spec)
     return ou_process

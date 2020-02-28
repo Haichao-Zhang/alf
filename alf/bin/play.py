@@ -53,7 +53,8 @@ flags.DEFINE_string(
     "to a file instead of shown on the screen.")
 flags.DEFINE_multi_string('gin_file', None, 'Paths to the gin-config files.')
 flags.DEFINE_multi_string('gin_param', None, 'Gin binding parameters.')
-flags.DEFINE_bool('use_tf_functions', True, "use graph mode instead of eager.")
+flags.DEFINE_bool('use_tf_functions', False,
+                  "use graph mode instead of eager.")
 
 FLAGS = flags.FLAGS
 
