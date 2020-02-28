@@ -556,7 +556,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             tf.transpose(ac_seqs, [2, 0, 1, 3]),
             [self._planning_horizon, -1, self._num_actions])
 
-        ac_seqs_np = ac_seqs.numpy()
+        # ac_seqs_np = ac_seqs.numpy()
 
         # # get the action for the first time step to start with
         # ac_seqs[i] = self._get_action_from_Q(time_step, state, 0.1)
@@ -568,25 +568,46 @@ class QShootingAlgorithm(PlanAlgorithm):
         obs = init_obs
         time_step = time_step._replace(observation=obs)  # for Q
 
-        # convert to tf loop
-        for i in range(ac_seqs.shape[0]):  # time step
-            # time_step: obs for Q; prev_feature for dynamics
+        # # convert to tf loop
+        # for i in range(ac_seqs.shape[0]):  # time step
+        #     # time_step: obs for Q; prev_feature for dynamics
+        #     action = self._get_action_from_Q(time_step, state,
+        #                                      1)  # always add noise
+        #     ac_seqs_np[i] = action.numpy()
+        #     time_step = time_step._replace(prev_action=action)
+        #     time_step, state = self._dynamics_func(time_step, state)
+        # ac_seqs = tf.convert_to_tensor(ac_seqs_np, dtype=tf.float32)
+
+        # # ====================
+
+        def _train_loop_body(counter, time_step, state):
             action = self._get_action_from_Q(time_step, state,
                                              1)  # always add noise
-            ac_seqs_np[i] = action.numpy()
             time_step = time_step._replace(prev_action=action)
             time_step, state = self._dynamics_func(time_step, state)
-        ac_seqs = tf.convert_to_tensor(ac_seqs_np, dtype=tf.float32)
+            output_tas.write(counter, action)
+            counter += 1
+            return [counter, time_step, state]
 
-        # def _train_loop_body():
+        counter = tf.zeros((), tf.int32)
+        num_steps = ac_seqs.shape[0]
 
-        # num_steps = ac_seqs.shape[0]
-        # [_, _, info_ta] = tf.while_loop(
-        #         cond=lambda counter, *_: tf.less(counter, num_steps),
-        #         body=_train_loop_body,
-        #         loop_vars=[counter, first_train_state, info_ta],
-        #         back_prop=True,
-        #         name="train_loop")
+        def create_output_ta(s):
+            return tf.TensorArray(
+                dtype=tf.float32,
+                size=num_steps,
+                element_shape=(s.shape[1], 1))
+
+        output_tas = create_output_ta(ac_seqs)
+
+        [counter, time_step, state] = tf.while_loop(
+            cond=lambda counter, *_: tf.less(counter, num_steps),
+            body=_train_loop_body,
+            loop_vars=[counter, time_step, state],
+            back_prop=False,
+            name="train_loop")
+
+        ac_seqs = output_tas.stack()
 
         ac_seqs = tf.transpose(
             tf.reshape(ac_seqs, [
