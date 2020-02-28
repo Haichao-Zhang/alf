@@ -23,6 +23,8 @@ from tf_agents.networks.network import Network
 import tf_agents.specs.tensor_spec as tensor_spec
 from tf_agents.trajectories.policy_step import PolicyStep
 
+from tf_agents.specs.tensor_spec import TensorSpec, BoundedTensorSpec
+
 from alf.algorithms.algorithm import Algorithm, AlgorithmStep, LossInfo
 from alf.data_structures import ActionTimeStep, namedtuple, Experience, TrainingInfo
 from alf.algorithms.rl_algorithm import RLAlgorithm
@@ -296,8 +298,8 @@ class QShootingAlgorithm(PlanAlgorithm):
                  planning_horizon,
                  actor_network: Network,
                  critic_network: Network,
-                 ou_stddev=0.2,
-                 ou_damping=0.15,
+                 ou_stddev=0.3,
+                 ou_damping=0.3,
                  critic_loss=None,
                  target_update_tau=0.05,
                  target_update_period=1,
@@ -514,7 +516,18 @@ class QShootingAlgorithm(PlanAlgorithm):
                 tf.less(tf.random.uniform((), 0, 1),
                         epsilon_greedy), lambda: a + ou(), lambda: a)
 
+        #=================
+        expanded_action_spec = BoundedTensorSpec(
+            shape=(action.shape[0], 1),
+            dtype=tf.float32,
+            minimum=[0],
+            maximum=[1])
+        self._ou_process = create_ou_process(expanded_action_spec,
+                                             self._ou_stddev, self._ou_damping)
+        #-----------------
         noisy_action = tf.nest.map_structure(_sample, action, self._ou_process)
+        # change self._action_spec to polulation
+
         noisy_action = tf.nest.map_structure(tfa_common.clip_to_spec,
                                              noisy_action, self._action_spec)
 
@@ -558,7 +571,8 @@ class QShootingAlgorithm(PlanAlgorithm):
         # convert to tf loop
         for i in range(ac_seqs.shape[0]):  # time step
             # time_step: obs for Q; prev_feature for dynamics
-            action = self._get_action_from_Q(time_step, state, 0.1)
+            action = self._get_action_from_Q(time_step, state,
+                                             1)  # always add noise
             ac_seqs_np[i] = action.numpy()
             time_step = time_step._replace(prev_action=action)
             time_step, state = self._dynamics_func(time_step, state)
