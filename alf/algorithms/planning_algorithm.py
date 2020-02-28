@@ -555,14 +555,25 @@ class QShootingAlgorithm(PlanAlgorithm):
         obs = init_obs
         time_step = time_step._replace(observation=obs)  # for Q
 
+        # convert to tf loop
         for i in range(ac_seqs.shape[0]):  # time step
             # time_step: obs for Q; prev_feature for dynamics
             action = self._get_action_from_Q(time_step, state, 0.1)
             ac_seqs_np[i] = action.numpy()
             time_step = time_step._replace(prev_action=action)
             time_step, state = self._dynamics_func(time_step, state)
-
         ac_seqs = tf.convert_to_tensor(ac_seqs_np, dtype=tf.float32)
+
+        # def _train_loop_body():
+
+        # num_steps = ac_seqs.shape[0]
+        # [_, _, info_ta] = tf.while_loop(
+        #         cond=lambda counter, *_: tf.less(counter, num_steps),
+        #         body=_train_loop_body,
+        #         loop_vars=[counter, first_train_state, info_ta],
+        #         back_prop=True,
+        #         name="train_loop")
+
         ac_seqs = tf.transpose(
             tf.reshape(ac_seqs, [
                 self._planning_horizon, batch_size, self._population_size,
