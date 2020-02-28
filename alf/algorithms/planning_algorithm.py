@@ -21,9 +21,12 @@ from tf_agents.utils import common as tfa_common
 
 from tf_agents.networks.network import Network
 import tf_agents.specs.tensor_spec as tensor_spec
+from tf_agents.trajectories.policy_step import PolicyStep
 
 from alf.algorithms.algorithm import Algorithm, AlgorithmStep, LossInfo
 from alf.data_structures import ActionTimeStep, namedtuple, Experience, TrainingInfo
+from alf.algorithms.rl_algorithm import RLAlgorithm
+from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm
 from alf.optimizers.random import RandomOptimizer, QOptimizer
 from alf.algorithms.one_step_loss import OneStepTDLoss
 from alf.utils import losses, common
@@ -35,13 +38,14 @@ DdpgActorState = namedtuple("DdpgActorState", ['actor', 'critic'])
 
 PlannerState = namedtuple(
     "PlannerState", ["actor", "critic"], default_value=())
-PlannerInfo = namedtuple("PlannerInfo", ["loss"])
+PlannerInfo = namedtuple("PlannerInfo",
+                         ["action_distribution", "actor_loss", "critic"])
 
 PlannerLossInfo = namedtuple('PlannerLossInfo', ('actor', 'critic'))
 
 
 @gin.configurable
-class PlanAlgorithm(Algorithm):
+class PlanAlgorithm(OffPolicyAlgorithm):
     """Planning Module
 
     This module plans for actions based on initial observation
@@ -215,7 +219,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         opt_action = self._plan_optimizer.obtain_solution(time_step, state)
         action = opt_action[:, 0]
         action = tf.reshape(action, [time_step.observation.shape[0], -1])
-        return action
+        return action, state
 
     def _expand_to_population(self, data):
         """Expand the input tensor to a population of replications
@@ -283,7 +287,6 @@ class RandomShootingAlgorithm(PlanAlgorithm):
 @gin.configurable
 class QShootingAlgorithm(PlanAlgorithm):
     """Q-value guided planning method.
-    The method
     """
 
     def __init__(self,
@@ -486,7 +489,16 @@ class QShootingAlgorithm(PlanAlgorithm):
             time_step, state, ac_q_pop)
         action = opt_action[:, 0]
         action = tf.reshape(action, [time_step.observation.shape[0], -1])
-        return action
+        return action, state
+
+    def rollout(self,
+                time_step: ActionTimeStep,
+                state=None,
+                mode=RLAlgorithm.ROLLOUT):
+        # if self.need_full_rollout_state():
+        #     raise NotImplementedError("Storing RNN state to replay buffer "
+        #                               "is not supported by DdpgAlgorithm")
+        return self.generate_plan(time_step, state)
 
     def _get_action_from_Q(self, time_step: ActionTimeStep, state,
                            epsilon_greedy):
