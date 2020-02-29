@@ -24,11 +24,15 @@ from tf_agents.networks.sequential_layer import SequentialLayer
 from tf_agents.environments import atari_wrappers
 
 from alf.utils import math_ops
+import tensorflow_addons as tfa
 
 tf.keras.layers.Conv2D = gin.external_configurable(tf.keras.layers.Conv2D,
                                                    'tf.keras.layers.Conv2D')
 tf.optimizers.Adam = gin.external_configurable(tf.optimizers.Adam,
                                                'tf.optimizers.Adam')
+
+tfa.optimizers.AdamW = gin.external_configurable(tfa.optimizers.AdamW,
+                                                 'tfa.optimizers.AdamW')
 
 gin.external_configurable(tf.keras.layers.Concatenate,
                           'tf.keras.layers.Concatenate')

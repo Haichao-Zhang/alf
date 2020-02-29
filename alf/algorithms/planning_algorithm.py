@@ -374,7 +374,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         self._critic_loss = critic_loss
 
         expanded_action_spec = BoundedTensorSpec(
-            shape=(population_size, 1),
+            shape=(population_size * 10, 1),
             dtype=tf.float32,
             minimum=[0],
             maximum=[1])
@@ -521,8 +521,9 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         def _sample(a, ou):
             return tf.cond(
-                tf.less(tf.random.uniform((), 0, 1),
-                        epsilon_greedy), lambda: a + ou(), lambda: a)
+                tf.less(
+                    tf.random.uniform((), 0, 1),
+                    epsilon_greedy), lambda: a + ou()[:a.shape[0]], lambda: a)
 
         #=================
 

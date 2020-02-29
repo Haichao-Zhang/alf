@@ -37,7 +37,7 @@ critic/Adam.learning_rate=1e-3
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=5000
+QShootingAlgorithm.population_size=500
 QShootingAlgorithm.planning_horizon=25
 QShootingAlgorithm.actor_network=@actor/ActorNetwork()
 QShootingAlgorithm.critic_network=@critic/CriticNetwork()
@@ -54,8 +54,9 @@ MbrlAlgorithm.reward_module=@FixedRewardFunction()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 # agent config
-Agent/Adam.learning_rate=1e-3
-Agent.optimizer=@Agent/Adam()
+Agent/AdamW.learning_rate=1e-3
+Agent/AdamW.weight_decay=1e-4
+Agent.optimizer=@Agent/AdamW()
 Agent.intrinsic_reward_coef=0
 Agent.extrinsic_reward_coef=1
 Agent.action_spec=%action_spec
@@ -81,6 +82,6 @@ TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
-TrainerConfig.use_tf_functions=False
+TrainerConfig.use_tf_functions=True
 
 ReplayBuffer.max_length=100000
