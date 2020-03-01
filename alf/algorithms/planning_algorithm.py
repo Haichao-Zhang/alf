@@ -298,8 +298,8 @@ class QShootingAlgorithm(PlanAlgorithm):
                  planning_horizon,
                  actor_network: Network,
                  critic_network: Network,
-                 ou_stddev=0.3,
-                 ou_damping=0.3,
+                 ou_stddev=0.1,
+                 ou_damping=0.1,
                  critic_loss=None,
                  target_update_tau=0.05,
                  target_update_period=1,
@@ -493,11 +493,17 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # Q-based action sequence population generation
         # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
-        ac_q_pop = self._generate_action_sequence(time_step, state)
-        self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
-        opt_action = self._plan_optimizer.obtain_solution(
-            time_step, state, ac_q_pop)
-        action = opt_action[:, 0]
+        # ac_q_pop = self._generate_action_sequence(time_step, state)
+        # #ac_q_pop = self._generate_action_sequence_random(time_step, state)
+
+        # self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
+        # opt_action = self._plan_optimizer.obtain_solution(
+        #     time_step, state, ac_q_pop)
+        # action = opt_action[:, 0]
+
+        # option 3
+        action = self._get_action_from_Q(time_step, state, 1)
+
         action = tf.reshape(action, [time_step.observation.shape[0], -1])
         return action, state
 
@@ -541,6 +547,17 @@ class QShootingAlgorithm(PlanAlgorithm):
                                              noisy_action, self._action_spec)
 
         return noisy_action
+
+    def _generate_action_sequence_random(self, time_step: ActionTimeStep,
+                                         state):
+        # random population
+        obs = time_step.observation
+        batch_size = obs.shape[0]
+        solution_size = self._planning_horizon * self._num_actions
+        ac_rand_pop = tf.random.uniform(
+            [batch_size, self._population_size, solution_size],
+            self._lower_bound, self._upper_bound)
+        return ac_rand_pop
 
     def _generate_action_sequence(self, time_step: ActionTimeStep, state):
         """Generate action sequence proposals according to dynamics and Q.
