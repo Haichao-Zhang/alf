@@ -132,6 +132,7 @@ class PlanAlgorithm(OffPolicyAlgorithm):
             state: input state next step prediction
         Returns:
             action: planned action for the given inputs
+            state: mbrl state
         """
         pass
 
@@ -376,17 +377,18 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # Q-based action sequence population generation
         # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
-        # ac_q_pop = self._generate_action_sequence(time_step, state)
+        ac_q_pop = self._generate_action_sequence(time_step, state,
+                                                  epsilon_greedy)
         # #ac_q_pop = self._generate_action_sequence_random(time_step, state)
 
-        # self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
-        # opt_action = self._plan_optimizer.obtain_solution(
-        #     time_step, state, ac_q_pop)
-        # action = opt_action[:, 0]
+        self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
+        opt_action = self._plan_optimizer.obtain_solution(
+            time_step, state, ac_q_pop)
+        action = opt_action[:, 0]
 
-        # option 3
-        action, state = self._get_action_from_Q(time_step, state,
-                                                epsilon_greedy)
+        # # option 3
+        # action, state = self._get_action_from_Q(time_step, state,
+        #                                         epsilon_greedy)
 
         action = tf.reshape(action, [time_step.observation.shape[0], -1])
         return action, state
@@ -404,7 +406,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                            epsilon_greedy):
         """
         Returns:
-            state: policy state
+            state: planner state
         """
 
         policy_step = self._policy_module.predict(
@@ -425,11 +427,14 @@ class QShootingAlgorithm(PlanAlgorithm):
             self._lower_bound, self._upper_bound)
         return ac_rand_pop
 
-    def _generate_action_sequence(self, time_step: ActionTimeStep, state):
+    def _generate_action_sequence(self, time_step: ActionTimeStep, state,
+                                  epsilon_greedy):
         """Generate action sequence proposals according to dynamics and Q.
         The generated action sequences will then be evaluated using the cost.
         [There is a potential that these two steps can be merged together.]
 
+        Args:
+            state: mbrl state
         Returns:
             ac_seqs (list): of size [b, p, solution=h*a]
         """
@@ -485,8 +490,10 @@ class QShootingAlgorithm(PlanAlgorithm):
                                       batch_size * self._population_size)
 
         def _train_loop_body(counter, time_step, state, output_tas):
-            action = self._get_action_from_Q(time_step, state,
-                                             1)  # always add noise
+            action, planner_state = self._get_action_from_Q(
+                time_step, state, epsilon_greedy)  # always add noise
+            # update policy state part
+            state = state._replace(planner=planner_state)
             time_step = time_step._replace(prev_action=action)
             time_step, state = self._dynamics_func(time_step, state)
             output_tas = output_tas.write(counter, action)

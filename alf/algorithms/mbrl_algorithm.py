@@ -139,15 +139,14 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
     def _predict_with_planning(self, time_step: ActionTimeStep, state,
                                epsilon_greedy):
         # full state in
-        action, planner_state = self._planner_module.generate_plan(
+        action, mbrl_state = self._planner_module.generate_plan(
             time_step, state, epsilon_greedy)
         dynamics_state = self._dynamics_module.update_state(
             time_step, state.dynamics)
 
         return PolicyStep(
             action=action,
-            state=MbrlState(
-                dynamics=dynamics_state, reward=(), planner=planner_state),
+            state=mbrl_state._replace(dynamics=dynamics_state),
             info=MbrlInfo())
 
     def predict(self, time_step: ActionTimeStep, state, epsilon_greedy):
