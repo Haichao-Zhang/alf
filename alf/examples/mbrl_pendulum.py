@@ -32,13 +32,25 @@ def reward_function_for_pendulum(obs, action):
         theta = tf.math.atan2(s_theta, c_theta)
         cost = tf.reduce_sum(
             tf.square(theta) + 0.1 * tf.square(d_theta), axis=1)
-        cost = tf.where(tf.math.is_nan(cost), 1e6 * tf.ones_like(cost), cost)
+        cost = tf.where(tf.math.is_nan(cost), 1e4 * tf.ones_like(cost), cost)
+        return cost
+
+    def _observation_cost_sparse(obs):
+        """Only provides reward when close to the goal state
+        """
+        c_theta, s_theta, d_theta = obs[:, :1], obs[:, 1:2], obs[:, 2:3]
+        theta = tf.math.atan2(s_theta, c_theta)
+        cost = tf.reduce_sum(
+            tf.square(theta) + 0.1 * tf.square(d_theta), axis=1)
+        cost = tf.where(tf.math.is_nan(cost), 1e4 * tf.ones_like(cost), cost)
+        cost = tf.where(cost > 1.0, 1e4 * tf.ones_like(cost), cost)
         return cost
 
     def _action_cost(action):
         return 0.001 * tf.reduce_sum(tf.square(action), axis=1)
 
     cost = _observation_cost(obs) + _action_cost(action)
+    #cost = _observation_cost_sparse(obs) + _action_cost(action)
     # negative cost as reward
     reward = -cost
     return reward

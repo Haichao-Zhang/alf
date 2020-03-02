@@ -578,30 +578,3 @@ class QShootingAlgorithm(PlanAlgorithm):
         # reshape cost back to [batch size, population_size]
         cost = tf.reshape(cost, [batch_size, -1])
         return cost
-
-
-def create_ou_process(action_spec, ou_stddev, ou_damping):
-    """Create nested zero-mean Ornstein-Uhlenbeck processes.
-
-    The temporal update equation is:
-    `x_next = (1 - damping) * x + N(0, std_dev)`
-
-    Args:
-        action_spec (nested BountedTensorSpec): action spec
-        ou_damping (float): Damping rate in the above equation. We must have
-            0 <= damping <= 1.
-        ou_stddev (float): Standard deviation of the Gaussian component.
-    Returns:
-        nested OUProcess with the same structure as action_spec.
-    """
-
-    # todo with seed None
-    # seed_stream = tfp.util.SeedStream(seed=None, salt='ou_noise')
-
-    def _create_ou_process(action_spec):
-        return tfa_common.OUProcess(
-            lambda: tf.zeros(action_spec.shape, dtype=action_spec.dtype),
-            ou_damping, ou_stddev)
-
-    ou_process = tf.nest.map_structure(_create_ou_process, action_spec)
-    return ou_process
