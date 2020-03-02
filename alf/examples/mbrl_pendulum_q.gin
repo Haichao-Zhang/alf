@@ -28,16 +28,18 @@ DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 FixedRewardFunction.reward_func=@reward_function_for_pendulum
 
 # planner config
-actor/ActorNetwork.input_tensor_spec=%observation_spec
-actor/ActorNetwork.output_tensor_spec=%action_spec
-actor/ActorNetwork.fc_layer_params=(500, 500, 500)
-actor/AdamW.learning_rate=1e-4
-actor/AdamW.weight_decay=1e-4
+# actor/ActorNetwork.input_tensor_spec=%observation_spec
+# actor/ActorNetwork.output_tensor_spec=%action_spec
+# actor/ActorNetwork.fc_layer_params=(100, 100)
+# actor/AdamW.learning_rate=5e-4
+# # actor/AdamW.learning_rate=1e-4
+# # actor/AdamW.weight_decay=1e-4
 
-critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
-critic/CriticNetwork.joint_fc_layer_params=(100,100)
-critic/AdamW.learning_rate=1e-3
-critic/AdamW.weight_decay=1e-4
+# critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+# critic/CriticNetwork.joint_fc_layer_params=(100,100)
+# # critic/AdamW.learning_rate=1e-3
+# # critic/AdamW.weight_decay=1e-4
+# critic/AdamW.learning_rate=5e-4
 
 
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec

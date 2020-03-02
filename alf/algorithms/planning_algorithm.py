@@ -367,7 +367,7 @@ class QShootingAlgorithm(PlanAlgorithm):
     def _trainable_attributes_to_ignore(self):
         return ['']
 
-    def generate_plan(self, time_step: ActionTimeStep, state):
+    def generate_plan(self, time_step: ActionTimeStep, state, epsilon_greedy):
         assert self._reward_func is not None, ("specify reward function "
                                                "before planning")
 
@@ -385,7 +385,8 @@ class QShootingAlgorithm(PlanAlgorithm):
         # action = opt_action[:, 0]
 
         # option 3
-        action, state = self._get_action_from_Q(time_step, state, 1)
+        action, state = self._get_action_from_Q(time_step, state,
+                                                epsilon_greedy)
 
         action = tf.reshape(action, [time_step.observation.shape[0], -1])
         return action, state
@@ -401,14 +402,17 @@ class QShootingAlgorithm(PlanAlgorithm):
 
     def _get_action_from_Q(self, time_step: ActionTimeStep, state,
                            epsilon_greedy):
+        """
+        Returns:
+            state: policy state
+        """
 
         policy_step = self._policy_module.predict(
             time_step, state.planner.policy, epsilon_greedy)
 
         action = policy_step.action
-        state = policy_step.state
 
-        return action, state
+        return action, PlannerState(policy=policy_step.state)
 
     def _generate_action_sequence_random(self, time_step: ActionTimeStep,
                                          state):

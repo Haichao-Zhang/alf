@@ -136,23 +136,27 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         reward = self._reward_module.compute_reward(obs, action)
         return reward
 
-    def _predict_with_planning(self, time_step: ActionTimeStep, state):
+    def _predict_with_planning(self, time_step: ActionTimeStep, state,
+                               epsilon_greedy):
         # full state in
-        action, _ = self._planner_module.generate_plan(time_step, state)
+        action, planner_state = self._planner_module.generate_plan(
+            time_step, state, epsilon_greedy)
         dynamics_state = self._dynamics_module.update_state(
             time_step, state.dynamics)
 
         return PolicyStep(
             action=action,
             state=MbrlState(
-                dynamics=dynamics_state, reward=(), planner=state.planner),
+                dynamics=dynamics_state, reward=(), planner=planner_state),
             info=MbrlInfo())
 
-    def predict(self, time_step: ActionTimeStep, state, epsilon_greedy=1.):
-        return self._predict_with_planning(time_step, state)
+    def predict(self, time_step: ActionTimeStep, state, epsilon_greedy):
+        return self._predict_with_planning(time_step, state, epsilon_greedy)
 
     def rollout(self, time_step: ActionTimeStep, state, mode):
-        return self._predict_with_planning(time_step, state)
+        # note epsilon_greedy
+        return self._predict_with_planning(
+            time_step, state, epsilon_greedy=1.0)
 
     def train_step(self, exp: Experience, state: MbrlState):
         action = exp.action
@@ -168,6 +172,11 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             reward=reward_step.info,
             planner=plan_step.info)
         return PolicyStep(action, state, info)
+
+    # mbrl needs after train method
+    def after_train(self, training_info):
+        self._planner_module.after_train(
+            training_info._replace(info=training_info.info.planner))
 
     def calc_loss(self, training_info: TrainingInfo):
         loss = training_info.info.dynamics.loss
