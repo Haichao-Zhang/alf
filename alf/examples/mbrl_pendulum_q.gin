@@ -4,7 +4,9 @@ import alf.algorithms.dynamics_learning_algorithm
 import alf.algorithms.reward_learning_algorithm
 import alf.algorithms.planning_algorithm
 import alf.examples.mbrl_pendulum
+import alf.algorithms.sac_algorithm
 import tf_agents.networks.encoding_network
+
 
 # environment config
 env_name='Pendulum-v0'
@@ -37,15 +39,40 @@ critic/CriticNetwork.joint_fc_layer_params=(100,100)
 critic/AdamW.learning_rate=1e-3
 critic/AdamW.weight_decay=1e-4
 
+
+actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
+actor/ActorDistributionNetwork.output_tensor_spec=%action_spec
+actor/ActorDistributionNetwork.fc_layer_params=(100, 100)
+actor/ActorDistributionNetwork.continuous_projection_net=@NormalProjectionNetwork
+
+NormalProjectionNetwork.state_dependent_std=True
+NormalProjectionNetwork.mean_transform=None
+NormalProjectionNetwork.scale_distribution=True
+NormalProjectionNetwork.std_transform=@clipped_exp
+
+actor/Adam.learning_rate=5e-4
+
+critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+critic/CriticNetwork.joint_fc_layer_params=(100, 100)
+critic/Adam.learning_rate=5e-4
+
+alpha/Adam.learning_rate=5e-4
+
+SacAlgorithm.observation_spec=%observation_spec
+SacAlgorithm.action_spec=%action_spec
+SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
+SacAlgorithm.critic_network=@critic/CriticNetwork()
+SacAlgorithm.actor_optimizer=@actor/Adam()
+SacAlgorithm.critic_optimizer=@critic/Adam()
+SacAlgorithm.alpha_optimizer=@alpha/Adam()
+SacAlgorithm.target_update_tau=0.005
+
+
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
 QShootingAlgorithm.population_size=2000
 QShootingAlgorithm.planning_horizon=25
-QShootingAlgorithm.actor_network=@actor/ActorNetwork()
-QShootingAlgorithm.critic_network=@critic/CriticNetwork()
-QShootingAlgorithm.actor_optimizer=@actor/AdamW()
-QShootingAlgorithm.critic_optimizer=@critic/AdamW()
-QShootingAlgorithm.target_update_period=5
+QShootingAlgorithm.policy_module=@SacAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
 
