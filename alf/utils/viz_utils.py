@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-sys.path.append('/mnt/DATA/work/RL/alf')
+# import sys
+# sys.path.append('/mnt/DATA/work/RL/alf')
+import os
 
 import gym
 import numpy as np
@@ -70,19 +71,31 @@ def merge_img_cube(img_cube, overlap_ratio):
 
 env_name = 'Pendulum-v0'
 env = gym.make(env_name)
-
-ac_seqs = np.array([[0], [0]])
-T = 25
-
 action_dim = env.action_space.shape[0]
-ac_seqs = np.zeros([T, action_dim])
-for t in range(T):
-    ac_seqs[t] = env.action_space.sample()
-s0 = np.array([0, 1, 0])
-img_cube = get_img_cube(s0, ac_seqs, env)
 
-comp_img = merge_img_cube(img_cube, 0.4)
+# T = 25
+# ac_seqs = np.zeros([T, action_dim])
+# for t in range(T):
+#     ac_seqs[t] = env.action_space.sample()
 
-filename = 'comp_img.png'
-img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
-cv2.imwrite(filename, img_bgr)
+# s0 = np.array([0, 1, 0])
+
+ac_seqs_pop = np.load(
+    '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
+s0 = np.load('/mnt/DATA/work/RL/alf/init_obs.mat.npy')  # [1, 3]
+s0 = np.squeeze(s0)
+
+viz_path = '/home/haichaozhang/Documents/data/mbrl/viz'
+os.makedirs(viz_path, exist_ok=True)
+# population number
+pop_num = ac_seqs_pop.shape[1]
+
+for p in range(pop_num):
+    ac_seqs = np.reshape(np.squeeze(ac_seqs_pop[0, p, :]), [-1, action_dim])
+    img_cube = get_img_cube(s0, ac_seqs, env)
+    comp_img = merge_img_cube(img_cube, 0.4)
+
+    filename = 'plan_{}.png'.format(p)
+    img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
+    print(os.path.join(viz_path, filename))
+    cv2.imwrite(os.path.join(viz_path, filename), img_bgr)

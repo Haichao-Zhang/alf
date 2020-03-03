@@ -14,6 +14,7 @@
 
 from collections import namedtuple
 
+import numpy as np
 import gin.tf
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -379,7 +380,13 @@ class QShootingAlgorithm(PlanAlgorithm):
         # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
         ac_q_pop = self._generate_action_sequence(time_step, state,
                                                   epsilon_greedy)
-        # #ac_q_pop = self._generate_action_sequence_random(time_step, state)
+
+        # # save np array
+        # ac_q_pop_np = ac_q_pop.numpy()
+        # np.save('./ac_seq.mat', ac_q_pop_np)
+        # # #ac_q_pop = self._generate_action_sequence_random(time_step, state)
+        # obs_np = time_step.observation.numpy()
+        # np.save('./init_obs.mat', obs_np)
 
         self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
         opt_action = self._plan_optimizer.obtain_solution(
@@ -549,7 +556,6 @@ class QShootingAlgorithm(PlanAlgorithm):
         """
         obs = time_step.observation
         batch_size = obs.shape[0]
-        init_costs = tf.zeros([batch_size, self._population_size])
         ac_seqs = tf.reshape(
             ac_seqs,
             [batch_size, self._population_size, self._planning_horizon, -1])
