@@ -49,8 +49,8 @@ def reward_function_for_pendulum(obs, action):
     def _action_cost(action):
         return 0.001 * tf.reduce_sum(tf.square(action), axis=1)
 
-    cost = _observation_cost(obs) + _action_cost(action)
-    #cost = _observation_cost_sparse(obs) + _action_cost(action)
+    #cost = _observation_cost(obs) + _action_cost(action)
+    cost = _observation_cost_sparse(obs) + _action_cost(action)
     # negative cost as reward
     reward = -cost
     return reward
