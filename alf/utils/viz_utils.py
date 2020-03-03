@@ -12,27 +12,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+sys.path.append('/mnt/DATA/work/RL/alf')
+
 import gym
 import numpy as np
+import time
 
 
-def viz(s0, ac_seqs, gym_name='Pendulum-v0'):
+def get_img_cube(s0, ac_seqs, env):
     """Visualization function
     Args:
         s0: initial state
         ac_seqs: action sequence [T, ...]
     """
-    env = gym.make(gym_name)
-    env.reset(s0)
-    # set initial state
     T = ac_seqs.shape[0]
+    # set initial state
+    env.reset(init_obs=s0)
+    img_init = env.render(mode='rgb_array')
+
+    img_cube = np.zeros([T + 1] + list(img_init.shape))
+
+    img_cube[0] = img_init
+
     for t in range(T):
+        #env.render()
+        #time.sleep(500)
+        obs, reward, done, info = env.step(ac_seqs[t])  # take a random action
         img = env.render(mode='rgb_array')
-        observation, reward, done, info = env.step(
-            ac_seqs[t])  # take a random action
+        img_cube[t + 1] = obs
     env.close()
 
 
+def merge_img_cube(img_cube, overlap_ratio):
+    T = img_cube.shape[0]
+    nr = img_cube.shape[1]
+    nc = img_cube.shape[2]
+    nb = img_cube.shape[3]
+
+    overlap_nc = np.round(nc * overlap_ratio)
+    new_nc = nc * T - overlap_nc * (T - 1)
+    comp_img = np.zeros(nr, nc, nb)
+
+
+env_name = 'Pendulum-v0'
+env = gym.make(env_name)
+
 ac_seqs = np.array([[0], [0]])
-s0 = np.array([0, 1, 0])
-viz(s0, ac_seqs)
+T = 100
+
+action_dim = env.action_space.shape[0]
+ac_seqs = np.zeros([T, action_dim])
+for t in range(T):
+    ac_seqs[t] = env.action_space.sample()
+s0 = np.array([1, 0, 0])
+img_cube = get_img_cube(s0, ac_seqs, env)
+
+comp_img = merge_img_cube(img_cube, 0.2)
