@@ -18,6 +18,7 @@ sys.path.append('/mnt/DATA/work/RL/alf')
 import gym
 import numpy as np
 import time
+import cv2
 
 
 def get_img_cube(s0, ac_seqs, env):
@@ -40,8 +41,9 @@ def get_img_cube(s0, ac_seqs, env):
         #time.sleep(500)
         obs, reward, done, info = env.step(ac_seqs[t])  # take a random action
         img = env.render(mode='rgb_array')
-        img_cube[t + 1] = obs
+        img_cube[t + 1] = img
     env.close()
+    return img_cube
 
 
 def merge_img_cube(img_cube, overlap_ratio):
@@ -51,21 +53,36 @@ def merge_img_cube(img_cube, overlap_ratio):
     nb = img_cube.shape[3]
 
     overlap_nc = np.round(nc * overlap_ratio)
-    new_nc = nc * T - overlap_nc * (T - 1)
-    comp_img = np.zeros(nr, nc, nb)
+    nonoverlap_nc = int(nc - overlap_nc)
+    new_nc = int(nc * T - overlap_nc * (T - 1))
+
+    comp_img = np.zeros([nr, new_nc, nb])
+    norm_img = np.zeros([nr, new_nc, nb])
+    for t in range(T):
+        comp_img[:, t * nonoverlap_nc:t * nonoverlap_nc +
+                 nc, :] += img_cube[t, :, :].astype(float)
+        norm_img[:, t * nonoverlap_nc:t * nonoverlap_nc + nc, :] += np.ones(
+            [nr, nc, nb])
+
+    comp_img = np.divide(comp_img, norm_img).astype(np.uint8)
+    return comp_img
 
 
 env_name = 'Pendulum-v0'
 env = gym.make(env_name)
 
 ac_seqs = np.array([[0], [0]])
-T = 100
+T = 25
 
 action_dim = env.action_space.shape[0]
 ac_seqs = np.zeros([T, action_dim])
 for t in range(T):
     ac_seqs[t] = env.action_space.sample()
-s0 = np.array([1, 0, 0])
+s0 = np.array([0, 1, 0])
 img_cube = get_img_cube(s0, ac_seqs, env)
 
-comp_img = merge_img_cube(img_cube, 0.2)
+comp_img = merge_img_cube(img_cube, 0.4)
+
+filename = 'comp_img.png'
+img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
+cv2.imwrite(filename, img_bgr)
