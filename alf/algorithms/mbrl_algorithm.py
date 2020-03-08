@@ -66,15 +66,15 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
         Args:
             action_spec (nested BoundedTensorSpec): representing the actions.
-            dynamics_module (DDLAlgorithm): module for learning to predict
-                the next feature based on the previous feature and action.
+            dynamics_module (DynamicsLearningAlgorithm): module for learning to
+                predict the next feature based on the previous feature and action.
                 It should accept input with spec [feature_spec,
                 encoded_action_spec] and output a tensor of shape
                 feature_spec. For discrete action, encoded_action is an one-hot
                 representation of the action. For continuous action, encoded
                 action is same as the original action.
-            reward_module (REAlgorithm): module for calculating the reward,
-                i.e.,  evaluating the reward for a (s, a) pair
+            reward_module (RewardEstimationAlgorithm): module for calculating
+            the reward, i.e.,  evaluating the reward for a (s, a) pair
             planner_module (PLANAlgorithm): module for generating planned action
                 based on specified reward function and dynamics function
             gradient_clipping (float): Norm length to clip gradients.
@@ -96,16 +96,14 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         flat_action_spec = tf.nest.flatten(action_spec)
         action_spec = flat_action_spec[0]
 
-        assert not tensor_spec.is_discrete(action_spec), "only support \
+        assert action_spec.is_continuous, "only support \
                                                     continious control"
 
         num_actions = action_spec.shape[-1]
 
-        flat_feature_spec = tf.nest.flatten(feature_spec)
+        flat_feature_spec = nest.flatten(feature_spec)
         assert len(flat_feature_spec) == 1, "Mbrl doesn't support nested \
                                              feature_spec"
-
-        feature_dim = flat_feature_spec[0].shape[-1]
 
         self._action_spec = action_spec
         self._num_actions = num_actions
@@ -120,10 +118,10 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         """Predict the next step (observation and state) based on the current
             time step and state
         Args:
-            time_step (ActionTimeStep): input data for next step prediction
+            time_step (TimeStep): input data for next step prediction
             state (MbrlState): input state next step prediction
         Returns:
-            next_time_step (ActionTimeStep): updated time_step with observation
+            next_time_step (TimeStep): updated time_step with observation
                 predicted from the dynamics module
             next_state (MbrlState): updated state from the dynamics module
         """
@@ -137,20 +135,20 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         reward = self._reward_module.compute_reward(obs, action)
         return reward
 
-    def _predict_with_planning(self, time_step: ActionTimeStep, state):
+    def _predict_with_planning(self, time_step: TimeStep, state):
         action = self._planner_module.generate_plan(time_step, state)
         dynamics_state = self._dynamics_module.update_state(
             time_step, state.dynamics)
 
-        return PolicyStep(
+        return AlgStep(
             action=action,
             state=MbrlState(dynamics=dynamics_state, reward=(), planner=()),
             info=MbrlInfo())
 
-    def predict(self, time_step: ActionTimeStep, state, epsilon_greedy=1.):
+    def predict(self, time_step: TimeStep, state, epsilon_greedy=1.):
         return self._predict_with_planning(time_step, state)
 
-    def rollout(self, time_step: ActionTimeStep, state, mode):
+    def rollout(self, time_step: TimeStep, state, mode):
         return self._predict_with_planning(time_step, state)
 
     def train_step(self, exp: Experience, state: MbrlState):
@@ -166,7 +164,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             dynamics=dynamics_step.info,
             reward=reward_step.info,
             planner=plan_step.info)
-        return PolicyStep(action, state, info)
+        return AlgStep(action, state, info)
 
     def calc_loss(self, training_info: TrainingInfo):
         loss = training_info.info.dynamics.loss
