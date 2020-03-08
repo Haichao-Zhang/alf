@@ -14,19 +14,22 @@
 """Model-based RL Algorithm."""
 
 import numpy as np
-import tensorflow as tf
-import tensorflow_probability as tfp
-import gin.tf
+import gin
 
-from tf_agents.specs import tensor_spec
-from tf_agents.networks.network import Network, DistributionNetwork
-from tf_agents.utils import common as tfa_common
+import torch
+import torch.nn as nn
+import torch.distributions as td
+from typing import Callable
 
-from alf.utils.encoding_network import EncodingNetwork
+from alf.algorithms.config import TrainerConfig
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm
+from alf.algorithms.one_step_loss import OneStepTDLoss
 from alf.algorithms.rl_algorithm import RLAlgorithm
-from alf.data_structures import ActionTimeStep, Experience, LossInfo, namedtuple
-from alf.data_structures import PolicyStep, TrainingInfo
+from alf.data_structures import TimeStep, Experience, LossInfo, namedtuple
+from alf.data_structures import AlgStep, TrainingInfo
+from alf.nest import nest
+from alf.networks import ActorDistributionNetwork, CriticNetwork
+from alf.tensor_specs import TensorSpec, BoundedTensorSpec
 from alf.utils import losses, common, dist_utils
 from alf.utils.math_ops import add_ignore_empty
 
