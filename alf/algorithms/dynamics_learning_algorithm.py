@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from collections import namedtuple
+import gin
+import torch
 
-import gin.tf
-import tensorflow as tf
-
-from tf_agents.networks.network import Network
-import tf_agents.specs.tensor_spec as tensor_spec
-
-from alf.algorithms.algorithm import Algorithm, AlgorithmStep, LossInfo
-from alf.utils.encoding_network import EncodingNetwork
-from alf.data_structures import ActionTimeStep, namedtuple
+from alf.algorithms.algorithm import Algorithm
+from alf.data_structures import AlgStep, LossInfo, TimeStep
+from alf.nest import nest
+from alf.networks import Network, EncodingNetwork
+from alf.tensor_specs import TensorSpec
+from alf.utils import tensor_utils
 
 DynamicsState = namedtuple(
     "DynamicsState", ["feature", "network"], default_value=())
@@ -55,16 +54,16 @@ class DynamicsLearningAlgorithm(Algorithm):
         """
         super().__init__(train_state_spec=train_state_spec, name=name)
 
-        flat_action_spec = tf.nest.flatten(action_spec)
+        flat_action_spec = nest.flatten(action_spec)
         assert len(flat_action_spec) == 1, "doesn't support nested action_spec"
 
-        flat_feature_spec = tf.nest.flatten(feature_spec)
+        flat_feature_spec = nest.flatten(feature_spec)
         assert len(
             flat_feature_spec) == 1, "doesn't support nested feature_spec"
 
         action_spec = flat_action_spec[0]
 
-        if tensor_spec.is_discrete(action_spec):
+        if action_spec.is_discrete:
             self._num_actions = action_spec.maximum - action_spec.minimum + 1
         else:
             self._num_actions = action_spec.shape[-1]
@@ -78,27 +77,28 @@ class DynamicsLearningAlgorithm(Algorithm):
             hidden_size = (hidden_size, )
 
         if dynamics_network is None:
-            encoded_action_spec = tensor_spec.TensorSpec((self._num_actions, ),
-                                                         dtype=tf.float32)
+            encoded_action_spec = TensorSpec((self._num_actions, ),
+                                             dtype=torch.float32)
             dynamics_network = EncodingNetwork(
                 name="dynamics_net",
-                input_tensor_spec=[feature_spec, encoded_action_spec],
+                input_tensor_spec=(feature_spec, encoded_action_spec),
                 fc_layer_params=hidden_size,
                 last_layer_size=feature_dim)
 
         self._dynamics_network = dynamics_network
 
     def _encode_action(self, action):
-        if tensor_spec.is_discrete(self._action_spec):
-            return tf.one_hot(indices=action, depth=self._num_actions)
+        if self._action_spec.is_discrete:
+            return tensor_utils.one_hot(
+                indices=action, depth=self._num_actions)
         else:
             return action
 
-    def update_state(self, time_step: ActionTimeStep, state: DynamicsState):
-        """Update the state based on ActionTimeStep data. This function is
+    def update_state(self, time_step: TimeStep, state: DynamicsState):
+        """Update the state based on TimeStep data. This function is
             mainly used during rollout together with a planner
         Args:
-            time_step (ActionTimeStep): input data for dynamics learning
+            time_step (TimeStep): input data for dynamics learning
             state (Tensor): state for DML (previous observation)
         Returns:
             TrainStep:
@@ -115,10 +115,10 @@ class DynamicsLearningAlgorithm(Algorithm):
         """
         pass
 
-    def train_step(self, time_step: ActionTimeStep, state: DynamicsState):
+    def train_step(self, time_step: TimeStep, state: DynamicsState):
         """
         Args:
-            time_step (ActionTimeStep): input data for dynamics learning
+            time_step (TimeStep): input data for dynamics learning
             state (Tensor): state for dynamics learning (previous observation)
         Returns:
             TrainStep:
@@ -129,7 +129,7 @@ class DynamicsLearningAlgorithm(Algorithm):
         pass
 
     def calc_loss(self, info: DynamicsInfo):
-        loss = tf.nest.map_structure(tf.reduce_mean, info.loss)
+        loss = nest.map_structure(torch.mean, info.loss)
         return LossInfo(
             loss=info.loss, scalar_loss=loss.loss, extra=loss.extra)
 
@@ -173,7 +173,7 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
             dynamics_network=dynamics_network,
             name=name)
 
-    def predict(self, time_step: ActionTimeStep, state: DynamicsState):
+    def predict(self, time_step: TimeStep, state: DynamicsState):
         """Predict the next observation given the current time_step.
                 The next step is predicted using the prev_action from time_step
                 and the feature from state.
@@ -181,16 +181,16 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         action = self._encode_action(time_step.prev_action)
         obs = state.feature
         forward_delta, network_state = self._dynamics_network(
-            inputs=[obs, action], network_state=state.network)
+            inputs=(obs, action), network_state=state.network)
         forward_pred = obs + forward_delta
         state = state._replace(feature=forward_pred, network=network_state)
-        return AlgorithmStep(outputs=forward_pred, state=state, info=())
+        return AlgStep(outputs=forward_pred, state=state, info=())
 
-    def update_state(self, time_step: ActionTimeStep, state: DynamicsState):
-        """Update the state based on ActionTimeStep data. This function is
+    def update_state(self, time_step: TimeStep, state: DynamicsState):
+        """Update the state based on TimeStep data. This function is
             mainly used during rollout together with a planner
         Args:
-            time_step (ActionTimeStep): input data for dynamics learning
+            time_step (TimeStep): input data for dynamics learning
             state (Tensor): state for DML (previous observation)
         Returns:
             TrainStep:
@@ -201,10 +201,10 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         feature = time_step.observation
         return state._replace(feature=feature)
 
-    def train_step(self, time_step: ActionTimeStep, state: DynamicsState):
+    def train_step(self, time_step: TimeStep, state: DynamicsState):
         """
         Args:
-            time_step (ActionTimeStep): input data for dynamics learning
+            time_step (TimeStep): input data for dynamics learning
             state (Tensor): state for dynamics learning (previous observation)
         Returns:
             TrainStep:
@@ -223,4 +223,4 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
                 loss=forward_loss, extra=dict(forward_loss=forward_loss)))
         state = DynamicsState(feature=feature)
 
-        return AlgorithmStep(outputs=(), state=state, info=info)
+        return AlgStep(outputs=(), state=state, info=info)
