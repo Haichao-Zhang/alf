@@ -20,7 +20,7 @@ from alf.data_structures import AlgStep, LossInfo, TimeStep
 from alf.nest import nest
 from alf.networks import Network, EncodingNetwork
 from alf.tensor_specs import TensorSpec
-from alf.utils import tensor_utils
+from alf.utils import losses, tensor_utils
 
 DynamicsState = namedtuple(
     "DynamicsState", ["feature", "network"], default_value=())
@@ -214,13 +214,12 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         """
         feature = time_step.observation
         dynamics_step = self.predict(time_step, state)
-        forward_pred = dynamics_step.outputs
-        forward_loss = 0.5 * tf.reduce_mean(
-            tf.square(feature - forward_pred), axis=-1)
-
+        forward_pred = dynamics_step.output
+        forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
+        forward_loss = forward_loss.mean(list(range(1, forward_loss.ndim)))
         info = DynamicsInfo(
             loss=LossInfo(
                 loss=forward_loss, extra=dict(forward_loss=forward_loss)))
         state = DynamicsState(feature=feature)
 
-        return AlgStep(outputs=(), state=state, info=info)
+        return AlgStep(output=(), state=state, info=info)
