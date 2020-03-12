@@ -13,15 +13,17 @@
 # limitations under the License.
 
 from collections import namedtuple
+import gin
 
-import gin.tf
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.distributions as td
+from typing import Callable
 
-from tf_agents.networks.network import Network
-import tf_agents.specs.tensor_spec as tensor_spec
-
-from alf.algorithms.algorithm import Algorithm, AlgorithmStep, LossInfo
-from alf.data_structures import ActionTimeStep, namedtuple
+from alf.algorithms.algorithm import Algorithm
+from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
+                                 TimeStep, TrainingInfo)
+from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer
 
 
@@ -51,16 +53,16 @@ class PlanAlgorithm(Algorithm):
         """
         super().__init__(name=name)
 
-        flat_action_spec = tf.nest.flatten(action_spec)
+        flat_action_spec = nest.flatten(action_spec)
         assert len(flat_action_spec) == 1, "doesn't support nested action_spec"
 
-        flat_feature_spec = tf.nest.flatten(feature_spec)
+        flat_feature_spec = nest.flatten(feature_spec)
         assert len(
             flat_feature_spec) == 1, "doesn't support nested feature_spec"
 
         action_spec = flat_action_spec[0]
 
-        assert not tensor_spec.is_discrete(action_spec), "only support \
+        assert action_spec.is_continuous, "only support \
                                                     continious control"
 
         self._num_actions = action_spec.shape[-1]
@@ -76,10 +78,10 @@ class PlanAlgorithm(Algorithm):
         self._reward_func = None
         self._dynamics_func = None
 
-    def train_step(self, time_step: ActionTimeStep, state):
+    def train_step(self, time_step: TimeStep, state):
         """
         Args:
-            time_step (ActionTimeStep): input data for dynamics learning
+            time_step (TimeStep): input data for dynamics learning
             state (Tensor): state for dynamics learning (previous observation)
         Returns:
             TrainStep:
@@ -106,7 +108,7 @@ class PlanAlgorithm(Algorithm):
         """
         self._dynamics_func = dynamics_func
 
-    def generate_plan(self, time_step: ActionTimeStep, state):
+    def generate_plan(self, time_step: TimeStep, state):
         """Compute the plan based on the provided observation and action
         Args:
             time_step (ActionTimeStep): input data for next step prediction
@@ -117,7 +119,7 @@ class PlanAlgorithm(Algorithm):
         pass
 
     def calc_loss(self, info):
-        loss = tf.nest.map_structure(tf.reduce_mean, info.loss)
+        loss = nest.map_structure(torch.mean, info.loss)
         return LossInfo(
             loss=info.loss, scalar_loss=loss.loss, extra=loss.extra)
 
@@ -155,11 +157,11 @@ class RandomShootingAlgorithm(PlanAlgorithm):
             lower_bound=lower_bound,
             name=name)
 
-        flat_action_spec = tf.nest.flatten(action_spec)
+        flat_action_spec = nest.flatten(action_spec)
         assert len(flat_action_spec) == 1, ("RandomShootingAlgorithm doesn't "
                                             "support nested action_spec")
 
-        flat_feature_spec = tf.nest.flatten(feature_spec)
+        flat_feature_spec = nest.flatten(feature_spec)
         assert len(flat_feature_spec) == 1, ("RandomShootingAlgorithm doesn't "
                                              "support nested feature_spec")
 
@@ -171,7 +173,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
             upper_bound=action_spec.maximum,
             lower_bound=action_spec.minimum)
 
-    def train_step(self, time_step: ActionTimeStep, state):
+    def train_step(self, time_step: TimeStep, state):
         """
         Args:
             time_step (ActionTimeStep): input data for planning
@@ -184,7 +186,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         """
         return AlgorithmStep(outputs=(), state=(), info=())
 
-    def generate_plan(self, time_step: ActionTimeStep, state):
+    def generate_plan(self, time_step: TimeStep, state):
         assert self._reward_func is not None, ("specify reward function "
                                                "before planning")
 
@@ -194,7 +196,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
         opt_action = self._plan_optimizer.obtain_solution(time_step, state)
         action = opt_action[:, 0]
-        action = tf.reshape(action, [time_step.observation.shape[0], -1])
+        action = torch.reshape(action, [time_step.observation.shape[0], -1])
         return action
 
     def _expand_to_population(self, data):
@@ -209,10 +211,10 @@ class RandomShootingAlgorithm(PlanAlgorithm):
                                     [[a, b], [a, b], [c, d], [c, d]]
         """
         data_population = tf.tile(
-            tf.expand_dims(data, 1),
+            data.unsequeeze(-1),
             [1, self._population_size] + [1] * len(data.shape[1:]))
-        data_population = tf.reshape(data_population,
-                                     [-1] + data.shape[1:].as_list())
+        data_population = torch.reshape(data_population,
+                                        [-1] + data.shape[1:].as_list())
         return data_population
 
     def _calc_cost_for_action_sequence(self, time_step: ActionTimeStep, state,
@@ -229,17 +231,17 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         """
         obs = time_step.observation
         batch_size = obs.shape[0]
-        init_costs = tf.zeros([batch_size, self._population_size])
-        ac_seqs = tf.reshape(
+
+        ac_seqs = torch.reshape(
             ac_seqs,
             [batch_size, self._population_size, self._planning_horizon, -1])
-        ac_seqs = tf.reshape(
-            tf.transpose(ac_seqs, [2, 0, 1, 3]),
+        ac_seqs = torch.reshape(
+            torch.transpose(ac_seqs, [2, 0, 1, 3]),
             [self._planning_horizon, -1, self._num_actions])
 
         state = state._replace(dynamics=state.dynamics._replace(feature=obs))
         init_obs = self._expand_to_population(obs)
-        state = tf.nest.map_structure(self._expand_to_population, state)
+        state = nest.map_structure(self._expand_to_population, state)
 
         obs = init_obs
         cost = 0
@@ -256,5 +258,5 @@ class RandomShootingAlgorithm(PlanAlgorithm):
             obs = next_obs
 
         # reshape cost back to [batch size, population_size]
-        cost = tf.reshape(cost, [batch_size, -1])
+        cost = torch.reshape(cost, [batch_size, -1])
         return cost

@@ -16,7 +16,7 @@ import gin
 import torch
 
 from alf.algorithms.algorithm import Algorithm
-from alf.data_structures import AlgStep, LossInfo, TimeStep
+from alf.data_structures import AlgStep, LossInfo, namedtuple, TimeStep
 from alf.nest import nest
 from alf.networks import Network, EncodingNetwork
 from alf.tensor_specs import TensorSpec
