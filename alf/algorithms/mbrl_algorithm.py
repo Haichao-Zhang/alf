@@ -25,8 +25,8 @@ from alf.algorithms.config import TrainerConfig
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm
 from alf.algorithms.one_step_loss import OneStepTDLoss
 from alf.algorithms.rl_algorithm import RLAlgorithm
-from alf.data_structures import TimeStep, Experience, LossInfo, namedtuple
-from alf.data_structures import AlgStep, TrainingInfo
+from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
+                                 TimeStep, TrainingInfo)
 from alf.nest import nest
 from alf.networks import ActorDistributionNetwork, CriticNetwork
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
