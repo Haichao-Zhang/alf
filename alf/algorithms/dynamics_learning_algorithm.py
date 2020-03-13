@@ -18,6 +18,7 @@ import torch
 from alf.algorithms.algorithm import Algorithm
 from alf.data_structures import AlgStep, LossInfo, namedtuple, TimeStep
 from alf.nest import nest
+from alf.nest.utils import NestConcat
 from alf.networks import Network, EncodingNetwork
 from alf.tensor_specs import TensorSpec
 from alf.utils import losses, tensor_utils
@@ -82,6 +83,7 @@ class DynamicsLearningAlgorithm(Algorithm):
             dynamics_network = EncodingNetwork(
                 name="dynamics_net",
                 input_tensor_spec=(feature_spec, encoded_action_spec),
+                preprocessing_combiner=NestConcat(),
                 fc_layer_params=hidden_size,
                 last_layer_size=feature_dim)
 
@@ -173,7 +175,7 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
             dynamics_network=dynamics_network,
             name=name)
 
-    def predict(self, time_step: TimeStep, state: DynamicsState):
+    def predict_step(self, time_step: TimeStep, state: DynamicsState):
         """Predict the next observation given the current time_step.
                 The next step is predicted using the prev_action from time_step
                 and the feature from state.
@@ -184,7 +186,7 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
             inputs=(obs, action), network_state=state.network)
         forward_pred = obs + forward_delta
         state = state._replace(feature=forward_pred, network=network_state)
-        return AlgStep(outputs=forward_pred, state=state, info=())
+        return AlgStep(output=forward_pred, state=state, info=())
 
     def update_state(self, time_step: TimeStep, state: DynamicsState):
         """Update the state based on TimeStep data. This function is

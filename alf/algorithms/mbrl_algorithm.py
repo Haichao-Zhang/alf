@@ -54,6 +54,11 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                  dynamics_module: DynamicsLearningAlgorithm,
                  reward_module: RewardEstimationAlgorithm,
                  planner_module: PlanAlgorithm,
+                 env=None,
+                 config: TrainerConfig = None,
+                 dynamics_optimizer=None,
+                 reward_optimizer=None,
+                 planner_optimizer=None,
                  gradient_clipping=None,
                  debug_summaries=False,
                  name="MbrlAlgorithm"):
@@ -77,6 +82,13 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             the reward, i.e.,  evaluating the reward for a (s, a) pair
             planner_module (PLANAlgorithm): module for generating planned action
                 based on specified reward function and dynamics function
+            env (Environment): The environment to interact with. env is a batched
+                environment, which means that it runs multiple simulations
+                simultateously. env only needs to be provided to the root
+                Algorithm.
+            config (TrainerConfig): config for training. config only needs to be
+                provided to the algorithm which performs `train_iter()` by
+                itself.
             gradient_clipping (float): Norm length to clip gradients.
             debug_summaries (bool): True if debug summaries should be created.
             name (str): The name of this algorithm.
@@ -89,11 +101,13 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             feature_spec,
             action_spec,
             train_state_spec=train_state_spec,
+            env=env,
+            config=config,
             gradient_clipping=gradient_clipping,
             debug_summaries=debug_summaries,
             name=name)
 
-        flat_action_spec = tf.nest.flatten(action_spec)
+        flat_action_spec = nest.flatten(action_spec)
         action_spec = flat_action_spec[0]
 
         assert action_spec.is_continuous, "only support \
@@ -107,6 +121,9 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
         self._action_spec = action_spec
         self._num_actions = num_actions
+
+        self.add_optimizer(dynamics_optimizer, [dynamics_module])
+        # TODO: add others is learning is needed
 
         self._dynamics_module = dynamics_module
         self._reward_module = reward_module
@@ -141,14 +158,14 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             time_step, state.dynamics)
 
         return AlgStep(
-            action=action,
+            output=action,
             state=MbrlState(dynamics=dynamics_state, reward=(), planner=()),
             info=MbrlInfo())
 
-    def predict(self, time_step: TimeStep, state, epsilon_greedy=1.):
+    def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.):
         return self._predict_with_planning(time_step, state)
 
-    def rollout(self, time_step: TimeStep, state, mode):
+    def rollout_step(self, time_step: TimeStep, state):
         return self._predict_with_planning(time_step, state)
 
     def train_step(self, exp: Experience, state: MbrlState):

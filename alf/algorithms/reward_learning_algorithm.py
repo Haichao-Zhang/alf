@@ -96,7 +96,7 @@ class FixedRewardFunction(RewardEstimationAlgorithm):
                 state (DynamicsState): state for training
                 info (DynamicsInfo):
         """
-        return AlgStep(outputs=(), state=(), info=())
+        return AlgStep(output=(), state=(), info=())
 
     def compute_reward(self, obs, action):
         """Compute reward based on current observation and action

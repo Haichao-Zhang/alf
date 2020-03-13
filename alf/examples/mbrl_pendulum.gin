@@ -16,7 +16,8 @@ observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
 
 # dynamics learning config
-EncodingNetwork.activation_fn=@swish
+# EncodingNetwork.activation=@swish # variance_scaling_init
+EncodingNetwork.activation=@torch.relu # variance_scaling_init
 DeterministicDynamicsAlgorithm.action_spec=%action_spec
 DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
@@ -39,7 +40,7 @@ MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 
 # agent config
 Mbrl/Adam.lr=1e-3
-MbrlAlgorithm.optimizer=@Mbrl/Adam()
+MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
 
 # training config
 TrainerConfig.initial_collect_steps=200
