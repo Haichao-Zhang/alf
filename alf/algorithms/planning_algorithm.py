@@ -104,14 +104,14 @@ class PlanAlgorithm(Algorithm):
         Args:
             dynamics_func (Callable): reward function to be used for planning.
             dynamics_func takes (time_step, state) as input and returns
-            next_time_step (ActionTimeStep) and the next_state
+            next_time_step (TimeStep) and the next_state
         """
         self._dynamics_func = dynamics_func
 
     def generate_plan(self, time_step: TimeStep, state):
         """Compute the plan based on the provided observation and action
         Args:
-            time_step (ActionTimeStep): input data for next step prediction
+            time_step (TimeStep): input data for next step prediction
             state: input state next step prediction
         Returns:
             action: planned action for the given inputs
@@ -176,7 +176,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
     def train_step(self, time_step: TimeStep, state):
         """
         Args:
-            time_step (ActionTimeStep): input data for planning
+            time_step (TimeStep): input data for planning
             state: state for planning (previous observation)
         Returns:
             TrainStep:
@@ -202,26 +202,23 @@ class RandomShootingAlgorithm(PlanAlgorithm):
     def _expand_to_population(self, data):
         """Expand the input tensor to a population of replications
         Args:
-            data (tf.Tensor): input data with shape [batch_size, ...]
+            data (Tensor): input data with shape [batch_size, ...]
         Returns:
-            data_population (tf.Tensor) with shape
+            data_population (Tensor) with shape
                                     [batch_size * self._population_size, ...].
             For example data tensor [[a, b], [c, d]] and a population_size of 2,
             we have the following data_population tensor as output
                                     [[a, b], [a, b], [c, d], [c, d]]
         """
-        data_population = tf.tile(
-            data.unsequeeze(-1),
-            [1, self._population_size] + [1] * len(data.shape[1:]))
-        data_population = torch.reshape(data_population,
-                                        [-1] + data.shape[1:].as_list())
+        data_population = torch.repeat_interleave(
+            data_population, self._population_size, dim=0)
         return data_population
 
-    def _calc_cost_for_action_sequence(self, time_step: ActionTimeStep, state,
+    def _calc_cost_for_action_sequence(self, time_step: TimeStep, state,
                                        ac_seqs):
         """
         Args:
-            time_step (ActionTimeStep): input data for next step prediction
+            time_step (TimeStep): input data for next step prediction
             state (MbrlState): input state for next step prediction
             ac_seqs: action_sequence (tf.Tensor) of shape [batch_size,
                     population_size, solution_dim]), where
