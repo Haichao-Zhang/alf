@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Horizon Robotics. All Rights Reserved.
+# Copyright (c) 2020 Horizon Robotics. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,22 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import gin.tf
-import tensorflow as tf
 from absl.testing import parameterized
-from tf_agents.policies import random_tf_policy
-from tf_agents.environments import parallel_py_environment
-from tf_agents.environments import tf_py_environment
-from tf_agents.drivers import dynamic_step_driver
-from alf.environments import wrappers
-from alf.environments import suite_dmlab
+import functools
+import gin
+
+import alf
+from alf.environments import gym_wrappers, suite_dmlab, torch_environment
+from alf.environments import parallel_torch_environment, thread_torch_environment
 
 
-class SuiteDMLabTest(parameterized.TestCase, tf.test.TestCase):
+class SuiteDMLabTest(parameterized.TestCase, alf.test.TestCase):
     def setUp(self):
         super().setUp()
         if not suite_dmlab.is_available():
@@ -59,40 +53,81 @@ class SuiteDMLabTest(parameterized.TestCase, tf.test.TestCase):
         self._env = suite_dmlab.DeepmindLabEnv(scene=scene)
         self.assertEqual(self._env.action_space.n, action_length)
 
-    def test_dmlab_env(self):
-        ctor = lambda: suite_dmlab.load(
-            scene='lt_chasm',
+    def test_process_env(self):
+        scene = 'lt_chasm'
+        self._env = suite_dmlab.load(
+            scene=scene,
             gym_env_wrappers=[
-                wrappers.FrameGrayScale, wrappers.FrameResize, wrappers.
-                FrameStack
+                gym_wrappers.FrameGrayScale, gym_wrappers.FrameResize,
+                gym_wrappers.FrameStack
             ],
-            wrap_with_process=False)
-        self._env = parallel_py_environment.ParallelPyEnvironment([ctor] * 2)
-        env = tf_py_environment.TFPyEnvironment(self._env)
-        self.assertEqual((84, 84, 4), env.observation_spec().shape)
+            wrap_with_process=True)
+        self.assertIsInstance(self._env, torch_environment.TorchEnvironment)
+        self.assertEqual((4, 84, 84), self._env.observation_spec().shape)
+
+        actions = self._env.action_spec().sample()
+        for _ in range(10):
+            time_step = self._env.step(actions)
+
+    def test_thread_env(self):
+        scene = 'lt_chasm'
+        self._env = thread_torch_environment.ThreadTorchEnvironment(
+            lambda: suite_dmlab.load(
+                scene=scene,
+                gym_env_wrappers=[
+                    gym_wrappers.FrameGrayScale, gym_wrappers.FrameResize,
+                    gym_wrappers.FrameStack
+                ],
+                wrap_with_process=False))
+        self.assertIsInstance(self._env, torch_environment.TorchEnvironment)
+        self.assertEqual((4, 84, 84), self._env.observation_spec().shape)
+
+        actions = self._env.action_spec().sample()
+        for _ in range(10):
+            time_step = self._env.step(actions)
+
+    def test_parallel_env(self):
+        scene = 'lt_chasm'
+        env_num = 8
+
+        def ctor(scene, env_id=None):
+            return suite_dmlab.load(
+                scene=scene,
+                gym_env_wrappers=[
+                    gym_wrappers.FrameGrayScale, gym_wrappers.FrameResize,
+                    gym_wrappers.FrameStack
+                ],
+                wrap_with_process=False)
+
+        constructor = functools.partial(ctor, scene)
+
+        self._env = parallel_torch_environment.ParallelTorchEnvironment(
+            [constructor] * env_num)
+        self.assertTrue(self._env.batched)
+        self.assertEqual(self._env.batch_size, env_num)
+        self.assertEqual((4, 84, 84), self._env.observation_spec().shape)
 
     @parameterized.parameters([
         'nav_maze_random_goal_03', 'contributed/dmlab30/rooms_watermaze',
         'contributed/psychlab/arbitrary_visuomotor_mapping'
     ])
     def test_dmlab_env_run(self, scene):
-        ctor = lambda: suite_dmlab.load(
-            scene=scene,
-            gym_env_wrappers=[wrappers.FrameResize],
-            wrap_with_process=False)
+        def ctor(scene, env_id=None):
+            return suite_dmlab.load(
+                scene=scene,
+                gym_env_wrappers=[gym_wrappers.FrameResize],
+                wrap_with_process=False)
 
-        self._env = parallel_py_environment.ParallelPyEnvironment([ctor] * 4)
-        env = tf_py_environment.TFPyEnvironment(self._env)
-        self.assertEqual((84, 84, 3), env.observation_spec().shape)
+        constructor = functools.partial(ctor, scene)
 
-        random_policy = random_tf_policy.RandomTFPolicy(
-            env.time_step_spec(), env.action_spec())
+        self._env = parallel_torch_environment.ParallelTorchEnvironment(
+            [constructor] * 5)
+        self.assertEqual((4, 84, 84), self._env.observation_spec().shape)
 
-        driver = dynamic_step_driver.DynamicStepDriver(
-            env=env, policy=random_policy, observers=None, num_steps=10)
-
-        driver.run(maximum_iterations=10)
+        actions = self._env.action_spec().sample(outer_dims=(5, ))
+        for _ in range(10):
+            time_step = self._env(actions)
 
 
 if __name__ == '__main__':
-    tf.test.main()
+    alf.test.main()

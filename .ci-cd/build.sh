@@ -45,9 +45,11 @@ function test() {
         alf.algorithms.actor_critic_algorithm_test \
         alf.algorithms.actor_critic_loss_test \
         alf.algorithms.algorithm_test \
+        alf.algorithms.diayn_algorithm_test \
         alf.algorithms.ppo_algorithm_test \
         alf.algorithms.rl_algorithm_test \
         alf.algorithms.trac_algorithm_test \
+        alf.algorithms.vae_test \
         alf.data_structures_test \
         alf.device_ctx_test \
         alf.environments.suite_unittest_test \
@@ -67,7 +69,10 @@ function test() {
         alf.tensor_specs_test \
         alf.trainers.policy_trainer_test \
         alf.utils.checkpoint_utils_test \
+        alf.utils.data_buffer_test \
         alf.utils.dist_utils_test \
+        alf.utils.normalizers_test \
+        alf.utils.tensor_utils_test \
         alf.utils.value_ops_test \
 
     cd ..

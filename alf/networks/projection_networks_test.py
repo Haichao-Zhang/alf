@@ -14,20 +14,20 @@
 """Tests for alf.networks.projection_networks."""
 
 from absl.testing import parameterized
-import unittest
 
 import torch
 
+import alf
 from alf.networks import CategoricalProjectionNetwork
 from alf.networks import NormalProjectionNetwork
 from alf.networks import StableNormalProjectionNetwork
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
-
 import alf.layers as layers
+from alf.utils.dist_utils import DistributionSpec
 
 
 class TestCategoricalProjectionNetwork(parameterized.TestCase,
-                                       unittest.TestCase):
+                                       alf.test.TestCase):
     def test_uniform_projection_net(self):
         """A zero-weight net generates uniform actions."""
         input_spec = TensorSpec((10, ), torch.float32)
@@ -37,7 +37,8 @@ class TestCategoricalProjectionNetwork(parameterized.TestCase,
             input_size=input_spec.shape[0],
             action_spec=BoundedTensorSpec((1, ), minimum=0, maximum=4),
             logits_init_output_factor=0)
-        dist = net(embedding)
+        dist, _ = net(embedding)
+        self.assertTrue(isinstance(net.output_spec, DistributionSpec))
         self.assertEqual(dist.batch_shape, (1, ))
         self.assertEqual(dist.base_dist.batch_shape, (1, 1))
         self.assertTrue(torch.all(dist.base_dist.probs == 0.2))
@@ -51,7 +52,7 @@ class TestCategoricalProjectionNetwork(parameterized.TestCase,
             input_size=input_spec.shape[0],
             action_spec=BoundedTensorSpec((3, 2), minimum=0, maximum=4),
             logits_init_output_factor=1.0)
-        dists = net(embeddings)
+        dists, _ = net(embeddings)
         self.assertEqual(dists.batch_shape, (100, ))
         self.assertEqual(dists.base_dist.batch_shape, (100, 3, 2))
         self.assertTrue(dists.base_dist.probs.std() > 0)
@@ -59,7 +60,7 @@ class TestCategoricalProjectionNetwork(parameterized.TestCase,
             torch.isclose(dists.base_dist.probs.mean(), torch.as_tensor(0.2)))
 
 
-class TestNormalProjectionNetwork(parameterized.TestCase, unittest.TestCase):
+class TestNormalProjectionNetwork(parameterized.TestCase, alf.test.TestCase):
     @parameterized.parameters((True, ), (False, ))
     def test_zero_normal_projection_net(self, state_dependent_std):
         """A zero-weight net generates zero actions."""
@@ -76,7 +77,8 @@ class TestNormalProjectionNetwork(parameterized.TestCase, unittest.TestCase):
             state_dependent_std=state_dependent_std,
             std_transform=layers.identity)
 
-        out = net(embedding).sample((10, ))
+        out = net(embedding)[0].sample((10, ))
+        self.assertTrue(isinstance(net.output_spec, DistributionSpec))
         self.assertEqual(tuple(out.size()), (
             10,
             2,
@@ -102,7 +104,7 @@ class TestNormalProjectionNetwork(parameterized.TestCase, unittest.TestCase):
                                         maximum=(0.01, 0))
         net = network_ctor(
             input_spec.shape[0], action_spec, projection_output_init_gain=1.0)
-        dist = net(embedding)
+        dist, _ = net(embedding)
         self.assertTrue(dist.mean.std() > 0)
         self.assertTrue(
             torch.all(dist.mean > torch.as_tensor(action_spec.minimum)))
@@ -134,8 +136,9 @@ class TestNormalProjectionNetwork(parameterized.TestCase, unittest.TestCase):
             squash_mean=True,
             scale_distribution=True)
 
-        dist = net(embedding)
+        dist, _ = net(embedding)
 
+        self.assertTrue(isinstance(net.output_spec, DistributionSpec))
         # if scale_distribution=True, then squash_mean is ignored
         self.assertFalse(
             torch.all(
@@ -166,10 +169,11 @@ class TestNormalProjectionNetwork(parameterized.TestCase, unittest.TestCase):
             min_std=min_std,
             max_std=max_std)
 
-        dist = net(embedding)
+        dist, _ = net(embedding)
+        self.assertTrue(isinstance(net.output_spec, DistributionSpec))
         self.assertTrue(torch.all(dist.base_dist.scale > min_std))
         self.assertTrue(torch.all(dist.base_dist.scale < max_std))
 
 
 if __name__ == "__main__":
-    unittest.main()
+    alf.test.main()
