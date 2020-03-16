@@ -54,5 +54,5 @@ class RandomOptimizer(Optimizer):
                     self._upper_bound + self._lower_bound) / 2.0
         costs = self.cost_function(time_step, state, solutions)
         min_ind = torch.argmin(costs, dim=-1).long()
-        solution = solutions.gather(-1, min_ind)
+        solution = solutions.index_select(1, min_ind).squeeze(1)
         return solution

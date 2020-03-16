@@ -85,7 +85,7 @@ class PlanAlgorithm(Algorithm):
             state (Tensor): state for dynamics learning (previous observation)
         Returns:
             TrainStep:
-                outputs: empty tuple ()
+                output: empty tuple ()
                 state (DynamicsState): state for training
                 info (DynamicsInfo):
         """
@@ -180,11 +180,11 @@ class RandomShootingAlgorithm(PlanAlgorithm):
             state: state for planning (previous observation)
         Returns:
             TrainStep:
-                outputs: empty tuple ()
+                output: empty tuple ()
                 state (DynamicsState): state for training
                 info (DynamicsInfo):
         """
-        return AlgorithmStep(outputs=(), state=(), info=())
+        return AlgStep(output=(), state=(), info=())
 
     def generate_plan(self, time_step: TimeStep, state):
         assert self._reward_func is not None, ("specify reward function "
@@ -211,7 +211,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
                                     [[a, b], [a, b], [c, d], [c, d]]
         """
         data_population = torch.repeat_interleave(
-            data_population, self._population_size, dim=0)
+            data, self._population_size, dim=0)
         return data_population
 
     def _calc_cost_for_action_sequence(self, time_step: TimeStep, state,
@@ -220,7 +220,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         Args:
             time_step (TimeStep): input data for next step prediction
             state (MbrlState): input state for next step prediction
-            ac_seqs: action_sequence (tf.Tensor) of shape [batch_size,
+            ac_seqs: action_sequence (Tensor) of shape [batch_size,
                     population_size, solution_dim]), where
                     solution_dim = planning_horizon * num_actions
         Returns:
@@ -232,9 +232,10 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         ac_seqs = torch.reshape(
             ac_seqs,
             [batch_size, self._population_size, self._planning_horizon, -1])
+
+        ac_seqs = ac_seqs.permute(2, 0, 1, 3)
         ac_seqs = torch.reshape(
-            torch.transpose(ac_seqs, [2, 0, 1, 3]),
-            [self._planning_horizon, -1, self._num_actions])
+            ac_seqs, (self._planning_horizon, -1, self._num_actions))
 
         state = state._replace(dynamics=state.dynamics._replace(feature=obs))
         init_obs = self._expand_to_population(obs)

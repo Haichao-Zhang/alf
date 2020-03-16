@@ -183,7 +183,7 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         action = self._encode_action(time_step.prev_action)
         obs = state.feature
         forward_delta, network_state = self._dynamics_network(
-            inputs=(obs, action), network_state=state.network)
+            inputs=(obs, action), state=state.network)
         forward_pred = obs + forward_delta
         state = state._replace(feature=forward_pred, network=network_state)
         return AlgStep(output=forward_pred, state=state, info=())
@@ -215,7 +215,7 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
                 info (DynamicsInfo):
         """
         feature = time_step.observation
-        dynamics_step = self.predict(time_step, state)
+        dynamics_step = self.predict_step(time_step, state)
         forward_pred = dynamics_step.output
         forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
         forward_loss = forward_loss.mean(list(range(1, forward_loss.ndim)))

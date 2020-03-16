@@ -142,9 +142,9 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                 predicted from the dynamics module
             next_state (MbrlState): updated state from the dynamics module
         """
-        dynamics_step = self._dynamics_module.predict(time_step,
-                                                      state.dynamics)
-        next_time_step = time_step._replace(observation=dynamics_step.outputs)
+        dynamics_step = self._dynamics_module.predict_step(
+            time_step, state.dynamics)
+        next_time_step = time_step._replace(observation=dynamics_step.output)
         next_state = state._replace(dynamics=dynamics_step.state)
         return next_time_step, next_state
 
