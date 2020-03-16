@@ -16,8 +16,9 @@ observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
 
 # dynamics learning config
-# EncodingNetwork.activation=@swish # variance_scaling_init
-EncodingNetwork.activation=@torch.relu # variance_scaling_init
+variance_scaling_init.calc_gain_after_activation=False
+EncodingNetwork.activation=@swish # variance_scaling_init
+#EncodingNetwork.activation=@torch.relu # variance_scaling_init
 DeterministicDynamicsAlgorithm.action_spec=%action_spec
 DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
