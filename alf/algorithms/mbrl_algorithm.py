@@ -123,7 +123,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._num_actions = num_actions
 
         self.add_optimizer(dynamics_optimizer, [dynamics_module])
-        # TODO: add others is learning is needed
+        # TODO: add others if learning is needed
 
         self._dynamics_module = dynamics_module
         self._reward_module = reward_module
