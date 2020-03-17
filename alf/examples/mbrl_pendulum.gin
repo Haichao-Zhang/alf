@@ -41,7 +41,7 @@ MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 
 # agent config
 Mbrl/Adam.lr=1e-3
-Mbrl/Adam.weight_decay=5e-4
+Mbrl/Adam.weight_decay=0e-10
 MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
 
 # training config
