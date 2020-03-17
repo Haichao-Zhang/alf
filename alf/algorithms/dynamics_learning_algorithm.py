@@ -91,8 +91,8 @@ class DynamicsLearningAlgorithm(Algorithm):
 
     def _encode_action(self, action):
         if self._action_spec.is_discrete:
-            return tensor_utils.one_hot(
-                indices=action, depth=self._num_actions)
+            return torch.nn.functional.one_hot(
+                action, num_classes=self._num_actions)
         else:
             return action
 
@@ -218,7 +218,8 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         dynamics_step = self.predict_step(time_step, state)
         forward_pred = dynamics_step.output
         forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
-        forward_loss = forward_loss.mean(list(range(1, forward_loss.ndim)))
+        forward_loss = 0.5 * forward_loss.mean(
+            list(range(1, forward_loss.ndim)))
         info = DynamicsInfo(
             loss=LossInfo(
                 loss=forward_loss, extra=dict(forward_loss=forward_loss)))

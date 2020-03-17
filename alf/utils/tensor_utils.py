@@ -44,21 +44,6 @@ def tensor_extend_zero(x):
     return torch.cat((x, torch.zeros(x.shape[1:], dtype=x.dtype).unsqueeze(0)))
 
 
-def one_hot(indices, depth):
-    """Convert input indices to onehot encoding,  where the locations
-    represented by indices in `indices` take value 1 while all others are 0.
-
-    Args:
-        indices (Tensor): with shape [batch_size, 1]
-    Returns:
-        onehot: The one-hot tensor.
-    """
-    onehot = torch.FloatTensor(indices.shape[0], depth)
-    onehot.zero_()
-    onehot.scatter_(1, indices, 1)
-    return onehot
-
-
 def explained_variance(ypred, y):
     """Computes fraction of variance that ypred explains about y.
 
