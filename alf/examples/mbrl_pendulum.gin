@@ -4,6 +4,7 @@ import alf.algorithms.reward_learning_algorithm
 import alf.algorithms.planning_algorithm
 import alf.examples.mbrl_pendulum
 import alf.utils.math_ops # swish
+import alf.optimizers
 
 # environment config
 env_name='Pendulum-v0'
@@ -40,9 +41,8 @@ MbrlAlgorithm.reward_module=@FixedRewardFunction()
 MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 
 # agent config
-Mbrl/Adam.lr=1e-2
-Mbrl/Adam.eps=3.162277660168378e-06
-MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
+Mbrl/Adam_TF.lr=1e-3
+MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam_TF()
 
 # training config
 TrainerConfig.initial_collect_steps=200
