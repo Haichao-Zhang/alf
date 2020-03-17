@@ -217,7 +217,8 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         feature = time_step.observation
         dynamics_step = self.predict_step(time_step, state)
         forward_pred = dynamics_step.output
-        forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
+        # forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
+        forward_loss = (feature - forward_pred)**2
         forward_loss = 0.5 * forward_loss.mean(
             list(range(1, forward_loss.ndim)))
         info = DynamicsInfo(
