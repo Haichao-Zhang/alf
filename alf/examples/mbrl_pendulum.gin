@@ -9,9 +9,10 @@ import alf.optimizers
 # environment config
 env_name='Pendulum-v0'
 NUM_PARALLEL_ENVIRONMENTS=1
-#create_environment.env_load_fn=@suite_gym.load
-create_environment.env_name=%env_name
+create_environment.env_load_fn=@suite_gym.load
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
+create_environment.env_name=%env_name
+
 
 observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
@@ -41,8 +42,8 @@ MbrlAlgorithm.reward_module=@FixedRewardFunction()
 MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 
 # agent config
-Mbrl/Adam_TF.lr=1e-3
-MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam_TF()
+Mbrl/Adam.lr=1e-1
+MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
 
 # training config
 TrainerConfig.initial_collect_steps=200
