@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .adam_tf import Adam_TF
+from .adam_tf import AdamTF

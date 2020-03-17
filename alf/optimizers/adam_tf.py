@@ -19,7 +19,7 @@ from torch.optim import Optimizer
 
 
 @gin.configurable
-class Adam_TF(Optimizer):
+class AdamTF(Optimizer):
     """Implementation of Adam algorithm following Tensorflow's convention.
 
     Arguments:
@@ -69,10 +69,10 @@ class Adam_TF(Optimizer):
             eps=eps,
             weight_decay=weight_decay,
             amsgrad=amsgrad)
-        super(Adam_TF, self).__init__(params, defaults)
+        super(AdamTF, self).__init__(params, defaults)
 
     def __setstate__(self, state):
-        super(Adam_TF, self).__setstate__(state)
+        super(AdamTF, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
 
