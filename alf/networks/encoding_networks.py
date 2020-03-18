@@ -320,12 +320,14 @@ class EncodingNetwork(Network):
             preprocessing_combiner,
             name=name)
 
+        # if kernel_initializer is None:
+        #     kernel_initializer = functools.partial(
+        #         variance_scaling_init,
+        #         mode='fan_in',
+        #         distribution='truncated_normal',
+        #         nonlinearity=activation.__name__)
         if kernel_initializer is None:
-            kernel_initializer = functools.partial(
-                variance_scaling_init,
-                mode='fan_in',
-                distribution='truncated_normal',
-                nonlinearity=activation.__name__)
+            kernel_initializer = torch.nn.init.xavier_uniform_
 
         self._img_encoding_net = None
         if conv_layer_params:
