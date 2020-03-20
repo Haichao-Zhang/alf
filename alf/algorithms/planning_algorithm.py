@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.distributions as td
 from typing import Callable
 
-from alf.algorithms.algorithm import Algorithm
+from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm
 from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
                                  TimeStep, TrainingInfo)
 from alf.nest import nest
@@ -28,7 +28,7 @@ from alf.optimizers.random import RandomOptimizer
 
 
 @gin.configurable
-class PlanAlgorithm(Algorithm):
+class PlanAlgorithm(OffPolicyAlgorithm):
     """Planning Module
 
     This module plans for actions based on initial observation
@@ -38,7 +38,8 @@ class PlanAlgorithm(Algorithm):
     def __init__(self,
                  feature_spec,
                  action_spec,
-                 planning_horizon,
+                 train_state_spec=None,
+                 planning_horizon=25,
                  upper_bound=None,
                  lower_bound=None,
                  name="PlanningAlgorithm"):
@@ -51,7 +52,11 @@ class PlanAlgorithm(Algorithm):
             lower_bound (int): lower bound for elements in solution;
                 action_spec.minimum will be used if not specified
         """
-        super().__init__(name=name)
+        super().__init__(
+            feature_spec,
+            action_spec,
+            train_state_spec=train_state_spec,
+            name=name)
 
         flat_action_spec = nest.flatten(action_spec)
         assert len(flat_action_spec) == 1, "doesn't support nested action_spec"
@@ -115,6 +120,7 @@ class PlanAlgorithm(Algorithm):
             state: input state next step prediction
         Returns:
             action: planned action for the given inputs
+            state: mbrl state
         """
         pass
 
@@ -197,7 +203,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         opt_action = self._plan_optimizer.obtain_solution(time_step, state)
         action = opt_action[:, 0]
         action = torch.reshape(action, [time_step.observation.shape[0], -1])
-        return action
+        return action, state
 
     def _expand_to_population(self, data):
         """Expand the input tensor to a population of replications
@@ -258,3 +264,6 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])
         return cost
+
+    def after_update(self, training_info):
+        pass
