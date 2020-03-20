@@ -259,8 +259,6 @@ class ProcessEnvironment(object):
                     payload = array_to_tensor(payload)
                     name, args, kwargs = payload
                     if flatten and name == 'step':
-                        print(action_spec)
-                        print(args[0])
                         args = [nest.pack_sequence_as(action_spec, args[0])]
                     result = getattr(env, name)(*args, **kwargs)
                     result = tensor_to_array(result)

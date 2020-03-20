@@ -26,6 +26,10 @@ from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
 from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer
 
+PlannerState = namedtuple("PlannerState", ["policy"], default_value=())
+PlannerInfo = namedtuple("PlannerInfo", ["policy", "loss"])  # can add loss
+PlannerLossInfo = namedtuple('PlannerLossInfo', ["policy"])
+
 
 @gin.configurable
 class PlanAlgorithm(OffPolicyAlgorithm):
@@ -38,7 +42,6 @@ class PlanAlgorithm(OffPolicyAlgorithm):
     def __init__(self,
                  feature_spec,
                  action_spec,
-                 train_state_spec=None,
                  planning_horizon=25,
                  upper_bound=None,
                  lower_bound=None,
@@ -52,6 +55,8 @@ class PlanAlgorithm(OffPolicyAlgorithm):
             lower_bound (int): lower bound for elements in solution;
                 action_spec.minimum will be used if not specified
         """
+        # train_state_spec = PlannerState(policy=policy_module.train_state_spec)
+        train_state_spec = ()
         super().__init__(
             feature_spec,
             action_spec,
@@ -113,7 +118,7 @@ class PlanAlgorithm(OffPolicyAlgorithm):
         """
         self._dynamics_func = dynamics_func
 
-    def generate_plan(self, time_step: TimeStep, state):
+    def generate_plan(self, time_step: TimeStep, state, epsilon_greedy):
         """Compute the plan based on the provided observation and action
         Args:
             time_step (TimeStep): input data for next step prediction
@@ -124,10 +129,11 @@ class PlanAlgorithm(OffPolicyAlgorithm):
         """
         pass
 
-    def calc_loss(self, info):
-        loss = nest.map_structure(torch.mean, info.loss)
-        return LossInfo(
-            loss=info.loss, scalar_loss=loss.loss, extra=loss.extra)
+    # # never used
+    # def calc_loss(self, info):
+    #     loss = nest.map_structure(torch.mean, info.loss)
+    #     return LossInfo(
+    #         loss=info.loss, scalar_loss=loss.loss, extra=loss.extra)
 
 
 @gin.configurable
@@ -192,7 +198,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
         """
         return AlgStep(output=(), state=(), info=())
 
-    def generate_plan(self, time_step: TimeStep, state):
+    def generate_plan(self, time_step: TimeStep, state, epsilon_greedy):
         assert self._reward_func is not None, ("specify reward function "
                                                "before planning")
 

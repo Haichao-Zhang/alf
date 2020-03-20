@@ -133,7 +133,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._planner_module.set_reward_func(self._calc_step_reward)
         self._planner_module.set_dynamics_func(self._predict_next_step)
 
-    def _predict_next_step(self, time_step, state, epsilon_greedy):
+    def _predict_next_step(self, time_step, state):
         """Predict the next step (observation and state) based on the current
             time step and state
         Args:
@@ -150,7 +150,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         next_state = state._replace(dynamics=dynamics_step.state)
         return next_time_step, next_state
 
-    def _calc_step_reward(self, obs, action, epsilon_greedy):
+    def _calc_step_reward(self, obs, action):
         reward = self._reward_module.compute_reward(obs, action)
         return reward
 
@@ -192,11 +192,12 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
     def calc_loss(self, training_info: TrainingInfo):
         loss = training_info.info.dynamics.loss
-        loss_planner = self._planner_module.calc_loss(
-            training_info._replace(info=training_info.info.planner))
+        # loss_planner = self._planner_module.calc_loss(
+        #     training_info._replace(info=training_info.info.planner))
         loss = add_ignore_empty(loss, training_info.info.reward)
-        #loss = add_ignore_empty(loss, training_info.info.planner)
-        return LossInfo(loss=loss.loss + loss_planner.loss, extra=())
+        loss = add_ignore_empty(loss, training_info.info.planner)
+        # return LossInfo(loss=loss.loss + loss_planner.loss, extra=())
+        return LossInfo(loss=loss.loss, extra=())
 
     # mbrl needs after train method
     def after_update(self, training_info):
