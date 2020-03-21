@@ -55,3 +55,38 @@ class RandomOptimizer(Optimizer):
         min_ind = torch.argmin(costs, dim=-1).long()
         solution = solutions.index_select(1, min_ind).squeeze(1)
         return solution
+
+
+class QOptimizer(Optimizer):
+    def __init__(self,
+                 solution_dim,
+                 population_size,
+                 upper_bound=None,
+                 lower_bound=None):
+        """Creates a Random Optimizer
+
+        Args:
+            solution_dim (int): The dimensionality of the problem space
+            population_size (int): The number of candidate solutions to be
+                sampled at every iteration
+            upper_bound (int|tf.Tensor): upper bounds for elements in solution
+            lower_bound (int|tf.Tensor): lower bounds for elements in solution
+        """
+        super().__init__()
+        self._solution_dim = solution_dim
+        self._population_size = population_size
+        self._upper_bound = upper_bound
+        self._lower_bound = lower_bound
+
+    def obtain_solution(self, time_step: TimeStep, state, acs):
+        """Minimize the cost function provided
+
+        Args:
+            time_step (TimeStep): the initial time_step to start rollout
+            state: input state to start rollout
+        """
+        solutions = acs
+        costs = self.cost_function(time_step, state, solutions)
+        min_ind = torch.argmin(costs, dim=-1).long()
+        solution = solutions.index_select(1, min_ind).squeeze(1)
+        return solution

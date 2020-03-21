@@ -125,6 +125,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._num_actions = num_actions
 
         self.add_optimizer(dynamics_optimizer, [dynamics_module])
+        self.add_optimizer(planner_optimizer, [planner_module])
         # TODO: add others if learning is needed
 
         self._dynamics_module = dynamics_module
@@ -192,12 +193,12 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
     def calc_loss(self, training_info: TrainingInfo):
         loss = training_info.info.dynamics.loss
-        # loss_planner = self._planner_module.calc_loss(
-        #     training_info._replace(info=training_info.info.planner))
-        loss = add_ignore_empty(loss, training_info.info.reward)
-        loss = add_ignore_empty(loss, training_info.info.planner)
-        # return LossInfo(loss=loss.loss + loss_planner.loss, extra=())
-        return LossInfo(loss=loss.loss, extra=())
+        loss_planner = self._planner_module.calc_loss(
+            training_info._replace(info=training_info.info.planner))
+        #loss = add_ignore_empty(loss, training_info.info.reward)
+        #loss = add_ignore_empty(loss, training_info.info.planner)
+        return LossInfo(loss=loss.loss + loss_planner.loss, extra=())
+        #return LossInfo(loss=loss.loss, extra=())
 
     # mbrl needs after train method
     def after_update(self, training_info):

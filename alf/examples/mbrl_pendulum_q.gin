@@ -1,7 +1,8 @@
 import alf.algorithms.mbrl_algorithm
 import alf.algorithms.dynamics_learning_algorithm
-import alf.algorithms.reward_learning_algorithm
 import alf.algorithms.planning_algorithm
+import alf.algorithms.reward_learning_algorithm
+import alf.algorithms.sac_algorithm
 import alf.examples.mbrl_pendulum
 import alf.utils.math_ops # swish
 
@@ -12,14 +13,11 @@ create_environment.env_load_fn=@suite_gym.load
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
 create_environment.env_name=%env_name
 
-
 observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
 
 # dynamics learning config
-#variance_scaling_init.calc_gain_after_activation=False
-EncodingNetwork.activation=@swish # variance_scaling_init
-#EncodingNetwork.activation=@torch.relu # variance_scaling_init
+EncodingNetwork.activation=@swish
 DeterministicDynamicsAlgorithm.action_spec=%action_spec
 DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
@@ -27,26 +25,65 @@ DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 # reward learning config
 FixedRewardFunction.reward_func=@reward_function_for_pendulum
 
-# planner config
-RandomShootingAlgorithm.feature_spec=%observation_spec
-RandomShootingAlgorithm.action_spec=%action_spec
-RandomShootingAlgorithm.population_size=5000
-RandomShootingAlgorithm.planning_horizon=25
+
+actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
+actor/ActorDistributionNetwork.action_spec=%action_spec
+actor/ActorDistributionNetwork.fc_layer_params=(100, 100)
+actor/ActorDistributionNetwork.continuous_projection_net_ctor=@NormalProjectionNetwork
+
+NormalProjectionNetwork.state_dependent_std=True
+NormalProjectionNetwork.scale_distribution=True
+NormalProjectionNetwork.std_transform=@clipped_exp
+
+
+
+
+
+critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+critic/CriticNetwork.joint_fc_layer_params=(100, 100)
+
+# actor/Adam.lr=5e-4
+# critic/Adam.lr=5e-4
+# alpha/Adam.lr=5e-4
+
+
+# agent config
+Mbrl/Adam.lr=1e-3
+
+
+SacAlgorithm.observation_spec=%observation_spec
+SacAlgorithm.action_spec=%action_spec
+SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
+SacAlgorithm.critic_network=@critic/CriticNetwork()
+SacAlgorithm.actor_optimizer=@Mbrl/Adam()
+SacAlgorithm.critic_optimizer=@Mbrl/Adam()
+SacAlgorithm.alpha_optimizer=@Mbrl/Adam()
+SacAlgorithm.target_update_tau=0.005
+
+
+QShootingAlgorithm.feature_spec=%observation_spec
+QShootingAlgorithm.action_spec=%action_spec
+QShootingAlgorithm.population_size=1000
+QShootingAlgorithm.planning_horizon=25
+QShootingAlgorithm.policy_module=@SacAlgorithm()
+OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
+
 
 # model-based RL algo config
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
 MbrlAlgorithm.reward_module=@FixedRewardFunction()
-MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
+MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
-# agent config
-Mbrl/Adam.lr=1e-3
+
 MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
+MbrlAlgorithm.planner_optimizer=@Mbrl/Adam()
+
 
 # training config
 TrainerConfig.initial_collect_steps=200
-TrainerConfig.mini_batch_length=1
+TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=200
 TrainerConfig.mini_batch_size=32
 TrainerConfig.num_updates_per_train_step=5 # epoches
