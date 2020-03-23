@@ -197,10 +197,10 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         loss = training_info.info.dynamics.loss
         loss_planner = self._planner_module.calc_loss(
             training_info._replace(info=training_info.info.planner))
-        loss = add_ignore_empty(loss, training_info.info.reward)
-        loss = add_ignore_empty(loss, loss_planner)
-        #return LossInfo(loss=loss.loss + loss_planner.loss, extra=())
-        return LossInfo(loss=loss.loss, extra=())
+        # loss = add_ignore_empty(loss, training_info.info.reward)
+        # loss = add_ignore_empty(loss, loss_planner)
+        # return LossInfo(loss=loss.loss, extra=())
+        return LossInfo(loss=loss.loss + loss_planner.loss, extra=())
 
     # mbrl needs after train method
     def after_update(self, training_info):
