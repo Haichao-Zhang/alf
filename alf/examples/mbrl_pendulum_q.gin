@@ -48,16 +48,17 @@ critic/CriticNetwork.joint_fc_layer_params=(100, 100)
 
 
 # agent config
-Mbrl/Adam.lr=1e-3
+Mbrl/AdamTF.lr=1e-3
+opt=@Mbrl/AdamTF()
 
 
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
 SacAlgorithm.critic_network=@critic/CriticNetwork()
-SacAlgorithm.actor_optimizer=@Mbrl/Adam()
-SacAlgorithm.critic_optimizer=@Mbrl/Adam()
-SacAlgorithm.alpha_optimizer=@Mbrl/Adam()
+SacAlgorithm.actor_optimizer=%opt
+SacAlgorithm.critic_optimizer=%opt
+SacAlgorithm.alpha_optimizer=%opt
 SacAlgorithm.target_update_tau=0.005
 
 
@@ -77,8 +78,8 @@ MbrlAlgorithm.reward_module=@FixedRewardFunction()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 
-MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
-MbrlAlgorithm.planner_optimizer=@Mbrl/Adam()
+MbrlAlgorithm.dynamics_optimizer=%opt
+MbrlAlgorithm.planner_optimizer=%opt
 
 
 # training config

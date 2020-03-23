@@ -162,6 +162,9 @@ def summarize_variables(name_and_params, with_histogram=True):
     """
     for var_name, var in name_and_params:
         var_values = var
+        if not torch.isfinite(grad_values):
+            print("var {0}".format(var_name))
+            print(vat_values.view(-1, 1)[0:min(torch.numel(grad_values), 10)])
         if with_histogram:
             alf.summary.histogram(
                 name='summarize_vars/' + var_name + '_value', data=var_values)
@@ -183,6 +186,10 @@ def summarize_gradients(name_and_params, step=None, with_histogram=True):
         if var.grad is None:
             continue
         grad_values = var.grad
+        if not torch.isfinite(grad_values):
+            print("-------------------------------")
+            print("grad {0}".format(var_name))
+            print(grad_values.view(-1, 1)[0:min(torch.numel(grad_values), 10)])
         if with_histogram:
             alf.summary.histogram(
                 name='summarize_grads/' + var_name + '_gradient',
