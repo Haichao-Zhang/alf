@@ -371,9 +371,12 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # Q-based action sequence population generation
         # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
-        ac_q_pop = self._generate_action_sequence(time_step, state,
-                                                  epsilon_greedy)
+        # ac_q_pop = self._generate_action_sequence(time_step, state,
+        #                                           epsilon_greedy)
 
+        # Q-sampling-based action generation
+        ac_q_pop = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy)
         # # save np array
         # ac_q_pop_np = ac_q_pop.numpy()
         # np.save('./ac_seq.mat', ac_q_pop_np)
@@ -411,6 +414,44 @@ class QShootingAlgorithm(PlanAlgorithm):
         action = policy_step.output
 
         return action, PlannerState(policy=policy_step.state)
+
+    def _get_action_from_Q_sampling(self, time_step: TimeStep, state):
+        """ Sampling-based approach for select next action
+        Returns:
+            state: planner state
+        """
+        obs_pop = time_step.observation  # obs has already be expanded
+
+        batch_size = obs_pop.shape[0]
+
+        solution_size = self._num_actions  # one-step horizon
+
+        # expand
+        repeat_times = 10
+        obs_pop = torch.repeat_interleave(obs_pop, repeat_times, dim=0)
+        ac_rand_pop = torch.rand(batch_size * repeat_times, solution_size) * (
+            self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
+
+        critic_input = (obs_pop, ac_rand_pop)
+
+        critic, critic_state = self._policy_module._critic_network1(
+            critic_input)
+
+        critic = critic.reshape(batch_size, repeat_times)
+        top_k = 1
+        _, sel_ind = torch.topk(critic, k=min(top_k, critic.shape[0]))
+
+        ac_rand_pop = ac_rand_pop.reshape(batch_size, repeat_times, -1)
+
+        def _batched_index_select(t, dim, inds):
+            dummy = inds.unsqueeze(2).expand(
+                inds.size(0), inds.size(1), t.size(2))
+            out = t.gather(dim, dummy)  # b x e x f
+            return out
+
+        action = _batched_index_select(ac_rand_pop, 1, sel_ind).squeeze(1)
+
+        return action, state
 
     def _generate_action_sequence_random(self, time_step: TimeStep, state):
         # random population
@@ -532,3 +573,55 @@ class QShootingAlgorithm(PlanAlgorithm):
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])
         return cost
+
+    def _generate_action_sequence_random_sampling(self, time_step: TimeStep,
+                                                  state, epsilon_greedy):
+        """Generate action sequence proposals according to dynamics and Q by
+        random sampling. The generated action sequences will then be evaluated
+        using the cost.
+        [There is a potential that these two steps can be merged together.]
+        Args:
+            state: mbrl state
+        Returns:
+            ac_seqs (list): of size [b, p, solution=h*a]
+        """
+
+        obs = time_step.observation
+        batch_size = obs.shape[0]
+
+        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
+        init_obs = self._expand_to_population(obs)
+        init_action = self._expand_to_population(time_step.prev_action)
+        state = nest.map_structure(self._expand_to_population, state)
+
+        obs = init_obs
+        time_step = time_step._replace(
+            observation=obs, prev_action=init_action)  # for Q
+
+        # [b, p, h, a]
+        ac_seqs = torch.zeros([
+            batch_size, self._population_size, self._planning_horizon,
+            self._num_actions
+        ])
+
+        # merge population with batch
+        ac_seqs = ac_seqs.permute(2, 0, 1, 3)
+        ac_seqs = torch.reshape(
+            ac_seqs, (self._planning_horizon, -1, self._num_actions))
+
+        for i in range(self._planning_horizon):
+            action, planner_state = self._get_action_from_Q_sampling(
+                time_step, state)  # always add noise
+            # update policy state part
+            state = state._replace(planner=planner_state)
+            time_step = time_step._replace(prev_action=action)
+            time_step, state = self._dynamics_func(time_step, state)
+            ac_seqs[i] = action
+
+        ac_seqs = torch.reshape(ac_seqs, [
+            self._planning_horizon, batch_size, self._population_size,
+            self._num_actions
+        ]).permute(1, 2, 0, 3)
+        ac_seqs = torch.reshape(ac_seqs,
+                                [batch_size, self._population_size, -1])
+        return ac_seqs
