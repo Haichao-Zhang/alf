@@ -95,9 +95,10 @@ TrainerConfig.num_iterations=50 # num of interactions of unroll_length with env
 TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=0
 TrainerConfig.eval_interval=1
-TrainerConfig.debug_summaries=True
+TrainerConfig.debug_summaries=1
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
+TrainerConfig.random_seed=110
 
 ReplayBuffer.max_length=100000

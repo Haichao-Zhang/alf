@@ -163,7 +163,7 @@ def summarize_variables(name_and_params, with_histogram=True):
     for var_name, var in name_and_params:
         var_values = var
         # print("var {0}".format(var_name))
-        # print(var_values.view(-1, 1)[0:min(torch.numel(var_values), 10).view(1, -1)])
+        # print(var_values)
         if not torch.isfinite(var_values).all():
             print("var {0}".format(var_name))
             print(var_values.view(-1, 1)[0:min(torch.numel(var_values), 10)])
@@ -192,7 +192,7 @@ def summarize_gradients(name_and_params, step=None, with_histogram=True):
 
         # print("-------------------------------")
         # print("grad {0}".format(var_name))
-        # print(grad_values.view(-1, 1)[0:min(torch.numel(grad_values), 10)].view(1, -1))
+        # print(grad_values)
 
         if not torch.isfinite(grad_values).all():
             print("-------------------------------")

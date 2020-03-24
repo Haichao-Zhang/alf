@@ -337,6 +337,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
 
         log_pi = dist_utils.compute_log_probability(action_distribution,
                                                     action)
+        log_pi = torch.log(torch.exp(log_pi) + 1e-8)
 
         actor_state, actor_info = self._actor_train_step(
             exp, state.actor, action_distribution, action, log_pi)
