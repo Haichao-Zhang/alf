@@ -43,11 +43,17 @@ class StableTanh(td.Transform):
     bijective = True
     sign = +1
 
+    def __init__(self, cache_size=1):
+        # We use cache by default as it is numerically unstable for inversion
+        super().__init__(cache_size=cache_size)
+
     def __eq__(self, other):
         return isinstance(other, StableTanh)
 
     def _call(self, x):
-        return torch.tanh(x)
+        y = torch.tanh(x)
+        return y
+        # return torch.clamp(y, -0.99999997, 0.99999997)
 
     def _inverse(self, y):
         # Based on https://github.com/tensorflow/agents/commit/dfb8c85a01d65832b05315928c010336df13f7b9#diff-a572e559b953f965c5c2cd1b9ded2c7b
@@ -673,6 +679,36 @@ class TransformedDistribution(Distribution):
             self.base_dist.log_prob(y),
             event_dim - len(self.base_dist.event_shape))
         return log_prob
+
+    def sample_log_p(self, sample_shape=torch.Size()):
+        """
+        Generates a sample_shape shaped reparameterized sample or sample_shape
+        shaped batch of reparameterized samples if the distribution parameters
+        are batched. Samples first from base distribution and applies
+        `transform()` for every transform in the list.
+        """
+        x = self.base_dist.rsample(sample_shape)
+        for transform in self.transforms:
+            print("------forward")
+            print(x)
+            x = transform(x)
+        value = x
+
+        event_dim = len(self.event_shape)
+        log_prob = 0.0
+        y = value
+        for transform in reversed(self.transforms):
+            x = transform.inv(y)
+            print("=======inverse----")
+            print(x)
+            log_prob = log_prob - _sum_rightmost(
+                transform.log_abs_det_jacobian(x, y),
+                event_dim - transform.event_dim)
+            y = x
+
+        log_prob = log_prob + _sum_rightmost(
+            self.base_dist.log_prob(y),
+            event_dim - len(self.base_dist.event_shape))
 
     def _monotonize_cdf(self, value):
         """
