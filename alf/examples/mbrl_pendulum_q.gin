@@ -8,7 +8,7 @@ import alf.utils.math_ops # swish
 
 # environment config
 env_name='Pendulum-v0'
-NUM_PARALLEL_ENVIRONMENTS=3
+NUM_PARALLEL_ENVIRONMENTS=1
 create_environment.env_load_fn=@suite_gym.load
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
 create_environment.env_name=%env_name
@@ -87,7 +87,7 @@ TrainerConfig.initial_collect_steps=200
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=200
 TrainerConfig.mini_batch_size=32
-TrainerConfig.num_updates_per_train_step=5 # epoches
+TrainerConfig.num_updates_per_train_step=10 # epoches
 TrainerConfig.whole_replay_buffer_training=True
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@MbrlAlgorithm
