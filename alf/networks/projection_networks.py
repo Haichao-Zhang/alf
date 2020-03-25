@@ -186,9 +186,11 @@ class NormalProjectionNetwork(DistributionNetwork):
             squashed_dist = dist_utils.TransformedDistribution(
                 base_distribution=normal_dist,
                 transforms=[
-                    dist_utils.StableTanh(),
+                    dist_utils.StableTanh(cache_size=1),
                     td.AffineTransform(
-                        loc=self._action_means, scale=self._action_magnitudes)
+                        loc=self._action_means,
+                        scale=self._action_magnitudes,
+                        cache_size=1)
                 ])
             return squashed_dist
         else:

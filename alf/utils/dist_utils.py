@@ -1081,7 +1081,7 @@ class StableTransform(Transform, object):
         return self.__class__.__name__ + '()'
 
 
-class StableTanh(StableTransform):
+class StableTanh(Transform):
     """Invertable transformation (bijector) that computes `Y = tanh(X)`,
     therefore `Y in (-1, 1)`.
 
@@ -1100,9 +1100,9 @@ class StableTanh(StableTransform):
     bijective = True
     sign = +1
 
-    # def __init__(self, cache_size=1):
-    #     # We use cache by default as it is numerically unstable for inversion
-    #     super().__init__(cache_size=cache_size)
+    def __init__(self, cache_size=1):
+        # We use cache by default as it is numerically unstable for inversion
+        super().__init__(cache_size=cache_size)
 
     def __eq__(self, other):
         return isinstance(other, StableTanh)
