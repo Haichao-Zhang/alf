@@ -16,6 +16,7 @@ import functools
 import gin
 import hashlib
 import numpy as np
+import numpy as onp  # tobe removed later
 import torch
 import torch.distributions as td
 import torch.nn as nn
@@ -24,7 +25,7 @@ import alf.nest as nest
 from alf.tensor_specs import TensorSpec
 
 
-class StableTanh(td.Transform):
+class StableTanh(StableTransform):
     """Invertable transformation (bijector) that computes `Y = tanh(X)`,
     therefore `Y in (-1, 1)`.
 
@@ -43,9 +44,9 @@ class StableTanh(td.Transform):
     bijective = True
     sign = +1
 
-    def __init__(self, cache_size=1):
-        # We use cache by default as it is numerically unstable for inversion
-        super().__init__(cache_size=cache_size)
+    # def __init__(self, cache_size=1):
+    #     # We use cache by default as it is numerically unstable for inversion
+    #     super().__init__(cache_size=cache_size)
 
     def __eq__(self, other):
         return isinstance(other, StableTanh)
@@ -747,3 +748,371 @@ class TransformedDistribution(Distribution):
         for transform in self.transforms:
             value = transform(value)
         return value
+
+
+class _Mapping(
+        collections.namedtuple('_Mapping', ['x', 'y', 'ildj', 'kwargs'])):
+    """Helper class to make it easier to manage caching in `Bijector`."""
+
+    def __new__(cls, x=None, y=None, ildj=None, kwargs=None):
+        """Custom __new__ so namedtuple items have defaults.
+    Args:
+      x: `Tensor` or None. Input to forward; output of inverse.
+      y: `Tensor` or None. Input to inverse; output of forward.
+      ildj: `Tensor`. This is the (un-reduce_sum'ed) inverse log det jacobian.
+      kwargs: Python dictionary. Extra args supplied to forward/inverse/etc
+        functions.
+    Returns:
+      mapping: New instance of _Mapping.
+    """
+        return super(_Mapping, cls).__new__(cls, x, y, ildj, kwargs)
+
+    @property
+    def subkey(self):
+        """Returns subkey used for caching (nested under either `x` or `y`)."""
+        return self._deep_tuple(self.kwargs)
+
+    def merge(self, x=None, y=None, ildj=None, kwargs=None, mapping=None):
+        """Returns new _Mapping with args merged with self.
+    Args:
+      x: `Tensor` or None. Input to forward; output of inverse.
+      y: `Tensor` or None. Input to inverse; output of forward.
+      ildj: `Tensor`. This is the (un-reduce_sum'ed) inverse log det jacobian.
+      kwargs: Python dictionary. Extra args supplied to forward/inverse/etc
+        functions.
+      mapping: Instance of _Mapping to merge. Can only be specified if no other
+        arg is specified.
+    Returns:
+      mapping: New instance of `_Mapping` which has inputs merged with self.
+    Raises:
+      ValueError: if mapping and any other arg is not `None`.
+    """
+        if mapping is None:
+            mapping = _Mapping(x=x, y=y, ildj=ildj, kwargs=kwargs)
+        elif any(arg is not None for arg in [x, y, ildj, kwargs]):
+            raise ValueError(
+                'Cannot simultaneously specify mapping and individual '
+                'arguments.')
+
+        return _Mapping(
+            x=self._merge(self.x, mapping.x),
+            y=self._merge(self.y, mapping.y),
+            ildj=self._merge(self.ildj, mapping.ildj),
+            kwargs=self._merge(self.kwargs, mapping.kwargs, use_equals=True))
+
+    def remove(self, field):
+        """To support weak referencing, removes cache key from the cache value."""
+        return _Mapping(
+            x=None if field == 'x' else self.x,
+            y=None if field == 'y' else self.y,
+            ildj=self.ildj,
+            kwargs=self.kwargs)
+
+    def _merge(self, old, new, use_equals=False):
+        """Helper to merge which handles merging one value."""
+
+        def generic_to_array(x):
+            if isinstance(x, np.generic):
+                x = np.array(x)
+            if isinstance(x, onp.ndarray):
+                x.flags.writeable = False
+            return x
+
+        if old is None:
+            return generic_to_array(new)
+        if new is None:
+            return generic_to_array(old)
+        if (old == new) if use_equals else (old is new):
+            return generic_to_array(old)
+        raise ValueError('Incompatible values: %s != %s' % (old, new))
+
+    def _deep_tuple(self, x):
+        """Converts nested `tuple`, `list`, or `dict` to nested `tuple`."""
+        if isinstance(x, dict):
+            return self._deep_tuple(tuple(sorted(x.items())))
+        elif isinstance(x, (list, tuple)):
+            return tuple(map(self._deep_tuple, x))
+        elif isinstance(x, tf.Tensor):
+            return x.experimental_ref()
+
+        return x
+
+
+class WeakKeyDefaultDict(dict):
+    """`WeakKeyDictionary` which always adds `defaultdict(dict)` in getitem."""
+
+    # Q:Why not subclass `collections.defaultdict`?
+    # Subclassing collections.defaultdict means we have a more complicated `repr`,
+    # `str` which makes debugging the bijector cache more tedious. Additionally it
+    # means we need to think about passing through __init__ args but manually
+    # specifying the `default_factory`. That is, just overriding `__missing__`
+    # ends up being a lot cleaner.
+
+    # Q:Why not subclass `weakref.WeakKeyDictionary`?
+    # `weakref.WeakKeyDictionary` has an even worse `repr`, `str` than
+    # collections.defaultdict. Plus, since we want explicit control over how the
+    # keys are created we need to override __getitem__ which is the only feature
+    # of `weakref.WeakKeyDictionary` we're using.
+
+    # This is the 'WeakKey' part.
+    def __getitem__(self, key):
+        weak_key = HashableWeakRef(key, self.pop)
+        return super(WeakKeyDefaultDict, self).__getitem__(weak_key)
+
+    # This is the 'DefaultDict' part.
+    def __missing__(self, key):
+        assert isinstance(key, HashableWeakRef)  # Can't happen.
+        return super(WeakKeyDefaultDict, self).setdefault(key, {})
+
+    # Everything that follows is only useful to help make debugging easier.
+
+    def __contains__(self, key):
+        return super(WeakKeyDefaultDict, self).__contains__(
+            HashableWeakRef(key))
+
+    # We don't want mutation except through __getitem__.
+
+    def __setitem__(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def update(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def setdefault(self, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class HashableWeakRef(weakref.ref):
+    """weakref.ref which makes np.array objects hashable.
+    We take care to ensure that a hash can still be provided in the case that the
+    ref has been cleaned up. This ensures that the WeakKeyDefaultDict doesn't
+    suffer memory leaks by failing to clean up HashableWeakRef key objects whose
+    referrents have gone out of scope and been destroyed (as in
+    https://github.com/tensorflow/probability/issues/647).
+    """
+
+    def __init__(self, referrent, callback=None):
+        # Note that -1 is a safe sentinal value for detecting whether hash has been
+        # initialized, since python doesn't allow hashes of -1. In particular,
+        #
+        # ```python
+        # a = -1
+        # print(hash(a))
+        # ==> -2
+        # ```
+        self._last_known_hash = -1
+        super(HashableWeakRef, self).__init__(referrent, callback)
+
+    def __hash__(self):
+        x = self()
+        # If the ref has been cleaned up, fall back to the last known hash value.
+        if x is None:
+            if self._last_known_hash == -1:
+                raise ValueError(
+                    'HashableWeakRef\'s ref has been cleaned up but the hash was never '
+                    'known. It may not be able to be cleaned up as a result.')
+            return self._last_known_hash
+        if not isinstance(x, onp.ndarray):
+            result = id(x)
+        elif isinstance(x, np.generic):
+            raise ValueError('Unable to weakref np.generic')
+        # Note: The following logic can never be reached by the public API because
+        # the bijector base class always calls `convert_to_tensor` before accessing
+        # the cache.
+        else:
+            x.flags.writeable = False
+            result = hash(str(x.__array_interface__) + str(id(x)))
+        self._last_known_hash = result
+        return result
+
+    def __repr__(self):
+        return repr(self())
+
+    def __str__(self):
+        return str(self())
+
+    def __eq__(self, other):
+        # If either ref has been cleaned up, fall back to comparing the
+        # HashableWeakRef instance ids, following what weakref equality checks do
+        # (https://github.com/python/cpython/blob/master/Objects/weakrefobject.c#L196)
+        if self() is None or other() is None:
+            return id(self) == id(other)
+        x = self()
+        if isinstance(x, np.generic):
+            raise ValueError('Unable to weakref np.generic')
+        y = other()
+        ids_are_equal = id(x) == id(y)
+        if not isinstance(x, onp.ndarray):
+            return ids_are_equal
+        return (isinstance(y, onp.ndarray)
+                and x.__array_interface__ == y.__array_interface__
+                and ids_are_equal)
+
+
+class StableTransform(object):
+    """
+    Abstract class for invertable transformations with computable log
+    det jacobians. They are primarily used in
+    :class:`torch.distributions.TransformedDistribution`.
+    Caching is useful for transforms whose inverses are either expensive or
+    numerically unstable. Note that care must be taken with memoized values
+    since the autograd graph may be reversed. For example while the following
+    works with or without caching::
+        y = t(x)
+        t.log_abs_det_jacobian(x, y).backward()  # x will receive gradients.
+    However the following will error when caching due to dependency reversal::
+        y = t(x)
+        z = t.inv(y)
+        grad(z.sum(), [y])  # error because z is x
+    Derived classes should implement one or both of :meth:`_call` or
+    :meth:`_inverse`. Derived classes that set `bijective=True` should also
+    implement :meth:`log_abs_det_jacobian`.
+    Args:
+        cache_size (int): Size of cache. If zero, no caching is done. If one,
+            the latest single value is cached. Only 0 and 1 are supported.
+    Attributes:
+        domain (:class:`~torch.distributions.constraints.Constraint`):
+            The constraint representing valid inputs to this transform.
+        codomain (:class:`~torch.distributions.constraints.Constraint`):
+            The constraint representing valid outputs to this transform
+            which are inputs to the inverse transform.
+        bijective (bool): Whether this transform is bijective. A transform
+            ``t`` is bijective iff ``t.inv(t(x)) == x`` and
+            ``t(t.inv(y)) == y`` for every ``x`` in the domain and ``y`` in
+            the codomain. Transforms that are not bijective should at least
+            maintain the weaker pseudoinverse properties
+            ``t(t.inv(t(x)) == t(x)`` and ``t.inv(t(t.inv(y))) == t.inv(y)``.
+        sign (int or Tensor): For bijective univariate transforms, this
+            should be +1 or -1 depending on whether transform is monotone
+            increasing or decreasing.
+        event_dim (int): Number of dimensions that are correlated together in
+            the transform ``event_shape``. This should be 0 for pointwise
+            transforms, 1 for transforms that act jointly on vectors, 2 for
+            transforms that act jointly on matrices, etc.
+    """
+    bijective = False
+    event_dim = 0
+
+    def __init__(self, cache_size=0):
+        self._cache_size = cache_size
+        self._inv = None
+        if cache_size == 0:
+            pass  # default behavior
+        elif cache_size == 1:
+            self._cached_x_y = None, None
+        else:
+            raise ValueError('cache_size must be 0 or 1')
+        super(Transform, self).__init__()
+
+    def _cache_by_y(self, mapping):
+        """Helper which stores new mapping info in the inverse dict."""
+        # Merging from lookup is an added check that we're not overwriting anything
+        # which is not None.
+        mapping = mapping.merge(
+            mapping=self._lookup(mapping.x, mapping.y, mapping.kwargs))
+        if mapping.y is None:
+            raise ValueError('Caching expects y to be known, i.e., not None.')
+        self._from_y[mapping.y][mapping.subkey] = mapping.remove('y')
+
+    def _cache_update(self, mapping):
+        """Helper which updates only those cached entries that already exist."""
+        if mapping.x is not None and mapping.subkey in self._from_x[mapping.x]:
+            self._cache_by_x(mapping)
+        if mapping.y is not None and mapping.subkey in self._from_y[mapping.y]:
+            self._cache_by_y(mapping)
+
+    def _lookup(self, x=None, y=None, kwargs=None):
+        """Helper which retrieves mapping info from forward/inverse dicts."""
+        mapping = _Mapping(x=x, y=y, kwargs=kwargs)
+        subkey = mapping.subkey
+        if x is not None:
+            # We removed x at caching time. Add it back if we lookup successfully.
+            mapping = self._from_x[x].get(subkey, mapping).merge(x=x)
+        if y is not None:
+            # We removed y at caching time. Add it back if we lookup successfully.
+            mapping = self._from_y[y].get(subkey, mapping).merge(y=y)
+        return mapping
+
+    @property
+    def inv(self):
+        """
+        Returns the inverse :class:`Transform` of this transform.
+        This should satisfy ``t.inv.inv is t``.
+        """
+        inv = None
+        if self._inv is not None:
+            inv = self._inv()
+        if inv is None:
+            inv = _InverseTransform(self)
+            self._inv = weakref.ref(inv)
+        return inv
+
+    @property
+    def sign(self):
+        """
+        Returns the sign of the determinant of the Jacobian, if applicable.
+        In general this only makes sense for bijective transforms.
+        """
+        raise NotImplementedError
+
+    def __eq__(self, other):
+        return self is other
+
+    def __ne__(self, other):
+        # Necessary for Python2
+        return not self.__eq__(other)
+
+    def __call__(self, x):
+        """
+        Computes the transform `x => y`.
+        """
+        if not self.bijective:  # No caching for non-injective
+            return self._call(x)
+        mapping = self._lookup(x=x)
+        if mapping.y is not None:
+            return mapping.y
+        mapping = mapping.merge(y=self._call(x))
+        # It's most important to cache the y->x mapping, because computing
+        # inverse(forward(y)) may be numerically unstable / lossy. Caching the
+        # x->y mapping only saves work. Since python doesn't support ephemerons,
+        # we cannot be simultaneously weak-keyed on both x and y, so we choose y.
+        self._cache_by_y(mapping)
+        return mapping.y
+
+    def _inv_call(self, y):
+        """
+        Inverts the transform `y => x`.
+        """
+        if not self.bijective:  # No caching for non-injective
+            return self._inverse(y)
+        mapping = self._lookup(y=y, kwargs=kwargs)
+        if mapping.x is not None:
+            return mapping.x
+        mapping = mapping.merge(x=self._inverse(y))
+        # It's most important to cache the x->y mapping, because computing
+        # forward(inverse(y)) may be numerically unstable / lossy. Caching the
+        # y->x mapping only saves work. Since python doesn't support ephemerons,
+        # we cannot be simultaneously weak-keyed on both x and y, so we choose x.
+        self._cache_by_x(mapping)
+        return mapping.x
+
+    def _call(self, x):
+        """
+        Abstract method to compute forward transformation.
+        """
+        raise NotImplementedError
+
+    def _inverse(self, y):
+        """
+        Abstract method to compute inverse transformation.
+        """
+        raise NotImplementedError
+
+    def log_abs_det_jacobian(self, x, y):
+        """
+        Computes the log det jacobian `log |dy/dx|` given input and output.
+        """
+        raise NotImplementedError
+
+    def __repr__(self):
+        return self.__class__.__name__ + '()'
