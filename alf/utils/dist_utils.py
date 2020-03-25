@@ -19,59 +19,14 @@ import numpy as np
 import numpy as onp  # tobe removed later
 import torch
 import torch.distributions as td
+from torch.distributions.transforms import _InverseTransform
 import torch.nn as nn
 
 import alf.nest as nest
 from alf.tensor_specs import TensorSpec
 
-
-class StableTanh(StableTransform):
-    """Invertable transformation (bijector) that computes `Y = tanh(X)`,
-    therefore `Y in (-1, 1)`.
-
-    This can be achieved by an affine transform of the Sigmoid transformation,
-    i.e., it is equivalent to applying a list of transformations sequentially:
-        ```
-        transforms = [td.AffineTransform(loc=0, scale=2)
-                        td.SigmoidTransform(),
-                        td.AffineTransform(
-                            loc=-1,
-                            scale=2]
-        ```
-    However, using the `StableTanh` transformation directly is more numerically
-    stable.
-    """
-    bijective = True
-    sign = +1
-
-    # def __init__(self, cache_size=1):
-    #     # We use cache by default as it is numerically unstable for inversion
-    #     super().__init__(cache_size=cache_size)
-
-    def __eq__(self, other):
-        return isinstance(other, StableTanh)
-
-    def _call(self, x):
-        y = torch.tanh(x)
-        return y
-        # return torch.clamp(y, -0.99999997, 0.99999997)
-
-    def _inverse(self, y):
-        # Based on https://github.com/tensorflow/agents/commit/dfb8c85a01d65832b05315928c010336df13f7b9#diff-a572e559b953f965c5c2cd1b9ded2c7b
-
-        # 0.99999997 is the maximum value such that atanh(x) is valid for both
-        # float32 and float64
-        def _atanh(x):
-            return 0.5 * torch.log((1 + x) / (1 - x))
-
-        y = torch.where(
-            torch.abs(y) <= 1.0, torch.clamp(y, -0.99999997, 0.99999997), y)
-        return _atanh(y)
-
-    def log_abs_det_jacobian(self, x, y):
-        return 2.0 * (
-            torch.log(torch.tensor(2.0, dtype=x.dtype, requires_grad=False)) -
-            x - nn.functional.softplus(-2.0 * x))
+import collections
+import weakref
 
 
 class OUProcess(nn.Module):
@@ -273,7 +228,7 @@ def params_to_distributions(nests, nest_spec):
 
 def distributions_to_params(nests):
     """Convert distributions to its parameters, keep Tensors unchanged.
-    Only returns parameters that have tf.Tensor values.
+    Only returns parameters that have torch.Tensor values.
     Args:
         nests (nested Distribution and Tensor): Each Distribution will be
             converted to dictionary of its Tensor parameters.
@@ -832,7 +787,7 @@ class _Mapping(
             return self._deep_tuple(tuple(sorted(x.items())))
         elif isinstance(x, (list, tuple)):
             return tuple(map(self._deep_tuple, x))
-        elif isinstance(x, tf.Tensor):
+        elif isinstance(x, torch.Tensor):
             return x.experimental_ref()
 
         return x
@@ -949,7 +904,7 @@ class HashableWeakRef(weakref.ref):
                 and ids_are_equal)
 
 
-class StableTransform(object):
+class StableTransform(Transform, object):
     """
     Abstract class for invertable transformations with computable log
     det jacobians. They are primarily used in
@@ -993,16 +948,23 @@ class StableTransform(object):
     bijective = False
     event_dim = 0
 
-    def __init__(self, cache_size=0):
-        self._cache_size = cache_size
+    def __init__(self):
+        super(StableTransform, self).__init__()
         self._inv = None
-        if cache_size == 0:
-            pass  # default behavior
-        elif cache_size == 1:
-            self._cached_x_y = None, None
-        else:
-            raise ValueError('cache_size must be 0 or 1')
-        super(Transform, self).__init__()
+        # self._from_y = self._no_dependency(WeakKeyDefaultDict())
+        # self._from_x = self._no_dependency(WeakKeyDefaultDict())
+        self._from_y = WeakKeyDefaultDict()
+        self._from_x = WeakKeyDefaultDict()
+
+    def _cache_by_x(self, mapping):
+        """Helper which stores new mapping info in the forward dict."""
+        # Merging from lookup is an added check that we're not overwriting anything
+        # which is not None.
+        mapping = mapping.merge(
+            mapping=self._lookup(mapping.x, mapping.y, mapping.kwargs))
+        if mapping.x is None:
+            raise ValueError('Caching expects x to be known, i.e., not None.')
+        self._from_x[mapping.x][mapping.subkey] = mapping.remove('x')
 
     def _cache_by_y(self, mapping):
         """Helper which stores new mapping info in the inverse dict."""
@@ -1033,6 +995,7 @@ class StableTransform(object):
             mapping = self._from_y[y].get(subkey, mapping).merge(y=y)
         return mapping
 
+    # pytorch code -----------------
     @property
     def inv(self):
         """
@@ -1085,7 +1048,7 @@ class StableTransform(object):
         """
         if not self.bijective:  # No caching for non-injective
             return self._inverse(y)
-        mapping = self._lookup(y=y, kwargs=kwargs)
+        mapping = self._lookup(y=y)
         if mapping.x is not None:
             return mapping.x
         mapping = mapping.merge(x=self._inverse(y))
@@ -1116,3 +1079,52 @@ class StableTransform(object):
 
     def __repr__(self):
         return self.__class__.__name__ + '()'
+
+
+class StableTanh(StableTransform):
+    """Invertable transformation (bijector) that computes `Y = tanh(X)`,
+    therefore `Y in (-1, 1)`.
+
+    This can be achieved by an affine transform of the Sigmoid transformation,
+    i.e., it is equivalent to applying a list of transformations sequentially:
+        ```
+        transforms = [td.AffineTransform(loc=0, scale=2)
+                        td.SigmoidTransform(),
+                        td.AffineTransform(
+                            loc=-1,
+                            scale=2]
+        ```
+    However, using the `StableTanh` transformation directly is more numerically
+    stable.
+    """
+    bijective = True
+    sign = +1
+
+    # def __init__(self, cache_size=1):
+    #     # We use cache by default as it is numerically unstable for inversion
+    #     super().__init__(cache_size=cache_size)
+
+    def __eq__(self, other):
+        return isinstance(other, StableTanh)
+
+    def _call(self, x):
+        y = torch.tanh(x)
+        return y
+        # return torch.clamp(y, -0.99999997, 0.99999997)
+
+    def _inverse(self, y):
+        # Based on https://github.com/tensorflow/agents/commit/dfb8c85a01d65832b05315928c010336df13f7b9#diff-a572e559b953f965c5c2cd1b9ded2c7b
+
+        # 0.99999997 is the maximum value such that atanh(x) is valid for both
+        # float32 and float64
+        def _atanh(x):
+            return 0.5 * torch.log((1 + x) / (1 - x))
+
+        y = torch.where(
+            torch.abs(y) <= 1.0, torch.clamp(y, -0.99999997, 0.99999997), y)
+        return _atanh(y)
+
+    def log_abs_det_jacobian(self, x, y):
+        return 2.0 * (
+            torch.log(torch.tensor(2.0, dtype=x.dtype, requires_grad=False)) -
+            x - nn.functional.softplus(-2.0 * x))
