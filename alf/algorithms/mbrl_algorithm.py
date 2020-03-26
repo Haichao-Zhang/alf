@@ -41,6 +41,8 @@ MbrlState = namedtuple("MbrlState", ["dynamics", "reward", "planner"])
 MbrlInfo = namedtuple(
     "MbrlInfo", ["dynamics", "reward", "planner"], default_value=())
 
+MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
+
 
 @gin.configurable
 class MbrlAlgorithm(OffPolicyAlgorithm):
@@ -202,7 +204,8 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         # return LossInfo(loss=loss.loss, extra=())
         return LossInfo(
             loss=loss.loss + loss_planner.loss,
-            extra=(loss.extra, loss_planner.extra))
+            extra=MbrlLossInfo(
+                dynamics=loss.extra, planner=loss_planner.extra))
 
     # mbrl needs after train method
     def after_update(self, training_info):
