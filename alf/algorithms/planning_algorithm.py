@@ -374,20 +374,25 @@ class QShootingAlgorithm(PlanAlgorithm):
         # ac_q_pop = self._generate_action_sequence(time_step, state,
         #                                           epsilon_greedy)
 
-        # Q-sampling-based action generation
-        ac_q_pop = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy)
-        # # save np array
-        # ac_q_pop_np = ac_q_pop.numpy()
-        # np.save('./ac_seq.mat', ac_q_pop_np)
-        # # #ac_q_pop = self._generate_action_sequence_random(time_step, state)
-        # obs_np = time_step.observation.numpy()
-        # np.save('./init_obs.mat', obs_np)
+        # # Q-sampling-based action generation
+        # ac_q_pop = self._generate_action_sequence_random_sampling(
+        #     time_step, state, epsilon_greedy)
+        # # # save np array
+        # # ac_q_pop_np = ac_q_pop.numpy()
+        # # np.save('./ac_seq.mat', ac_q_pop_np)
+        # # # #ac_q_pop = self._generate_action_sequence_random(time_step, state)
+        # # obs_np = time_step.observation.numpy()
+        # # np.save('./init_obs.mat', obs_np)
 
-        self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
-        opt_action = self._plan_optimizer.obtain_solution(
-            time_step, state, ac_q_pop)
-        action = opt_action[:, 0]
+        # self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
+        # opt_action = self._plan_optimizer.obtain_solution(
+        #     time_step, state, ac_q_pop)
+        # action = opt_action[:, 0]
+
+        # simutineously generate action sequence and evaluate
+        opt_ac_seqs = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy)
+        action = opt_ac_seqs[:, 0]
 
         # # option 3
         # action, state = self._get_action_from_Q(time_step, state,
@@ -609,6 +614,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         ac_seqs = torch.reshape(
             ac_seqs, (self._planning_horizon, -1, self._num_actions))
 
+        cost = 0
         for i in range(self._planning_horizon):
             action, planner_state = self._get_action_from_Q_sampling(
                 time_step, state)  # always add noise
@@ -618,10 +624,24 @@ class QShootingAlgorithm(PlanAlgorithm):
             time_step, state = self._dynamics_func(time_step, state)
             ac_seqs[i] = action
 
+            # immediate evaluation using reward function
+            next_obs = time_step.observation
+            reward_step = self._reward_func(next_obs, action)
+            cost = cost - reward_step
+
+        # reshape cost back to [batch size, population_size]
+        cost = torch.reshape(cost, [batch_size, -1])
+
+        # the action sequences are unnecessary now
         ac_seqs = torch.reshape(ac_seqs, [
             self._planning_horizon, batch_size, self._population_size,
             self._num_actions
         ]).permute(1, 2, 0, 3)
         ac_seqs = torch.reshape(ac_seqs,
                                 [batch_size, self._population_size, -1])
-        return ac_seqs
+
+        min_ind = torch.argmin(cost, dim=-1).long()
+        # TODO: need to check if batch_index_select is needed
+        opt_ac_seqs = ac_seqs.index_select(1, min_ind).squeeze(1)
+
+        return opt_ac_seqs
