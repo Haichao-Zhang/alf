@@ -15,11 +15,32 @@
 # import sys
 # sys.path.append('/mnt/DATA/work/RL/alf')
 import os
-
 import gym
 import numpy as np
 import time
 import cv2
+
+from alf.utils.common import add_method
+from gym.envs.classic_control import PendulumEnv
+
+
+@add_method(PendulumEnv)
+def reset(self, init_obs=None):
+    # added by hz 2020-03-02 15:31:57
+    # will derive the initial state from given observation
+    if init_obs is not None:
+        #np.array([np.cos(theta), np.sin(theta), thetadot])
+        c_theta = init_obs[0]
+        s_theta = init_obs[1]
+        theta = np.arctan2(s_theta, c_theta)
+        thetadot = init_obs[2]
+        init_state = np.array([theta, thetadot])
+        self.state = init_state
+    else:
+        high = np.array([np.pi, 1])
+        self.state = self.np_random.uniform(low=-high, high=high)
+    self.last_u = None
+    return self._get_obs()
 
 
 def save_to_np(tensor, file_path):
@@ -75,33 +96,41 @@ def merge_img_cube(img_cube, overlap_ratio):
     return comp_img
 
 
-env_name = 'Pendulum-v0'
-env = gym.make(env_name)
-action_dim = env.action_space.shape[0]
+def vis_script():
+    env_name = 'Pendulum-v0'
+    env = gym.make(env_name)
+    action_dim = env.action_space.shape[0]
 
-# T = 25
-# ac_seqs = np.zeros([T, action_dim])
-# for t in range(T):
-#     ac_seqs[t] = env.action_space.sample()
+    # T = 25
+    # ac_seqs = np.zeros([T, action_dim])
+    # for t in range(T):
+    #     ac_seqs[t] = env.action_space.sample()
 
-# s0 = np.array([0, 1, 0])
+    # s0 = np.array([0, 1, 0])
 
-ac_seqs_pop = np.load(
-    '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
-s0 = np.load('/mnt/DATA/work/RL/alf/init_obs.mat.npy')  # [1, 3]
-s0 = np.squeeze(s0)
+    ac_seqs_pop = np.load(
+        '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
+    obs_seqs = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
+    s0 = obs_seqs[:, 0, 0, :]
+    s0 = np.squeeze(s0)
+    print(s0.shape)
 
-viz_path = '/home/haichaozhang/Documents/data/mbrl/viz'
-os.makedirs(viz_path, exist_ok=True)
-# population number
-pop_num = ac_seqs_pop.shape[1]
+    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_27'
+    os.makedirs(viz_path, exist_ok=True)
+    # population number
+    pop_num = ac_seqs_pop.shape[1]
 
-for p in range(pop_num):
-    ac_seqs = np.reshape(np.squeeze(ac_seqs_pop[0, p, :]), [-1, action_dim])
-    img_cube = get_img_cube(s0, ac_seqs, env)
-    comp_img = merge_img_cube(img_cube, 0.4)
+    for p in range(pop_num):
+        ac_seqs = np.reshape(
+            np.squeeze(ac_seqs_pop[0, p, :]), [-1, action_dim])
+        img_cube = get_img_cube(s0, ac_seqs, env)
+        comp_img = merge_img_cube(img_cube, 0.4)
 
-    filename = 'plan_{}.png'.format(p)
-    img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
-    print(os.path.join(viz_path, filename))
-    cv2.imwrite(os.path.join(viz_path, filename), img_bgr)
+        filename = 'plan_{}.png'.format(p)
+        img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
+        print(os.path.join(viz_path, filename))
+        cv2.imwrite(os.path.join(viz_path, filename), img_bgr)
+
+
+if __name__ == '__main__':
+    vis_script()

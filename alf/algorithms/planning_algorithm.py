@@ -622,6 +622,11 @@ class QShootingAlgorithm(PlanAlgorithm):
         ac_seqs = torch.reshape(
             ac_seqs, (self._planning_horizon, -1, self._num_actions))
 
+        # merge population with batch
+        obs_seqs = obs_seqs.permute(2, 0, 1, 3)
+        obs_seqs = torch.reshape(obs_seqs,
+                                 (self._planning_horizon, -1, obs.shape[1]))
+
         cost = 0
         for i in range(self._planning_horizon):
             obs_seqs[i] = time_step.observation
@@ -646,8 +651,15 @@ class QShootingAlgorithm(PlanAlgorithm):
             self._planning_horizon, batch_size, self._population_size,
             self._num_actions
         ]).permute(1, 2, 0, 3)
-        ac_seqs = torch.reshape(ac_seqs,
-                                [batch_size, self._population_size, -1])
+        # ac_seqs = torch.reshape(ac_seqs,
+        #                         [batch_size, self._population_size, -1])
+
+        obs_seqs = torch.reshape(
+            obs_seqs,
+            [self._planning_horizon, batch_size, self._population_size, -1
+             ]).permute(1, 2, 0, 3)
+        # obs_seqs = torch.reshape(obs_seqs,
+        #                          [batch_size, self._population_size, -1])
 
         vis_utils.save_to_np(ac_seqs, './ac_seqs.mat')
         vis_utils.save_to_np(obs_seqs, './obs_seqs.mat')
