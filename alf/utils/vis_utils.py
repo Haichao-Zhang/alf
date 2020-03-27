@@ -22,6 +22,12 @@ import time
 import cv2
 
 
+def save_to_np(tensor, file_path):
+    # save np array
+    tensor_np = tensor.cpu().numpy()
+    np.save(file_path, tensor_np)
+
+
 def get_img_cube(s0, ac_seqs, env):
     """Visualization function
     Args:

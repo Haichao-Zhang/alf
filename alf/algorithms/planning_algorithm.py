@@ -26,6 +26,8 @@ from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
 from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer, QOptimizer
 
+from alf.utils import vis_utils
+
 PlannerState = namedtuple("PlannerState", ["policy"], default_value=())
 # PlannerInfo = namedtuple("PlannerInfo", ["policy", "loss"])  # can add loss
 PlannerInfo = namedtuple("PlannerInfo", ["policy"])  # TODO: add loss
@@ -609,6 +611,12 @@ class QShootingAlgorithm(PlanAlgorithm):
             self._num_actions
         ])
 
+        # obs
+        obs_seqs = torch.zeros([
+            batch_size, self._population_size, self._planning_horizon,
+            obs.shape[1]
+        ])
+
         # merge population with batch
         ac_seqs = ac_seqs.permute(2, 0, 1, 3)
         ac_seqs = torch.reshape(
@@ -616,6 +624,7 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         cost = 0
         for i in range(self._planning_horizon):
+            obs_seqs[i] = time_step.observation
             action, planner_state = self._get_action_from_Q_sampling(
                 time_step, state)  # always add noise
             # update policy state part
@@ -639,6 +648,9 @@ class QShootingAlgorithm(PlanAlgorithm):
         ]).permute(1, 2, 0, 3)
         ac_seqs = torch.reshape(ac_seqs,
                                 [batch_size, self._population_size, -1])
+
+        vis_utils.save_to_np(ac_seqs, './ac_seqs.mat')
+        vis_utils.save_to_np(obs_seqs, './obs_seqs.mat')
 
         min_ind = torch.argmin(cost, dim=-1).long()
         # TODO: need to check if batch_index_select is needed
