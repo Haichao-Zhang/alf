@@ -123,7 +123,7 @@ def merge_img_cube(img_cube, overlap_ratio):
     return comp_img
 
 
-def vis_actions():
+def vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, name):
     env_name = 'Pendulum-v0'
     env = gym.make(env_name)
     action_dim = env.action_space.shape[0]
@@ -135,14 +135,12 @@ def vis_actions():
 
     # s0 = np.array([0, 1, 0])
 
-    ac_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
-    obs_seqs = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
-    s0 = obs_seqs[:, 0, 0, :]
+    # ac_seqs_pop = np.load(
+    #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
+    # obs_seqs = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
+    s0 = obs_seqs_pop[:, 0, 0, :]
     s0 = np.squeeze(s0)
-    print(s0.shape)
 
-    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_27'
     os.makedirs(viz_path, exist_ok=True)
     # population number
     pop_num = ac_seqs_pop.shape[1]
@@ -153,13 +151,13 @@ def vis_actions():
         img_cube = get_img_cube(s0, ac_seqs, env)
         comp_img = merge_img_cube(img_cube, 0.4)
 
-        filename = 'plan_{}.png'.format(p)
+        filename = 'plan_{}_{}_action.png'.format(name, p)
         img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
         print(os.path.join(viz_path, filename))
         cv2.imwrite(os.path.join(viz_path, filename), img_bgr)
 
 
-def vis_observations():
+def vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, name):
     env_name = 'Pendulum-v0'
     env = gym.make(env_name)
     action_dim = env.action_space.shape[0]
@@ -171,16 +169,20 @@ def vis_observations():
 
     # s0 = np.array([0, 1, 0])
 
-    ac_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
-    obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
+    # ac_seqs_pop = np.load(
+    #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
+    # obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
+
+    # ac_seqs_pop = np.load(
+    #     '/mnt/DATA/work/RL/alf/ac_seqs_latest.mat.npy')  # [batch, pop, T]
+    # obs_seqs_pop = np.load(
+    #     '/mnt/DATA/work/RL/alf/obs_seqs_latest.mat.npy')  # [1, 3]
+
     s0 = obs_seqs_pop[:, 0, 0, :]
     s0 = np.squeeze(s0)
-    print(s0.shape)
 
     obs_dim = obs_seqs_pop.shape[-1]
 
-    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_27'
     os.makedirs(viz_path, exist_ok=True)
     # population number
     pop_num = ac_seqs_pop.shape[1]
@@ -192,11 +194,28 @@ def vis_observations():
         img_cube = get_img_cube_obs(s0, obs_seqs, env)
         comp_img = merge_img_cube(img_cube, 0.4)
 
-        filename = 'plan_obs_{}.png'.format(p)
+        filename = 'plan_{}_{}_obs.png'.format(name, p)
         img_bgr = cv2.cvtColor(comp_img, cv2.COLOR_RGB2BGR)
         print(os.path.join(viz_path, filename))
         cv2.imwrite(os.path.join(viz_path, filename), img_bgr)
 
 
+def viz():
+    # ac_seqs_pop = np.load(
+    #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
+    # obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
+    ac_seqs_pop = np.load(
+        '/mnt/DATA/work/RL/alf/ac_seqs_latest.mat.npy')  # [batch, pop, T]
+    obs_seqs_pop = np.load(
+        '/mnt/DATA/work/RL/alf/obs_seqs_latest.mat.npy')  # [1, 3]
+    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_latest'
+
+    #vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "latest")
+
+    #viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_27'
+
+    vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, "latest")
+
+
 if __name__ == '__main__':
-    vis_observations()
+    viz()
