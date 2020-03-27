@@ -654,6 +654,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         # ac_seqs = torch.reshape(ac_seqs,
         #                         [batch_size, self._population_size, -1])
 
+        # [B, P, H, D]
         obs_seqs = torch.reshape(
             obs_seqs,
             [self._planning_horizon, batch_size, self._population_size, -1
