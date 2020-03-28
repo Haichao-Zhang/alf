@@ -386,20 +386,21 @@ class QShootingAlgorithm(PlanAlgorithm):
         # # obs_np = time_step.observation.numpy()
         # # np.save('./init_obs.mat', obs_np)
 
-        # self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
-        # opt_action = self._plan_optimizer.obtain_solution(
-        #     time_step, state, ac_q_pop)
-        # action = opt_action[:, 0]
-
-        # simutineously generate action sequence and evaluate
-        opt_ac_seqs = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy)
-        action = opt_ac_seqs[:, 0]
+        # # simutineously generate action sequence and evaluate
+        # opt_ac_seqs = self._generate_action_sequence_random_sampling(
+        #     time_step, state, epsilon_greedy)
+        # action = opt_ac_seqs[:, 0]
 
         # # option 3
         # action, state = self._get_action_from_Q(time_step, state,
         #                                         epsilon_greedy)
 
+        ac_q_pop = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy)
+        self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
+        opt_action = self._plan_optimizer.obtain_solution(
+            time_step, state, ac_q_pop)
+        action = opt_action[:, 0]
         action = torch.reshape(action, [time_step.observation.shape[0], -1])
         return action, state
 
@@ -584,6 +585,96 @@ class QShootingAlgorithm(PlanAlgorithm):
 
     def _generate_action_sequence_random_sampling(self, time_step: TimeStep,
                                                   state, epsilon_greedy):
+        """Generate action sequence proposals according to dynamics and Q by
+        random sampling. The generated action sequences will then be evaluated
+        using the cost.
+        [There is a potential that these two steps can be merged together.]
+        Args:
+            state: mbrl state
+        Returns:
+            ac_seqs (list): of size [b, p, solution=h*a]
+        """
+
+        obs = time_step.observation
+        batch_size = obs.shape[0]
+
+        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
+        init_obs = self._expand_to_population(obs)
+        init_action = self._expand_to_population(time_step.prev_action)
+        state = nest.map_structure(self._expand_to_population, state)
+
+        obs = init_obs
+        time_step = time_step._replace(
+            observation=obs, prev_action=init_action)  # for Q
+
+        # [b, p, h, a]
+        ac_seqs = torch.zeros([
+            batch_size, self._population_size, self._planning_horizon,
+            self._num_actions
+        ])
+
+        # obs
+        obs_seqs = torch.zeros([
+            batch_size, self._population_size, self._planning_horizon,
+            obs.shape[1]
+        ])
+
+        # merge population with batch
+        ac_seqs = ac_seqs.permute(2, 0, 1, 3)
+        ac_seqs = torch.reshape(
+            ac_seqs, (self._planning_horizon, -1, self._num_actions))
+
+        # merge population with batch
+        obs_seqs = obs_seqs.permute(2, 0, 1, 3)
+        obs_seqs = torch.reshape(obs_seqs,
+                                 (self._planning_horizon, -1, obs.shape[1]))
+
+        cost = 0
+        for i in range(self._planning_horizon):
+            obs_seqs[i] = time_step.observation
+            action, planner_state = self._get_action_from_Q_sampling(
+                time_step, state)  # always add noise
+            # update policy state part
+            state = state._replace(planner=planner_state)
+            time_step = time_step._replace(prev_action=action)
+            time_step, state = self._dynamics_func(time_step, state)
+            ac_seqs[i] = action
+
+            # immediate evaluation using reward function
+            next_obs = time_step.observation
+            reward_step = self._reward_func(next_obs, action)
+            cost = cost - reward_step
+
+        # reshape cost back to [batch size, population_size]
+        cost = torch.reshape(cost, [batch_size, -1])
+
+        # the action sequences are unnecessary now
+        ac_seqs = torch.reshape(ac_seqs, [
+            self._planning_horizon, batch_size, self._population_size,
+            self._num_actions
+        ]).permute(1, 2, 0, 3)
+        # ac_seqs = torch.reshape(ac_seqs,
+        #                         [batch_size, self._population_size, -1])
+
+        # # [B, P, H, D]
+        # obs_seqs = torch.reshape(
+        #     obs_seqs,
+        #     [self._planning_horizon, batch_size, self._population_size, -1
+        #      ]).permute(1, 2, 0, 3)
+        # # obs_seqs = torch.reshape(obs_seqs,
+        # #                          [batch_size, self._population_size, -1])
+
+        # vis_utils.save_to_np(ac_seqs, './ac_seqs_random.mat')
+        # vis_utils.save_to_np(obs_seqs, './obs_seqs_random.mat')
+
+        # min_ind = torch.argmin(cost, dim=-1).long()
+        # # TODO: need to check if batch_index_select is needed
+        # opt_ac_seqs = ac_seqs.index_select(1, min_ind).squeeze(1)
+
+        return ac_seqs
+
+    def _generate_action_sequence_random_sampling_simutaneous(
+            self, time_step: TimeStep, state, epsilon_greedy):
         """Generate action sequence proposals according to dynamics and Q by
         random sampling. The generated action sequences will then be evaluated
         using the cost.
