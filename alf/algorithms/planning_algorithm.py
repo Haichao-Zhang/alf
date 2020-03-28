@@ -447,6 +447,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         critic = critic.reshape(batch_size, repeat_times)
         top_k = 1
         _, sel_ind = torch.topk(critic, k=min(top_k, critic.shape[0]))
+        sel_ind = torch.zeros_like(sel_ind)
 
         ac_rand_pop = ac_rand_pop.reshape(batch_size, repeat_times, -1)
 
@@ -662,8 +663,8 @@ class QShootingAlgorithm(PlanAlgorithm):
         # obs_seqs = torch.reshape(obs_seqs,
         #                          [batch_size, self._population_size, -1])
 
-        # vis_utils.save_to_np(ac_seqs, './ac_seqs_latest.mat')
-        # vis_utils.save_to_np(obs_seqs, './obs_seqs_latest.mat')
+        vis_utils.save_to_np(ac_seqs, './ac_seqs_random.mat')
+        vis_utils.save_to_np(obs_seqs, './obs_seqs_random.mat')
 
         min_ind = torch.argmin(cost, dim=-1).long()
         # TODO: need to check if batch_index_select is needed

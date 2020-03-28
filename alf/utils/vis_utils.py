@@ -205,16 +205,14 @@ def viz():
     #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
     # obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
     ac_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/ac_seqs_latest.mat.npy')  # [batch, pop, T]
+        '/mnt/DATA/work/RL/alf/ac_seqs_random.mat.npy')  # [batch, pop, T]
     obs_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/obs_seqs_latest.mat.npy')  # [1, 3]
-    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_latest'
+        '/mnt/DATA/work/RL/alf/obs_seqs_random.mat.npy')  # [1, 3]
+    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_random'
 
-    #vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "latest")
+    #vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "random")
 
-    #viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_27'
-
-    vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, "latest")
+    vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, "random")
 
 
 if __name__ == '__main__':
