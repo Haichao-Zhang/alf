@@ -447,7 +447,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         critic = critic.reshape(batch_size, repeat_times)
         top_k = 1
         _, sel_ind = torch.topk(critic, k=min(top_k, critic.shape[0]))
-        sel_ind = torch.zeros_like(sel_ind)
+        #sel_ind = torch.zeros_like(sel_ind)
 
         ac_rand_pop = ac_rand_pop.reshape(batch_size, repeat_times, -1)
 
