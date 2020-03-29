@@ -41,7 +41,9 @@ class BeamSearchNode(object):
         self.leng = length
 
     def eval(self, alpha=1.0):
-        return self.logp / float(self.leng - 1 + 1e-6)
+        #return self.logp / float(self.leng - 1 + 1e-6)
+        return 0.001 * float(
+            self.leng) + self.logp / float(self.leng - 1 + 1e-6)
 
     def __lt__(self, other):
         return self.eval() < other.eval()
@@ -74,6 +76,7 @@ def beam_decode(time_step,
 
     #number_required = pop_size
     beam_width = 10
+    beam_width = max(number_required, beam_width)
     pop_size = 10 * beam_width  # expand size, will select beam_width from pop_size
     topk = beam_width  # how many sentence do you want to generate
     decoded_batch = []
@@ -176,6 +179,15 @@ def beam_decode(time_step,
                 nodes.put((score, nn))
                 # increase qsize
             qsize += len(nextnodes) - 1
+            #print(qsize)
+
+            # reconstruct the queue with size restriction
+            topk_nodes = [nodes.get() for _ in range(topk)]
+            nodes = PriorityQueue()
+            # put them into queue
+            for i in range(len(topk_nodes)):
+                score, nn = topk_nodes[i]
+                nodes.put((score, nn))
 
         # choose nbest paths, back trace them
         if len(endnodes) == 0:
@@ -200,4 +212,4 @@ def beam_decode(time_step,
 
     decoded_batch_tensor = torch.cat(decoded_batch, dim=0)
     # [B, P, plan_horizon]
-    return decoded_batch_tensor
+    return decoded_batch_tensor.detach()
