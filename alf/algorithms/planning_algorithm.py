@@ -26,7 +26,7 @@ from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
 from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer, QOptimizer
 
-from alf.utils import vis_utils
+from alf.utils import vis_utils, beam_search
 
 PlannerState = namedtuple("PlannerState", ["policy"], default_value=())
 # PlannerInfo = namedtuple("PlannerInfo", ["policy", "loss"])  # can add loss
@@ -395,7 +395,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         # action, state = self._get_action_from_Q(time_step, state,
         #                                         epsilon_greedy)
 
-        ac_q_pop = self._generate_action_sequence_random_sampling(
+        ac_q_pop = self._generate_action_sequence_beam_search(
             time_step, state, epsilon_greedy)
         self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
         opt_action = self._plan_optimizer.obtain_solution(
@@ -670,6 +670,40 @@ class QShootingAlgorithm(PlanAlgorithm):
         # min_ind = torch.argmin(cost, dim=-1).long()
         # # TODO: need to check if batch_index_select is needed
         # opt_ac_seqs = ac_seqs.index_select(1, min_ind).squeeze(1)
+
+        return ac_seqs
+
+    def _generate_action_sequence_beam_search(self, time_step: TimeStep, state,
+                                              epsilon_greedy):
+        """Generate action sequence proposals according to dynamics and Q by
+        random sampling. The generated action sequences will then be evaluated
+        using the cost.
+        [There is a potential that these two steps can be merged together.]
+        Args:
+            state: mbrl state
+        Returns:
+            ac_seqs (list): of size [b, p, solution=h*a]
+        """
+
+        obs = time_step.observation
+        batch_size = obs.shape[0]
+        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
+
+        ac_seqs = beam_search.beam_decode(
+            time_step,
+            state,
+            self._policy_module._critic_network1,
+            self._dynamics_func,
+            max_len=self._planning_horizon,
+            lower_bound=int(self._lower_bound),
+            upper_bound=int(self._upper_bound),
+            solution_size=self._num_actions)
+
+        # the action sequences are unnecessary now
+        ac_seqs = torch.reshape(ac_seqs, [
+            self._planning_horizon, batch_size, self._population_size,
+            self._num_actions
+        ]).permute(1, 2, 0, 3)
 
         return ac_seqs
 

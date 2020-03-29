@@ -16,7 +16,7 @@ import operator
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Queue import PriorityQueue
+from queue import PriorityQueue
 
 
 class BeamSearchNode(object):
@@ -50,15 +50,17 @@ class BeamSearchNode(object):
     #     return children
 
 
-def beam_decode(s0,
+def beam_decode(time_step,
+                state,
                 eval_func,
+                dynamics_func,
                 max_len=25,
                 lower_bound=-2.,
                 upper_bound=2.,
                 solution_size=1):
     """ beam decode
     Args:
-        s0: input tensor of shape [B, H] for start of the decoding, where H
+        time_step: input tensor of shape [B, H] for start of the decoding, where H
             is the state vector dimension
         TODO: might also need dynamics model
     Returns:
@@ -71,9 +73,12 @@ def beam_decode(s0,
     topk = beam_width  # how many sentence do you want to generate
     decoded_batch = []
 
+    s0 = time_step.observation
+
     batch_size = s0.shape[0]
     # decoding goes element by element in batch
     for idx in range(batch_size):
+        # keep batch dim
         s0_i = s0[idx, :]  # individual state in batch s0
 
         # Number of sentence to generate
@@ -94,9 +99,10 @@ def beam_decode(s0,
 
             # fetch the best node
             score, n = nodes.get()
-            current_obs = n.obs
+            current_obs = n.obs.unsqueeze(0)  # recover batch dim
 
-            if n.leng == max_len and n.prevNode != None:
+            # +1 due to starting from the current step
+            if n.leng == max_len + 1 and n.prevNode != None:
                 endnodes.append((score, n))
                 # if we reached maximum # of sentences required
                 if len(endnodes) >= number_required:
@@ -108,7 +114,7 @@ def beam_decode(s0,
             # decode for one step using decoder
             # batch size is 1
             ac_rand_pop = torch.rand(
-                current_obs.shape[0], pop_size,
+                current_obs.shape[0] * pop_size,
                 solution_size) * (upper_bound - lower_bound) + lower_bound
 
             obs_pop = torch.repeat_interleave(current_obs, pop_size, dim=0)
@@ -117,16 +123,22 @@ def beam_decode(s0,
             # critic, critic_state = self._policy_module._critic_network1(
             #     critic_input)
 
-            critic, next_state = eval_func(
-                critic_input)  # both eval and dymanics
+            critic, _ = eval_func(critic_input)  # both eval and dymanics
+
+            time_step, state = dynamics_func(
+                time_step._replace(prev_action=ac_rand_pop),
+                state._replace(
+                    dynamics=state.dynamics._replace(feature=obs_pop)))
 
             critic = critic.reshape(current_obs.shape[0], pop_size)
 
             sel_value, sel_ind = torch.topk(
-                critic, k=min(beam_width, critic.shape[0]))
+                critic, k=min(beam_width, critic.shape[1]))
 
             ac_rand_pop = ac_rand_pop.reshape(current_obs.shape[0], pop_size,
                                               -1)
+            next_obs_pop = time_step.observation.reshape(
+                current_obs.shape[0], pop_size, -1)
 
             def _batched_index_select(t, dim, inds):
                 dummy = inds.unsqueeze(2).expand(
@@ -135,14 +147,20 @@ def beam_decode(s0,
                 return out
 
             action = _batched_index_select(ac_rand_pop, 1, sel_ind).squeeze(1)
+            next_obs = _batched_index_select(next_obs_pop, 1,
+                                             sel_ind).squeeze(1)
 
+            # the actual batch size is 1 as we iterate over elements in batch
+            sel_value = sel_value.squeeze(0)
+            action = action.squeeze(0)
+            next_obs = next_obs.squeeze(0)
             # PUT HERE REAL BEAM SEARCH OF TOP
             nextnodes = []
 
             for new_k in range(beam_width):
                 log_p = sel_value[new_k]
                 # branch node -  previous_node, obs, prev_action, logp, length
-                node = BeamSearchNode(n, next_state, action[new_k],
+                node = BeamSearchNode(n, next_obs[new_k], action[new_k],
                                       n.logp + log_p, n.leng + 1)
                 score = -node.eval()
                 nextnodes.append((score, node))
@@ -168,7 +186,8 @@ def beam_decode(s0,
                 utterance.append(n.prev_action)
 
             utterance = utterance[::-1]
-            utterances.append(utterance)
+            utterance_tensor = torch.cat(t[1:])
+            utterances.append(utterance_tensor)
 
         decoded_batch.append(utterances)
 
