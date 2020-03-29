@@ -689,21 +689,27 @@ class QShootingAlgorithm(PlanAlgorithm):
         batch_size = obs.shape[0]
         state = state._replace(dynamics=state.dynamics._replace(feature=obs))
 
+        # batch size, pop_size, horizon, action_dim
         ac_seqs = beam_search.beam_decode(
             time_step,
             state,
             self._policy_module._critic_network1,
             self._dynamics_func,
             max_len=self._planning_horizon,
+            number_required=self._population_size,
             lower_bound=int(self._lower_bound),
             upper_bound=int(self._upper_bound),
             solution_size=self._num_actions)
 
         # the action sequences are unnecessary now
+        # ac_seqs = torch.reshape(ac_seqs, [
+        #     self._planning_horizon, batch_size, self._population_size,
+        #     self._num_actions
+        # ]).permute(1, 2, 0, 3)
         ac_seqs = torch.reshape(ac_seqs, [
-            self._planning_horizon, batch_size, self._population_size,
+            batch_size, self._population_size, self._planning_horizon,
             self._num_actions
-        ]).permute(1, 2, 0, 3)
+        ])
 
         return ac_seqs
 

@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from queue import PriorityQueue
+import copy
 
 
 class BeamSearchNode(object):
@@ -42,6 +43,9 @@ class BeamSearchNode(object):
     def eval(self, alpha=1.0):
         return self.logp / float(self.leng - 1 + 1e-6)
 
+    def __lt__(self, other):
+        return self.eval() < other.eval()
+
     # def generate_children(self, ):
     #     """
     #     Implement: generating children
@@ -55,6 +59,7 @@ def beam_decode(time_step,
                 eval_func,
                 dynamics_func,
                 max_len=25,
+                number_required=100,
                 lower_bound=-2.,
                 upper_bound=2.,
                 solution_size=1):
@@ -67,7 +72,7 @@ def beam_decode(time_step,
         decoded_batch
     """
 
-    number_required = 11
+    #number_required = pop_size
     beam_width = 10
     pop_size = 10 * beam_width  # expand size, will select beam_width from pop_size
     topk = beam_width  # how many sentence do you want to generate
@@ -95,9 +100,9 @@ def beam_decode(time_step,
         # start beam search
         while True:
             # give up when decoding takes too long
-            if qsize > 2000: break
+            # if qsize > 2000: break
 
-            # fetch the best node
+            # fetch the best nodegit
             score, n = nodes.get()
             current_obs = n.obs.unsqueeze(0)  # recover batch dim
 
@@ -152,7 +157,7 @@ def beam_decode(time_step,
 
             # the actual batch size is 1 as we iterate over elements in batch
             sel_value = sel_value.squeeze(0)
-            action = action.squeeze(0)
+            action = action.squeeze(0)  #.reshape(-1, solution_size)
             next_obs = next_obs.squeeze(0)
             # PUT HERE REAL BEAM SEARCH OF TOP
             nextnodes = []
@@ -161,7 +166,7 @@ def beam_decode(time_step,
                 log_p = sel_value[new_k]
                 # branch node -  previous_node, obs, prev_action, logp, length
                 node = BeamSearchNode(n, next_obs[new_k], action[new_k],
-                                      n.logp + log_p, n.leng + 1)
+                                      n.logp + log_p.cpu().numpy(), n.leng + 1)
                 score = -node.eval()
                 nextnodes.append((score, node))
 
@@ -186,9 +191,13 @@ def beam_decode(time_step,
                 utterance.append(n.prev_action)
 
             utterance = utterance[::-1]
-            utterance_tensor = torch.cat(t[1:])
-            utterances.append(utterance_tensor)
+            utterance_tensor = torch.cat(utterance[1:])
+            # unsqueeze prepare for the outer cat
+            utterances.append(utterance_tensor.unsqueeze(0))
 
-        decoded_batch.append(utterances)
+        utterances_tensor = torch.cat(utterances, dim=0)
+        decoded_batch.append(utterances_tensor.unsqueeze(0))
 
-    return decoded_batch
+    decoded_batch_tensor = torch.cat(decoded_batch, dim=0)
+    # [B, P, plan_horizon]
+    return decoded_batch_tensor
