@@ -206,18 +206,21 @@ def viz():
     #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
     # obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
     ac_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/ac_seqs_beam_init.mat.npy')  # [batch, pop, T]
+        '/mnt/DATA/work/RL/alf/ac_seqs_parallel_beam_bf_train.mat.npy'
+    )  # [batch, pop, T]
     obs_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/obs_seqs_beam_init.mat.npy')  # [1, 3]
-    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_beam_init'
+        '/mnt/DATA/work/RL/alf/obs_seqs_parallel_beam_bf_train.mat.npy'
+    )  # [1, 3]
+    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_parallel_beam_bf_train'
 
-    #vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "random")
+    if 1:
+        vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "beam")
+    else:
+        s0 = obs_seqs_pop[:, 0, 0, :]
+        s0 = np.squeeze(s0)
 
-    # s0 = obs_seqs_pop[:, 0, 0, :]
-    # s0 = np.squeeze(s0)
-    s0 = obs_seqs_pop.reshape([-1, 1])
-    print(ac_seqs_pop)
-    vis_actions(s0, ac_seqs_pop, viz_path, "beam")
+        # s0 = obs_seqs_pop.reshape([-1, 1])
+        vis_actions(s0, ac_seqs_pop, viz_path, "beam")
 
 
 if __name__ == '__main__':

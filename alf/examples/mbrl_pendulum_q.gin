@@ -64,7 +64,7 @@ SacAlgorithm.target_update_tau=0.005
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=1000
+QShootingAlgorithm.population_size=10
 QShootingAlgorithm.planning_horizon=25
 QShootingAlgorithm.policy_module=@SacAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
@@ -99,5 +99,7 @@ TrainerConfig.debug_summaries=1
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
+TrainerConfig.random_seed=101
+TrainerConfig.summarize_action_distributions=True
 
 ReplayBuffer.max_length=100000
