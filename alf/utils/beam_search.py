@@ -41,9 +41,10 @@ class BeamSearchNode(object):
         self.leng = length
 
     def eval(self, alpha=1.0):
-        #return self.logp / float(self.leng - 1 + 1e-6)
-        return 0.001 * float(
-            self.leng) + self.logp / float(self.leng - 1 + 1e-6)
+        return self.logp
+        # return self.logp / float(self.leng - 1 + 1e-6)
+        # return 0.001 * float(
+        #     self.leng) + self.logp / float(self.leng - 1 + 1e-6)
 
     def __lt__(self, other):
         return self.eval() < other.eval()
@@ -138,7 +139,7 @@ def beam_decode(time_step,
                 state._replace(
                     dynamics=state.dynamics._replace(feature=obs_pop)))
 
-            critic = critic.reshape(current_obs.shape[0], pop_size)
+            critic = critic.reshape(current_obs.shape[0], pop_size) - 10.0
 
             sel_value, sel_ind = torch.topk(
                 critic, k=min(beam_width, critic.shape[1]))
@@ -168,6 +169,8 @@ def beam_decode(time_step,
             for new_k in range(beam_width):
                 log_p = sel_value[new_k]
                 # branch node -  previous_node, obs, prev_action, logp, length
+                # node = BeamSearchNode(n, next_obs[new_k], action[new_k],
+                #                       n.logp + log_p.cpu().numpy(), n.leng + 1)
                 node = BeamSearchNode(n, next_obs[new_k], action[new_k],
                                       n.logp + log_p.cpu().numpy(), n.leng + 1)
                 score = -node.eval()
@@ -181,13 +184,13 @@ def beam_decode(time_step,
             qsize += len(nextnodes) - 1
             #print(qsize)
 
-            # reconstruct the queue with size restriction
-            topk_nodes = [nodes.get() for _ in range(topk)]
-            nodes = PriorityQueue()
-            # put them into queue
-            for i in range(len(topk_nodes)):
-                score, nn = topk_nodes[i]
-                nodes.put((score, nn))
+            # # reconstruct the queue with size restriction
+            # topk_nodes = [nodes.get() for _ in range(topk)]
+            # nodes = PriorityQueue()
+            # # put them into queue
+            # for i in range(len(topk_nodes)):
+            #     score, nn = topk_nodes[i]
+            #     nodes.put((score, nn))
 
         # choose nbest paths, back trace them
         if len(endnodes) == 0:

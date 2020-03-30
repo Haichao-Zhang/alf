@@ -386,21 +386,27 @@ class QShootingAlgorithm(PlanAlgorithm):
         # # obs_np = time_step.observation.numpy()
         # # np.save('./init_obs.mat', obs_np)
 
-        # # simutineously generate action sequence and evaluate
-        # opt_ac_seqs = self._generate_action_sequence_random_sampling(
-        #     time_step, state, epsilon_greedy)
-        # action = opt_ac_seqs[:, 0]
+        # self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
+        # opt_action = self._plan_optimizer.obtain_solution(
+        #     time_step, state, ac_q_pop)
+
+        # option 2
+        # simutineously generate action sequence and evaluate
+        opt_action = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy)
+        action = opt_action[:, 0]
 
         # # option 3
         # action, state = self._get_action_from_Q(time_step, state,
         #                                         epsilon_greedy)
 
-        ac_q_pop = self._generate_action_sequence_beam_search(
-            time_step, state, epsilon_greedy)
-        self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
-        opt_action = self._plan_optimizer.obtain_solution(
-            time_step, state, ac_q_pop)
-        action = opt_action[:, 0]
+        # option 4: beam search
+        # ac_q_pop = self._generate_action_sequence_beam_search(
+        #     time_step, state, epsilon_greedy)
+
+        # vis_utils.save_to_np(ac_q_pop, './ac_seqs_beam_init.mat')
+        # vis_utils.save_to_np(time_step.observation, './obs_seqs_beam_init.mat')
+
         action = torch.reshape(action, [time_step.observation.shape[0], -1])
         return action, state
 
@@ -423,14 +429,17 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         return action, PlannerState(policy=policy_step.state)
 
-    def _get_action_from_Q_sampling(self, time_step: TimeStep, state):
+    def _get_action_from_Q_sampling(self, org_batch_size, time_step: TimeStep,
+                                    state):
         """ Sampling-based approach for select next action
         Returns:
             state: planner state
         """
         obs_pop = time_step.observation  # obs has already be expanded
 
+        # batch size after expansion
         batch_size = obs_pop.shape[0]
+        pop_size = batch_size // org_batch_size
 
         solution_size = self._num_actions  # one-step horizon
 
@@ -445,12 +454,15 @@ class QShootingAlgorithm(PlanAlgorithm):
         critic, critic_state = self._policy_module._critic_network1(
             critic_input)
 
-        critic = critic.reshape(batch_size, repeat_times)
-        top_k = 1
-        _, sel_ind = torch.topk(critic, k=min(top_k, critic.shape[0]))
+        # [org_batch_size, expanded_pop]
+        critic = critic.reshape(org_batch_size, -1)
+        top_k = pop_size
+        _, sel_ind = torch.topk(critic, k=top_k)
         #sel_ind = torch.zeros_like(sel_ind)
 
-        ac_rand_pop = ac_rand_pop.reshape(batch_size, repeat_times, -1)
+        # reshape to org batch size*expanded_pop_size*sol_dim
+        # and select top-k
+        ac_rand_pop = ac_rand_pop.reshape(org_batch_size, -1, solution_size)
 
         def _batched_index_select(t, dim, inds):
             dummy = inds.unsqueeze(2).expand(
@@ -459,6 +471,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             return out
 
         action = _batched_index_select(ac_rand_pop, 1, sel_ind).squeeze(1)
+        action = action.reshape(-1, solution_size)
 
         return action, state
 
@@ -633,7 +646,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         for i in range(self._planning_horizon):
             obs_seqs[i] = time_step.observation
             action, planner_state = self._get_action_from_Q_sampling(
-                time_step, state)  # always add noise
+                batch_size, time_step, state)  # always add noise
             # update policy state part
             state = state._replace(planner=planner_state)
             time_step = time_step._replace(prev_action=action)
@@ -656,22 +669,22 @@ class QShootingAlgorithm(PlanAlgorithm):
         # ac_seqs = torch.reshape(ac_seqs,
         #                         [batch_size, self._population_size, -1])
 
-        # # [B, P, H, D]
-        # obs_seqs = torch.reshape(
-        #     obs_seqs,
-        #     [self._planning_horizon, batch_size, self._population_size, -1
-        #      ]).permute(1, 2, 0, 3)
-        # # obs_seqs = torch.reshape(obs_seqs,
-        # #                          [batch_size, self._population_size, -1])
+        # [B, P, H, D]
+        obs_seqs = torch.reshape(
+            obs_seqs,
+            [self._planning_horizon, batch_size, self._population_size, -1
+             ]).permute(1, 2, 0, 3)
+        # obs_seqs = torch.reshape(obs_seqs,
+        #                          [batch_size, self._population_size, -1])
 
         # vis_utils.save_to_np(ac_seqs, './ac_seqs_random.mat')
         # vis_utils.save_to_np(obs_seqs, './obs_seqs_random.mat')
 
-        # min_ind = torch.argmin(cost, dim=-1).long()
-        # # TODO: need to check if batch_index_select is needed
-        # opt_ac_seqs = ac_seqs.index_select(1, min_ind).squeeze(1)
+        min_ind = torch.argmin(cost, dim=-1).long()
+        # TODO: need to check if batch_index_select is needed
+        opt_ac_seqs = ac_seqs.index_select(1, min_ind).squeeze(1)
 
-        return ac_seqs
+        return opt_ac_seqs
 
     def _generate_action_sequence_beam_search(self, time_step: TimeStep, state,
                                               epsilon_greedy):
@@ -794,8 +807,8 @@ class QShootingAlgorithm(PlanAlgorithm):
         # obs_seqs = torch.reshape(obs_seqs,
         #                          [batch_size, self._population_size, -1])
 
-        vis_utils.save_to_np(ac_seqs, './ac_seqs_random.mat')
-        vis_utils.save_to_np(obs_seqs, './obs_seqs_random.mat')
+        # vis_utils.save_to_np(ac_seqs, './ac_seqs_random.mat')
+        # vis_utils.save_to_np(obs_seqs, './obs_seqs_random.mat')
 
         min_ind = torch.argmin(cost, dim=-1).long()
         # TODO: need to check if batch_index_select is needed

@@ -123,7 +123,7 @@ def merge_img_cube(img_cube, overlap_ratio):
     return comp_img
 
 
-def vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, name):
+def vis_actions(s0, ac_seqs_pop, viz_path, name):
     env_name = 'Pendulum-v0'
     env = gym.make(env_name)
     action_dim = env.action_space.shape[0]
@@ -138,8 +138,6 @@ def vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, name):
     # ac_seqs_pop = np.load(
     #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
     # obs_seqs = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
-    s0 = obs_seqs_pop[:, 0, 0, :]
-    s0 = np.squeeze(s0)
 
     os.makedirs(viz_path, exist_ok=True)
     # population number
@@ -201,18 +199,25 @@ def vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, name):
 
 
 def viz():
+    # random
+    # latest
+    # beam (latest)
     # ac_seqs_pop = np.load(
     #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
     # obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
     ac_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/ac_seqs_random.mat.npy')  # [batch, pop, T]
+        '/mnt/DATA/work/RL/alf/ac_seqs_beam_init.mat.npy')  # [batch, pop, T]
     obs_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/obs_seqs_random.mat.npy')  # [1, 3]
-    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_random'
+        '/mnt/DATA/work/RL/alf/obs_seqs_beam_init.mat.npy')  # [1, 3]
+    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_beam_init'
 
     #vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "random")
 
-    vis_actions(obs_seqs_pop, ac_seqs_pop, viz_path, "random")
+    # s0 = obs_seqs_pop[:, 0, 0, :]
+    # s0 = np.squeeze(s0)
+    s0 = obs_seqs_pop.reshape([-1, 1])
+    print(ac_seqs_pop)
+    vis_actions(s0, ac_seqs_pop, viz_path, "beam")
 
 
 if __name__ == '__main__':
