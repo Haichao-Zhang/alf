@@ -41,7 +41,7 @@ MbrlState = namedtuple("MbrlState", ["dynamics", "reward", "planner"])
 MbrlInfo = namedtuple(
     "MbrlInfo", ["dynamics", "reward", "planner"], default_value=())
 
-MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
+# MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
 
 
 @gin.configurable
@@ -197,15 +197,22 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
     def calc_loss(self, training_info: TrainingInfo):
         loss = training_info.info.dynamics.loss
-        loss_planner = self._planner_module.calc_loss(
-            training_info._replace(info=training_info.info.planner))
+
         # loss = add_ignore_empty(loss, training_info.info.reward)
         # loss = add_ignore_empty(loss, loss_planner)
         # return LossInfo(loss=loss.loss, extra=())
-        return LossInfo(
-            loss=loss.loss + loss_planner.loss,
-            extra=MbrlLossInfo(
-                dynamics=loss.extra, planner=loss_planner.extra))
+        if 0:
+            MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
+            loss_planner = self._planner_module.calc_loss(
+                training_info._replace(info=training_info.info.planner))
+            return LossInfo(
+                loss=loss.loss + loss_planner.loss,
+                extra=MbrlLossInfo(
+                    dynamics=loss.extra, planner=loss_planner.extra))
+        else:
+            MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics"))
+            return LossInfo(
+                loss=loss.loss, extra=MbrlLossInfo(dynamics=loss.extra))
 
     # mbrl needs after train method
     def after_update(self, training_info):
