@@ -7,7 +7,7 @@ import alf.examples.mbrl_pendulum
 import alf.utils.math_ops # swish
 
 # environment config
-env_name='HalfCheetah-v2'
+env_name='Pendulum-v0'
 NUM_PARALLEL_ENVIRONMENTS=1
 create_environment.env_load_fn=@suite_gym.load
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS

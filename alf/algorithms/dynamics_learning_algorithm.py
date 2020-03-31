@@ -21,7 +21,7 @@ from alf.nest import nest
 from alf.nest.utils import NestConcat
 from alf.networks import Network, EncodingNetwork
 from alf.tensor_specs import TensorSpec
-from alf.utils import losses, tensor_utils
+from alf.utils import losses, spec_utils, tensor_utils
 
 DynamicsState = namedtuple(
     "DynamicsState", ["feature", "network"], default_value=())
@@ -185,6 +185,8 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         forward_delta, network_state = self._dynamics_network(
             inputs=(obs, action), state=state.network)
         forward_pred = obs + forward_delta
+        forward_pred = spec_utils.scale_to_spec(forward_pred.tanh(),
+                                                self._feature_spec)
         state = state._replace(feature=forward_pred, network=network_state)
         return AlgStep(output=forward_pred, state=state, info=())
 
