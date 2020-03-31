@@ -166,10 +166,6 @@ class Trainer(object):
 
             if self._evaluate and (iter_num + 1) % self._eval_interval == 0:
                 self._eval()
-            print("----------ite_num-------------")
-            print(iter_num)
-            if iter_num == 33:
-                print(iter_num)
             if iter_num == 0:
                 # We need to wait for one iteration to get the operative args
                 # Right just give a fixed gin file name to store operative args
