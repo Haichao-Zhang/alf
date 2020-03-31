@@ -646,7 +646,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         for i in range(self._planning_horizon):
             obs_seqs[i] = time_step.observation
             action, planner_state = self._get_action_from_Q_sampling(
-                batch_size, time_step, state)  # always add noise
+                batch_size, time_step, state.planner)  # always add noise
             # update policy state part
             state = state._replace(planner=planner_state)
             time_step = time_step._replace(prev_action=action)
@@ -654,13 +654,20 @@ class QShootingAlgorithm(PlanAlgorithm):
             ac_seqs[i] = action
 
             # immediate evaluation using reward function
-            next_obs = time_step.observation
-            reward_step = self._reward_func(next_obs, action)
+            #next_obs = time_step.observation
+            cur_obs = obs_seqs[i]
+            reward_step = self._reward_func(cur_obs, action)
             cost = cost - reward_step
+        # further add terminal values to the cost with the learned value func
+        q_action, planner_state = self._get_action_from_Q(
+            time_step, state, epsilon_greedy)  # always add noise
+        critic_input = (time_step.observation, q_action)
+        critic, critic_state = self._policy_module._critic_network1(
+            critic_input)
+        cost = cost - critic
 
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])
-
         # the action sequences are unnecessary now
         ac_seqs = torch.reshape(ac_seqs, [
             self._planning_horizon, batch_size, self._population_size,
