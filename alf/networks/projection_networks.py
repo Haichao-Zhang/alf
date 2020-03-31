@@ -184,7 +184,7 @@ class NormalProjectionNetwork(DistributionNetwork):
             # kl_divergence(TransformedDistribution(Independent, transforms),
             #               TransformedDistribution(Independent, transforms))
             # ````
-            squashed_dist = dist_utils.TransformedDistribution(
+            squashed_dist = td.TransformedDistribution(
                 base_distribution=normal_dist,
                 transforms=[
                     dist_utils.StableTanh(),
