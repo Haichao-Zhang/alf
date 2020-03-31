@@ -30,7 +30,7 @@ FixedRewardFunction.reward_func=@reward_function_for_pendulum
 # planner config
 RandomShootingAlgorithm.feature_spec=%observation_spec
 RandomShootingAlgorithm.action_spec=%action_spec
-RandomShootingAlgorithm.population_size=1000
+RandomShootingAlgorithm.population_size=100
 RandomShootingAlgorithm.planning_horizon=25
 
 # model-based RL algo config
@@ -61,5 +61,5 @@ TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
-TrainerConfig.random_seed=100
+TrainerConfig.random_seed=101
 TrainerConfig.replay_buffer_length=100000
