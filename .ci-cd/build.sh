@@ -44,11 +44,15 @@ function test() {
     python3 -m unittest -v \
         alf.algorithms.actor_critic_algorithm_test \
         alf.algorithms.actor_critic_loss_test \
+        alf.algorithms.agent_test \
         alf.algorithms.algorithm_test \
         alf.algorithms.ddpg_algorithm_test \
         alf.algorithms.diayn_algorithm_test \
+        alf.algorithms.memory_test \
         alf.algorithms.ppo_algorithm_test \
         alf.algorithms.rl_algorithm_test \
+        alf.algorithms.sarsa_algorithm_test \
+        alf.algorithms.sac_algorithm_test \
         alf.algorithms.trac_algorithm_test \
         alf.algorithms.vae_test \
         alf.bin.train_play_test \
@@ -74,6 +78,7 @@ function test() {
         alf.utils.checkpoint_utils_test \
         alf.utils.data_buffer_test \
         alf.utils.dist_utils_test \
+        alf.utils.math_ops_test \
         alf.utils.normalizers_test \
         alf.utils.tensor_utils_test \
         alf.utils.value_ops_test \

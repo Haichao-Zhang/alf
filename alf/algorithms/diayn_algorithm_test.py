@@ -26,7 +26,7 @@ class DIAYNAlgorithmTest(alf.test.TestCase):
     def setUp(self):
         input_tensor_spec = TensorSpec((10, ))
         self._time_step = TimeStep(
-            step_type=StepType.MID,
+            step_type=torch.tensor(StepType.MID, dtype=torch.int32),
             reward=0,
             discount=1,
             observation=input_tensor_spec.zeros(outer_dims=(1, )),
@@ -42,7 +42,9 @@ class DIAYNAlgorithmTest(alf.test.TestCase):
                                        maximum=3)
         alg = DIAYNAlgorithm(
             skill_spec=skill_spec, encoding_net=self._encoding_net)
-        skill = state = skill_spec.zeros(outer_dims=(1, ))
+        skill = state = torch.nn.functional.one_hot(
+            skill_spec.zeros(outer_dims=(1, )),
+            int(skill_spec.maximum - skill_spec.minimum + 1)).to(torch.float32)
 
         alg_step = alg.train_step(
             self._time_step._replace(

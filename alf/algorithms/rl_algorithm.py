@@ -106,6 +106,10 @@ class RLAlgorithm(Algorithm):
                 be provided to the algorithm which performs `train_iter()` by
                 itself.
             optimizer (torch.optim.Optimizer): The default optimizer for training.
+            gradient_clipping (float): If not None, serve as a positive threshold
+            clip_by_global_norm (bool): If True, use `tensor_utils.clip_by_global_norm`
+                to clip gradient. If False, use `tensor_utils.clip_by_norms` for
+                each grad.
             reward_shaping_fn (Callable): a function that transforms extrinsic
                 immediate rewards.
             observation_transformer (Callable | list[Callable]): transformation(s)
@@ -139,8 +143,6 @@ class RLAlgorithm(Algorithm):
         self._observation_transformers = observation_transformers
         self._proc = psutil.Process(os.getpid())
         self._debug_summaries = debug_summaries
-        self._summarize_grads_and_vars = summarize_grads_and_vars
-        self._summarize_action_distributions = summarize_action_distributions
         self._use_rollout_state = False
 
         self._rollout_info_spec = None
@@ -155,7 +157,11 @@ class RLAlgorithm(Algorithm):
         self._exp_replayer = None
         self._exp_replayer_type = None
         if self._env is not None and not self.is_on_policy():
-            self.set_exp_replayer("uniform", self._env.batch_size,
+            if config.whole_replay_buffer_training and config.clear_replay_buffer:
+                replayer = "one_time"
+            else:
+                replayer = "uniform"
+            self.set_exp_replayer(replayer, self._env.batch_size,
                                   config.replay_buffer_length)
 
         self._metrics = []
@@ -175,6 +181,9 @@ class RLAlgorithm(Algorithm):
 
         if config:
             self.use_rollout_state = config.use_rollout_state
+
+        self._original_rollout_step = self.rollout_step
+        self.rollout_step = self._rollout_step
 
     def _set_children_property(self, property_name, value):
         """Set the property named `property_name` in child RLAlgorithm to `value`."""
@@ -272,13 +281,6 @@ class RLAlgorithm(Algorithm):
         """
         return self._metrics
 
-    def set_summary_settings(self,
-                             summarize_grads_and_vars=False,
-                             summarize_action_distributions=False):
-        """Set summary flags."""
-        self._summarize_grads_and_vars = summarize_grads_and_vars
-        self._summarize_action_distributions = summarize_action_distributions
-
     def summarize_reward(self, name, rewards):
         if self._debug_summaries:
             alf.summary.histogram(name + "/value", rewards)
@@ -330,13 +332,18 @@ class RLAlgorithm(Algorithm):
                 T is the sequence length, and B is the batch size of the batched
                 environment.
         """
-        if not self._use_rollout_state:
-            exp = exp._replace(state=())
-        exp = dist_utils.distributions_to_params(exp)
-
         if self._exp_replayer is None and self._exp_replayer_type:
             self._set_exp_replayer(self._exp_replayer_type,
                                    self._config.num_envs)
+
+        if not self._use_rollout_state:
+            exp = exp._replace(state=())
+        elif id(self.rollout_state_spec) != id(self.train_state_spec):
+            # Prune exp's state (rollout_state) according to the train state spec
+            exp = exp._replace(
+                state=alf.nest.prune_nest_like(
+                    exp.state, self.train_state_spec, value_to_match=()))
+        exp = dist_utils.distributions_to_params(exp)
 
         for observer in self._observers:
             observer(exp)
@@ -438,6 +445,15 @@ class RLAlgorithm(Algorithm):
         """
         policy_step = self.rollout_step(time_step, state)
         return policy_step._replace(info=())
+
+    def _rollout_step(self, time_step: TimeStep, state):
+        """A wrapper around user-defined `rollout_step`. For every rl algorithm,
+        this wrapper ensures that the rollout info spec will be computed.
+        """
+        policy_step = self._original_rollout_step(time_step, state)
+        if self._rollout_info_spec is None:
+            self._rollout_info_spec = dist_utils.extract_spec(policy_step.info)
+        return policy_step
 
     @abstractmethod
     def rollout_step(self, time_step: TimeStep, state):
@@ -551,19 +567,15 @@ class RLAlgorithm(Algorithm):
             transformed_time_step = self.transform_timestep(time_step)
             policy_step = self.rollout_step(transformed_time_step,
                                             policy_state)
-            if self._rollout_info_spec is None:
-                self._rollout_info_spec = dist_utils.extract_spec(
-                    policy_step.info)
+
+            action = common.detach(policy_step.output)
 
             t0 = time.time()
-            next_time_step = self._env.step(policy_step.output)
+            next_time_step = self._env.step(action)
             env_step_time += time.time() - t0
 
             exp = make_experience(time_step, policy_step, policy_state)
             self.observe(exp)
-
-            action = alf.nest.map_structure(lambda t: t.detach(),
-                                            policy_step.output)
 
             training_info = TrainingInfo(
                 action=action,
@@ -585,7 +597,10 @@ class RLAlgorithm(Algorithm):
                 training_info.rollout_info, self._rollout_info_spec))
 
         self._current_time_step = time_step
-        self._current_policy_state = policy_state
+        # Need to detach so that the graph from this unroll is disconnected from
+        # the next unroll. Otherwise backward() will report error for on-policy
+        # training after the next unroll.
+        self._current_policy_state = common.detach(policy_state)
 
         return training_info
 

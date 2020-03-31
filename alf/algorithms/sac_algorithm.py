@@ -15,6 +15,7 @@
 
 import numpy as np
 import gin
+import functools
 
 import torch
 import torch.nn as nn
@@ -90,7 +91,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
                  critic_network: CriticNetwork,
                  env=None,
                  config: TrainerConfig = None,
-                 critic_loss=None,
+                 critic_loss_ctor=None,
                  target_entropy=None,
                  initial_log_alpha=0.0,
                  target_update_tau=0.05,
@@ -100,6 +101,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
                  critic_optimizer=None,
                  alpha_optimizer=None,
                  gradient_clipping=None,
+                 clip_by_global_norm=False,
                  debug_summaries=False,
                  name="SacAlgorithm"):
         """Create a SacAlgorithm
@@ -118,7 +120,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
             config (TrainerConfig): config for training. config only needs to be
                 provided to the algorithm which performs `train_iter()` by
                 itself.
-            critic_loss (None|OneStepTDLoss): an object for calculating critic loss.
+            critic_loss_ctor (None|OneStepTDLoss): a critic loss constructor.
                 If None, a default OneStepTDLoss will be used.
             initial_log_alpha (float): initial value for variable log_alpha
             target_entropy (float|None): The target average policy entropy, for updating alpha.
@@ -133,6 +135,9 @@ class SacAlgorithm(OffPolicyAlgorithm):
             critic_optimizer (torch.optim.optimizer): The optimizer for critic.
             alpha_optimizer (torch.optim.optimizer): The optimizer for alpha.
             gradient_clipping (float): Norm length to clip gradients.
+            clip_by_global_norm (bool): If True, use `tensor_utils.clip_by_global_norm`
+                to clip gradient. If False, use `tensor_utils.clip_by_norms` for
+                each grad.
             debug_summaries (bool): True if debug summaries should be created.
             name (str): The name of this algorithm.
         """
@@ -157,12 +162,17 @@ class SacAlgorithm(OffPolicyAlgorithm):
             env=env,
             config=config,
             gradient_clipping=gradient_clipping,
+            clip_by_global_norm=clip_by_global_norm,
             debug_summaries=debug_summaries,
             name=name)
-        self.add_optimizer(actor_optimizer, [actor_network])
-        self.add_optimizer(critic_optimizer,
-                           [critic_network1, critic_network2])
-        self.add_optimizer(alpha_optimizer, [log_alpha])
+
+        if actor_optimizer is not None:
+            self.add_optimizer(actor_optimizer, [actor_network])
+        if critic_optimizer is not None:
+            self.add_optimizer(critic_optimizer,
+                               [critic_network1, critic_network2])
+        if alpha_optimizer is not None:
+            self.add_optimizer(alpha_optimizer, [log_alpha])
 
         self._log_alpha = log_alpha
         self._actor_network = actor_network
@@ -171,9 +181,12 @@ class SacAlgorithm(OffPolicyAlgorithm):
         self._target_critic_network1 = self._critic_network1.copy()
         self._target_critic_network2 = self._critic_network2.copy()
 
-        if critic_loss is None:
-            critic_loss = OneStepTDLoss(debug_summaries=debug_summaries)
-        self._critic_loss = critic_loss
+        if critic_loss_ctor is None:
+            critic_loss_ctor = functools.partial(
+                OneStepTDLoss, debug_summaries=debug_summaries)
+        # Have different names to separate their summary curves
+        self._critic_loss1 = critic_loss_ctor(name="critic_loss1")
+        self._critic_loss2 = critic_loss_ctor(name="critic_loss2")
 
         flat_action_spec = nest.flatten(self._action_spec)
         self._flat_action_spec = flat_action_spec
@@ -337,8 +350,6 @@ class SacAlgorithm(OffPolicyAlgorithm):
 
         log_pi = dist_utils.compute_log_probability(action_distribution,
                                                     action)
-        # log_pi = torch.log(torch.exp(log_pi) + 1e-8)
-
         actor_state, actor_info = self._actor_train_step(
             exp, state.actor, action_distribution, action, log_pi)
         critic_state, critic_info = self._critic_train_step(
@@ -375,12 +386,12 @@ class SacAlgorithm(OffPolicyAlgorithm):
 
         target_critic = critic_info.target_critic
 
-        critic_loss1 = self._critic_loss(
+        critic_loss1 = self._critic_loss1(
             training_info=training_info,
             value=critic_info.critic1,
             target_value=target_critic)
 
-        critic_loss2 = self._critic_loss(
+        critic_loss2 = self._critic_loss2(
             training_info=training_info,
             value=critic_info.critic2,
             target_value=target_critic)

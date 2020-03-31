@@ -28,6 +28,7 @@ from torch.nn.modules.module import _IncompatibleKeys, _addindent
 import alf
 from alf.data_structures import AlgStep, namedtuple, LossInfo
 from alf.utils import common
+from alf.utils import spec_utils
 from alf.utils import tensor_utils
 
 
@@ -87,8 +88,9 @@ class Algorithm(nn.Module):
             optimizer (None|Optimizer): The default optimizer for
                 training. See comments above for detail.
             gradient_clipping (float): If not None, serve as a positive threshold
-            clip_by_global_norm (bool): If True, use tf.clip_by_global_norm to
-                clip gradient. If False, use tf.clip_by_norm for each grad.
+            clip_by_global_norm (bool): If True, use `tensor_utils.clip_by_global_norm`
+                to clip gradient. If False, use `tensor_utils.clip_by_norms` for
+                each grad.
             debug_summaries (bool): True if debug summaries should be created.
             name (str): name of this algorithm.
         """
@@ -96,8 +98,14 @@ class Algorithm(nn.Module):
 
         self._name = name
         self._train_state_spec = train_state_spec
-        self._rollout_state_spec = rollout_state_spec or self._train_state_spec
-        self._predict_state_spec = predict_state_spec or self._rollout_state_spec
+        if rollout_state_spec is not None:
+            self._rollout_state_spec = rollout_state_spec
+        else:
+            self._rollout_state_spec = self._train_state_spec
+        if predict_state_spec is not None:
+            self._predict_state_spec = predict_state_spec
+        else:
+            self._predict_state_spec = self._rollout_state_spec
 
         self._is_rnn = len(alf.nest.flatten(train_state_spec)) > 0
 
@@ -129,6 +137,7 @@ class Algorithm(nn.Module):
             modules_and_params (list of Module or Parameter): The modules and
                 parameters to be optimized by `optimizer`
         """
+        assert optimizer is not None, "You shouldn't add a None optimizer!"
         for module in modules_and_params:
             for m in _flatten_module(module):
                 self._module_to_optimizer[m] = optimizer
@@ -217,16 +226,19 @@ class Algorithm(nn.Module):
         """
         default_optimizer = self.default_optimizer
         new_params = []
-        self_handled = set()
         handled = set()
         duplicate_error = "Parameter %s is handled by muliple optimizers."
+
+        def _add_params_to_optimizer(params, opt):
+            existing_params = _get_optimizer_params(opt)
+            params = list(filter(lambda p: p not in existing_params, params))
+            if params:
+                opt.add_param_group({'params': params})
 
         for child in self._get_children():
             if child in handled:
                 continue
             assert id(child) != id(self), "Child should not be self"
-            self_handled.add(child)
-            assert child not in handled, duplicate_error % child
             handled.add(child)
             if isinstance(child, Algorithm):
                 params, child_handled = child._setup_optimizers_()
@@ -243,35 +255,34 @@ class Algorithm(nn.Module):
                 if default_optimizer is not None:
                     self._module_to_optimizer[child] = default_optimizer
             else:
-                existing_params = _get_optimizer_params(optimizer)
-                params = list(
-                    filter(lambda p: p not in existing_params, params))
-                if params:
-                    optimizer.add_param_group({'params': params})
+                _add_params_to_optimizer(params, optimizer)
 
         if default_optimizer is not None:
-            existing_params = _get_optimizer_params(default_optimizer)
-            new_params = list(
-                filter(lambda p: p not in existing_params, new_params))
-            if new_params:
-                default_optimizer.add_param_group({'params': new_params})
+            _add_params_to_optimizer(new_params, default_optimizer)
             return [], handled
         else:
             return new_params, handled
 
-    def optimizers(self, recurse=True):
+    def optimizers(self, recurse=True, include_ignored_attributes=False):
         """Get all the optimizers used by this algorithm.
 
         Args:
             recurse (bool): If True, including all the sub-algorithms
+            include_ignored_attributes (bool): If True, still include all child
+                attributes without ignoring any.
         Returns:
             list of Optimizer
         """
         opts = copy.copy(self._optimizers)
         if recurse:
-            for module in self.children():
+            if include_ignored_attributes:
+                children = self.children()
+            else:
+                children = self._get_children()
+            for module in children:
                 if isinstance(module, Algorithm):
-                    opts.extend(module.optimizers())
+                    opts.extend(
+                        module.optimizers(recurse, include_ignored_attributes))
         return opts
 
     def get_optimizer_info(self):
@@ -285,7 +296,7 @@ class Algorithm(nn.Module):
                     optimizer="None",
                     parameters=[self._param_to_name[p] for p in unhandled]))
 
-        for optimizer in self.optimizers():
+        for optimizer in self.optimizers(include_ignored_attributes=True):
             parameters = _get_optimizer_params(optimizer)
             optimizer_info.append(
                 dict(
@@ -318,13 +329,13 @@ class Algorithm(nn.Module):
         return state
 
     def get_initial_predict_state(self, batch_size):
-        return common.zeros_from_spec(self._predict_state_spec, batch_size)
+        return spec_utils.zeros_from_spec(self._predict_state_spec, batch_size)
 
     def get_initial_rollout_state(self, batch_size):
-        return common.zeros_from_spec(self._rollout_state_spec, batch_size)
+        return spec_utils.zeros_from_spec(self._rollout_state_spec, batch_size)
 
     def get_initial_train_state(self, batch_size):
-        return common.zeros_from_spec(self._train_state_spec, batch_size)
+        return spec_utils.zeros_from_spec(self._train_state_spec, batch_size)
 
     @common.add_method(nn.Module)
     def state_dict(self, destination=None, prefix='', visited=None):
@@ -353,8 +364,6 @@ class Algorithm(nn.Module):
             version=self._version)
 
         if visited is None:
-            if isinstance(self, Algorithm):
-                self._setup_optimizers()
             visited = {self}
 
         self._save_to_state_dict(destination, prefix, visited)
@@ -365,6 +374,7 @@ class Algorithm(nn.Module):
                 child.state_dict(
                     destination, prefix + name + '.', visited=visited)
         if isinstance(self, Algorithm):
+            self._setup_optimizers()
             for i, opt in enumerate(self._optimizers):
                 new_key = prefix + '_optimizers.%d' % i
                 if new_key not in self._opt_keys:
@@ -393,8 +403,6 @@ class Algorithm(nn.Module):
                 * **missing_keys** is a list of str containing the missing keys
                 * **unexpected_keys** is a list of str containing the unexpected keys
         """
-        self._setup_optimizers()
-
         missing_keys = []
         unexpected_keys = []
         error_msgs = []
@@ -409,6 +417,7 @@ class Algorithm(nn.Module):
             if visited is None:
                 visited = {self}
             if isinstance(module, Algorithm):
+                module._setup_optimizers()
                 for i, opt in enumerate(module._optimizers):
                     opt_key = prefix + '_optimizers.%d' % i
                     if opt_key in state_dict:

@@ -91,7 +91,7 @@ class DistributionSpecTest(alf.test.TestCase):
         normal_dist = dist_utils.DiagMultivariateNormal(
             torch.tensor([[1., 2.], [2., 2.]]),
             torch.tensor([[2., 3.], [1., 1.]]))
-        transforms = [td.SigmoidTransform()]
+        transforms = [dist_utils.SigmoidTransform()]
         dist = td.TransformedDistribution(
             base_distribution=normal_dist, transforms=transforms)
         spec = dist_utils.DistributionSpec.from_distribution(dist)
@@ -108,6 +108,28 @@ class DistributionSpecTest(alf.test.TestCase):
         self.assertEqual(type(dist1.base_dist.base_dist), td.Normal)
         self.assertEqual(dist1.base_dist.base_dist.mean, params1['loc'])
         self.assertEqual(dist1.base_dist.base_dist.stddev, params1['scale'])
+
+    def test_inversion(self):
+        x = torch.tensor([-10.0, -8.6, -2.0, 0, 2, 8.6, 10.0])
+        loc = torch.tensor([0.5])
+        scale = torch.tensor([1.5])
+        transforms = [
+            dist_utils.StableTanh(),
+            dist_utils.AffineTransform(loc=loc, scale=scale)
+        ]
+
+        y = x
+        # forward
+        for transform in transforms:
+            y = transform(y)
+
+        # inverse
+        x_recovered = y
+        for transform in reversed(transforms):
+            x_recovered = transform.inv(x_recovered)
+
+        self.assertTensorEqual(x, x_recovered)
+        self.assertTrue(x is x_recovered)
 
 
 class TestConversions(alf.test.TestCase):
@@ -161,6 +183,54 @@ class TestActionSamplingNormal(alf.test.TestCase):
         action_expected = torch.Tensor([0.3, 0.7]).repeat(10, 1)
         action_obtained = dist_utils.epsilon_greedy_sample(M, epsilon)
         self.assertTrue((action_expected == action_obtained).all())
+
+
+class TestActionSamplingTransformedNormal(alf.test.TestCase):
+    def test_action_sampling_transformed_normal(self):
+        def _get_transformed_normal(means, stds):
+            normal_dist = td.Independent(td.Normal(loc=means, scale=stds), 1)
+            transforms = [
+                dist_utils.StableTanh(),
+                dist_utils.AffineTransform(
+                    loc=torch.tensor(0.), scale=torch.tensor(5.0))
+            ]
+            squashed_dist = td.TransformedDistribution(
+                base_distribution=normal_dist, transforms=transforms)
+            return squashed_dist, transforms
+
+        means = torch.Tensor([0.3, 0.7])
+        dist, transforms = _get_transformed_normal(
+            means=means, stds=torch.Tensor([1.0, 1.0]))
+
+        mode = dist_utils.get_mode(dist)
+
+        transformed_mode = means
+        for transform in transforms:
+            transformed_mode = transform(transformed_mode)
+
+        self.assertTrue((transformed_mode == mode).all())
+
+        epsilon = 0.0
+        action_obtained = dist_utils.epsilon_greedy_sample(dist, epsilon)
+        self.assertTrue((transformed_mode == action_obtained).all())
+
+
+class TestActionSamplingTransformedCategorical(alf.test.TestCase):
+    def test_action_sampling_transformed_categorical(self):
+        def _get_transformed_categorical(probs):
+            categorical_dist = td.Independent(td.Categorical(probs=probs), 1)
+            return categorical_dist
+
+        probs = torch.Tensor([[0.3, 0.5, 0.2], [0.6, 0.4, 0.0]])
+        dist = _get_transformed_categorical(probs=probs)
+        mode = dist_utils.get_mode(dist)
+        expected_mode = torch.argmax(probs, dim=1)
+
+        self.assertTensorEqual(expected_mode, mode)
+
+        epsilon = 0.0
+        action_obtained = dist_utils.epsilon_greedy_sample(dist, epsilon)
+        self.assertTensorEqual(expected_mode, action_obtained)
 
 
 class TestRSampleActionDistribution(alf.test.TestCase):

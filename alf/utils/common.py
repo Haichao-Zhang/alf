@@ -36,7 +36,7 @@ import alf
 from alf.data_structures import LossInfo
 import alf.nest as nest
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
-from alf.utils.dist_utils import DistributionSpec
+from alf.utils.spec_utils import zeros_from_spec as zero_tensor_from_nested_spec
 from . import dist_utils, gin_utils
 
 
@@ -62,32 +62,6 @@ def add_method(cls):
         return func
 
     return decorator
-
-
-def zeros_from_spec(nested_spec, batch_size):
-    """Create nested zero Tensors or Distributions.
-
-    A zero tensor with shape[0]=`batch_size is created for each TensorSpec and
-    A distribution with all the parameters as zero Tensors is created for each
-    DistributionSpec.
-
-    Args:
-        nested_spec (nested TensorSpec or DistributionSpec):
-        batch_size (int): batch size added as the first dimension to the shapes
-             in TensorSpec
-    Returns:
-        nested Tensor or Distribution
-    """
-
-    def _zero_tensor(spec):
-        return spec.zeros([batch_size])
-
-    param_spec = dist_utils.to_distribution_param_spec(nested_spec)
-    params = alf.nest.map_structure(_zero_tensor, param_spec)
-    return dist_utils.params_to_distributions(params, nested_spec)
-
-
-zero_tensor_from_nested_spec = zeros_from_spec
 
 
 def as_list(x):
@@ -480,16 +454,19 @@ def get_gin_file():
     """Get the gin configuration file.
 
     If FLAGS.gin_file is not set, find gin files under FLAGS.root_dir and
-    returns them.
+    returns them. If there is no 'gin_file' flag defined, return ''.
     Returns:
         the gin file(s)
     """
-    gin_file = flags.FLAGS.gin_file
-    if gin_file is None:
-        root_dir = os.path.expanduser(flags.FLAGS.root_dir)
-        gin_file = glob.glob(os.path.join(root_dir, "*.gin"))
-        assert gin_file, "No gin files are found! Please provide"
-    return gin_file
+    if hasattr(flags.FLAGS, "gin_file"):
+        gin_file = flags.FLAGS.gin_file
+        if gin_file is None:
+            root_dir = os.path.expanduser(flags.FLAGS.root_dir)
+            gin_file = glob.glob(os.path.join(root_dir, "*.gin"))
+            assert gin_file, "No gin files are found! Please provide"
+        return gin_file
+    else:
+        return ''
 
 
 def get_initial_policy_state(batch_size, policy_state_spec):
@@ -879,6 +856,8 @@ def set_random_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     return seed
 
 
@@ -890,3 +869,39 @@ def log_metrics(metrics, prefix=''):
     """
     log = ['{0} = {1}'.format(m.name, m.result()) for m in metrics]
     logging.info('%s \n\t\t %s', prefix, '\n\t\t '.join(log))
+
+
+def create_ou_process(action_spec, ou_stddev, ou_damping):
+    """Create nested zero-mean Ornstein-Uhlenbeck processes.
+
+    The temporal update equation is:
+    `x_next = (1 - damping) * x + N(0, std_dev)`
+
+    Note: if action_spec is nested, the returned nested OUProcess will not bec
+    checkpointed.
+
+    Args:
+        action_spec (nested BountedTensorSpec): action spec
+        ou_damping (float): Damping rate in the above equation. We must have
+            0 <= damping <= 1.
+        ou_stddev (float): Standard deviation of the Gaussian component.
+    Returns:
+        nested OUProcess with the same structure as action_spec.
+    """
+
+    def _create_ou_process(action_spec):
+        return dist_utils.OUProcess(action_spec.zeros(), ou_damping, ou_stddev)
+
+    ou_process = alf.nest.map_structure(_create_ou_process, action_spec)
+    return ou_process
+
+
+def detach(nests):
+    """Detach nested Tensors.
+
+    Args:
+        nests (nested Tensor): tensors to be detached
+    Returns:
+        detached Tensors with same structure as nests
+    """
+    return nest.map_structure(lambda t: t.detach(), nests)

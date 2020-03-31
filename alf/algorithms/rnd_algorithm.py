@@ -113,15 +113,13 @@ class RNDAlgorithm(Algorithm):
             self._observation_normalizer = AdaptiveNormalizer(
                 tensor_spec=observation_spec, speed=observation_adapt_speed)
 
-    def train_step(self,
-                   time_step: TimeStep,
-                   state,
-                   calc_intrinsic_reward=True):
+    def _step(self, time_step: TimeStep, state, calc_rewards=True):
         """
         Args:
             time_step (ActionTimeStep): input time_step data
             state (tuple):  empty tuple ()
-            calc_intrinsic_reward (bool): if False, only return the losses
+            calc_rewards (bool): whether calculate rewards
+
         Returns:
             AlgStep:
                 output: empty tuple ()
@@ -132,7 +130,7 @@ class RNDAlgorithm(Algorithm):
 
         if self._keep_stacked_frames > 0:
             # Assuming stacking in the first dim, we only keep the last frames.
-            observation = observation[-self._keep_stacked_frames:, ...]
+            observation = observation[:, -self._keep_stacked_frames:, ...]
 
         if self._observation_normalizer is not None:
             observation = self._observation_normalizer.normalize(observation)
@@ -149,7 +147,7 @@ class RNDAlgorithm(Algorithm):
             math_ops.square(pred_embedding - target_embedding), dim=-1)
 
         intrinsic_reward = ()
-        if calc_intrinsic_reward:
+        if calc_rewards:
             intrinsic_reward = loss.detach()
             if self._reward_normalizer:
                 intrinsic_reward = self._reward_normalizer.normalize(
@@ -159,6 +157,12 @@ class RNDAlgorithm(Algorithm):
             output=(),
             state=(),
             info=ICMInfo(reward=intrinsic_reward, loss=LossInfo(loss=loss)))
+
+    def rollout_step(self, time_step: TimeStep, state):
+        return self._step(time_step, state)
+
+    def train_step(self, time_step: TimeStep, state):
+        return self._step(time_step, state, calc_rewards=False)
 
     def calc_loss(self, info: ICMInfo):
         return LossInfo(scalar_loss=torch.mean(info.loss.loss))

@@ -47,7 +47,7 @@ ICMAlgorithm.hidden_size=256
 ActorCriticAlgorithm.actor_network=@actor/ActorDistributionNetwork()
 ActorCriticAlgorithm.value_network=@value/ValueNetwork()
 Agent.optimizer=@ac/Adam()
-Agent.intrinsic_curiosity_module=@ICMAlgorithm()
+Agent.intrinsic_reward_module=@ICMAlgorithm()
 Agent.gradient_clipping=10.0
 
 # use only intrinsic reward for training policy
@@ -75,6 +75,7 @@ TrainerConfig.debug_summaries=1
 TrainerConfig.summary_interval = 10
 TrainerConfig.use_rollout_state = True
 TrainerConfig.use_tf_functions = True
+TrainerConfig.replay_buffer_length=32
 
 Agent.observation_transformer=@image_scale_transformer
-ReplayBuffer.max_length=32
+

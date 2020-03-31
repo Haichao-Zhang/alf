@@ -16,6 +16,17 @@
 import gin
 import torch
 
+import alf
+
+nest_map = alf.nest.map_structure
+
+
+def identity(x):
+    """PyTorch doesn't have an identity activation. This can be used as a
+    placeholder.
+    """
+    return x
+
 
 @gin.configurable
 def clipped_exp(value, clip_value_min=-20, clip_value_max=2):
@@ -84,6 +95,90 @@ def max_n(inputs):
     return ret
 
 
+def min_n(inputs):
+    """Calculate the minimum of n Tensors
+
+    Args:
+        inputs (list[Tensor]): list of Tensors, should have the same shape
+    Returns:
+        the elementwise minimum of all the tensors in `inputs`
+    """
+    ret = inputs[0]
+    inputs = inputs[1:]
+    for x in inputs:
+        ret = torch.min(ret, x)
+    return ret
+
+
+def add_n(inputs):
+    """Calculate the sum of n Tensors
+
+    Args:
+        inputs (list[Tensor]): list of Tensors, should have the same shape
+    Returns:
+        the elementwise sum of all the tensors in `inputs`
+    """
+    ret = inputs[0]
+    inputs = inputs[1:]
+    for x in inputs:
+        ret = torch.add(ret, x)
+    return ret
+
+
 def square(x):
     """torch doesn't have square."""
     return torch.pow(x, 2)
+
+
+def weighted_reduce_mean(x, weight, dim=()):
+    """Weighted mean.
+
+    Args:
+        x (Tensor): values for calculating the mean
+        weight (Tensor): weight for x. should have same shape as `x`
+        dim (int | tuple[int]): The dimensions to reduce. If None (the
+            default), reduces all dimensions. Must be in the range
+            [-rank(x), rank(x)). Empty tuple means to sum all elements.
+    Returns:
+        the weighted mean across `axis`
+    """
+    weight = weight.to(torch.float32)
+    sum_weight = weight.sum(dim=dim)
+    sum_weight = torch.max(sum_weight, torch.tensor(1e-10))
+    return nest_map(lambda y: (y * weight).sum(dim=dim) / sum_weight, x)
+
+
+def sum_to_leftmost(value, dim):
+    """Sum out `value.ndim-dim` many rightmost dimensions of a given tensor.
+
+    Args:
+        value (Tensor): A tensor of `.ndim` at least `dim`.
+        dim (int): The number of leftmost dims to remain.
+    Returns:
+        The result tensor whose ndim is `min(dim, value.dim)`.
+    """
+    if value.ndim <= dim:
+        return value
+    return value.sum(list(range(dim, value.ndim)))
+
+
+def argmin(x):
+    """Deterministic argmin.
+
+    Different from torch.argmin, which may have undetermined result if the are
+    multiple elements equal to the min, this argmin is guaranteed to return the
+    index of the first element equal to the min in each row.
+
+    Args:
+        x (Tensor): only support rank-2 tensor
+    Returns:
+        rank-1 int64 Tensor represeting the column of the first element in each
+        row equal to the minimum of the row.
+    """
+    assert x.ndim == 2
+    m, _ = x.min(dim=1, keepdims=True)
+    r, c = torch.nonzero(x == m, as_tuple=True)
+    r, num_mins = torch.unique(r, return_counts=True)
+    i = torch.cumsum(num_mins, 0)
+    i = torch.cat([torch.tensor([0]), i[:-1]])
+    return c[i]
