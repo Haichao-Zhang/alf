@@ -165,11 +165,13 @@ class Network(nn.Module):
             self._preprocessing_combiner = preprocessing_combiner
             if alf.nest.is_nested(input_tensor_spec):
                 # TODO: improve when combiantion is done in base class
-                pass
+                # pass
                 # assert preprocessing_combiner is not None, \
                 #     ("When a nested input tensor spec is provided, a input " +
                 #     "preprocessing combiner must also be provided!")
-                # input_tensor_spec = preprocessing_combiner(input_tensor_spec)
+                if preprocessing_combiner is not None:
+                    input_tensor_spec = preprocessing_combiner(
+                        input_tensor_spec)
             else:
                 assert isinstance(input_tensor_spec, TensorSpec), \
                     "The spec must be an instance of TensorSpec!"

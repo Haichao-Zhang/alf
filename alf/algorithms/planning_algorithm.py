@@ -451,7 +451,7 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         critic_input = (obs_pop, ac_rand_pop)
 
-        critic, critic_state = self._policy_module._critic_network1(
+        critic, critic_state = self._policy_module._critic_networks.get_preds_max(
             critic_input)
 
         # [org_batch_size, expanded_pop]
@@ -666,7 +666,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             # q_action, planner_state = self._get_action_from_Q_sampling(
             #     batch_size, time_step, state.planner)  # always add noise
             critic_input = (time_step.observation, q_action)
-            critic, critic_state = self._policy_module._critic_network1(
+            critic, critic_state = self._policy_module._critic_networks.get_preds_max(
                 critic_input)
             critic = critic.reshape(-1, 1)
             cost = cost - critic

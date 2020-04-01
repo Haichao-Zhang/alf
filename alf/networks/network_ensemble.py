@@ -71,10 +71,19 @@ class Ensemble(Network):
             preds[i], states_new[i] = self.pforward(i, x, states[i])
         return preds, states_new
 
-    def get_preds_min(self, x, states):
+    def get_preds_min(self, x, states=None):
+        if states is None:
+            states = [None] * self._ens_size
         preds, states_new = self.get_preds(x, states)
         pred_min = tensor_utils.list_min(preds)
         return pred_min, states_new
+
+    def get_preds_max(self, x, states=None):
+        if states is None:
+            states = [None] * self._ens_size
+        preds, states_new = self.get_preds(x, states)
+        pred_max = tensor_utils.list_max(preds)
+        return pred_max, states_new
 
     def forward(self, x, states):
         preds = [None] * self._ens_size

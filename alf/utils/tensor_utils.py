@@ -25,6 +25,11 @@ def list_min(tensors):
     return min_val
 
 
+def list_max(tensors):
+    max_val, _ = torch.max(torch.stack(tensors), dim=0)
+    return max_val
+
+
 def tensor_extend(x, y):
     """Extending tensor with new_slice.
 
