@@ -35,6 +35,7 @@ actor/ActorDistributionNetwork.continuous_projection_net_ctor=@NormalProjectionN
 NormalProjectionNetwork.state_dependent_std=True
 NormalProjectionNetwork.scale_distribution=True
 NormalProjectionNetwork.std_transform=@clipped_exp
+NormalProjectionNetwork.std_bias_initializer_value=1.0
 
 
 
