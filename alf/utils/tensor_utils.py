@@ -20,6 +20,11 @@ import alf
 from alf.utils import math_ops
 
 
+def list_min(tensors):
+    min_val, _ = torch.min(torch.stack(tensors), dim=0)
+    return min_val
+
+
 def tensor_extend(x, y):
     """Extending tensor with new_slice.
 

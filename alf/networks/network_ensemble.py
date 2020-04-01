@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 
 import alf.utils.math_ops as math_ops
+from alf.utils import tensor_utils
 import alf.nest as nest
 from alf.networks import Network, EncodingNetwork, LSTMEncodingNetwork
 from alf.networks.initializers import variance_scaling_init
@@ -39,6 +40,10 @@ class Ensemble(Network):
                  ens_size=1,
                  prior_scale=0.1,
                  kappa=0.1):
+        super(Ensemble,
+              self).__init__(input_tensor_spec=base_model._input_tensor_spec)
+
+        self._input_tensor_spec = base_model._input_tensor_spec
         self._ens_size = ens_size
         self._kappa = kappa
         self._prior_scale = prior_scale
@@ -51,27 +56,38 @@ class Ensemble(Network):
             if prior_model is not None:
                 self.priors.append(prior_model.copy())
 
-    def pforward(self, ind, x):
-        pred_i = self.models[ind].forward(x)
+    def pforward(self, ind, x, state):
+        pred_i, state = self.models[ind].forward(x, state)
         if self._prior_model is not None:
-            prior = self.priors[ind].forward(x)
+            # TODO: how to incorporate state_p?
+            prior, state_p = self.priors[ind].forward(x, state)
             pred_i = pred_i + self._prior_scale * prior.detach()
-        return pred_i
+        return pred_i, state
 
-    def get_preds(self, x):
-        return [self.pforward(i, x) for i in range(len(self.models))]
-
-    def forward(self, x):
+    def get_preds(self, x, states):
         preds = [None] * self._ens_size
-        for i in range(len(self.models)):
-            preds[i] = self.pforward(i, x)
+        states_new = [None] * self._ens_size
+        for i in range(self._ens_size):
+            preds[i], states_new[i] = self.pforward(i, x, states[i])
+        return preds, states_new
+
+    def get_preds_min(self, x, states):
+        preds, states_new = self.get_preds(x, states)
+        pred_min = tensor_utils.list_min(preds)
+        return pred_min, states_new
+
+    def forward(self, x, states):
+        preds = [None] * self._ens_size
+        states_new = [None] * self._ens_size
+        for i in range(self._ens_size):
+            preds[i], states_new[i] = self.pforward(i, x, states[i])
 
         if self._kappa is not None:
             # log n is correction for adding together multiple values
-            n = torch.tensor(len(self.models), dtype=torch.float32)
+            n = torch.tensor(self._ens_size, dtype=torch.float32)
             exp_term = self._kappa * preds - torch.log(n)
             lse = torch.logsumexp(exp_term, dim=1, keepdim=True)
-            return (1 / self.kappa) * lse
+            return (1 / self.kappa) * lse, states_new
         else:
             # hard max
-            return torch.max(preds)
+            return torch.max(preds), states_new
