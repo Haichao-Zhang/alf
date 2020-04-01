@@ -29,7 +29,7 @@ from alf.algorithms.rl_algorithm import RLAlgorithm
 from alf.data_structures import TimeStep, Experience, LossInfo, namedtuple
 from alf.data_structures import AlgStep, TrainingInfo
 from alf.nest import nest
-from alf.networks import ActorDistributionNetwork, CriticNetwork
+from alf.networks import ActorDistributionNetwork, CriticNetwork, Ensemble
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
 from alf.utils import losses, common, dist_utils
 
