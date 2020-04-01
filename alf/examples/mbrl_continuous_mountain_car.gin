@@ -66,7 +66,7 @@ SacAlgorithm.target_update_tau=0.005
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
 QShootingAlgorithm.population_size=1000
-QShootingAlgorithm.planning_horizon=200
+QShootingAlgorithm.planning_horizon=20
 QShootingAlgorithm.policy_module=@SacAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
