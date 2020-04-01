@@ -657,6 +657,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             #next_obs = time_step.observation
             cur_obs = obs_seqs[i]
             reward_step = self._reward_func(cur_obs, action)
+            reward_step = reward_step.reshape(-1, 1)
             cost = cost - reward_step
         # further add terminal values to the cost with the learned value func
         with torch.no_grad():
