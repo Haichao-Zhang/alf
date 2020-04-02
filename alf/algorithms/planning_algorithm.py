@@ -661,13 +661,16 @@ class QShootingAlgorithm(PlanAlgorithm):
             cost = cost - reward_step
         # further add terminal values to the cost with the learned value func
         with torch.no_grad():
-            q_action, planner_state = self._get_action_from_Q(
-                time_step, state, epsilon_greedy=0)  # always add noise
-            # q_action, planner_state = self._get_action_from_Q_sampling(
-            #     batch_size, time_step, state.planner)  # always add noise
-            critic_input = (time_step.observation, q_action)
-            critic, critic_state = self._policy_module._critic_networks.get_preds_max(
-                critic_input)
+            # q_action, planner_state = self._get_action_from_Q(
+            #     time_step, state, epsilon_greedy=0)  # always add noise
+            # # q_action, planner_state = self._get_action_from_Q_sampling(
+            # #     batch_size, time_step, state.planner)  # always add noise
+            # critic_input = (time_step.observation, q_action)
+            # critic, critic_state = self._policy_module._critic_networks.get_preds_max(
+            #     critic_input)
+
+            critic = self._policy_module.cal_value(time_step,
+                                                   state.planner.policy)
             critic = critic.reshape(-1, 1)
             cost = cost - critic
 

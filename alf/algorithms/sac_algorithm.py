@@ -329,6 +329,40 @@ class SacAlgorithm(OffPolicyAlgorithm):
         info = SacAlphaInfo(loss=LossInfo(loss=alpha_loss, extra=alpha_loss))
         return info
 
+    def cal_value(self, exp: Experience, state: SacState):
+        action_distribution, share_actor_state = self._actor_network(
+            exp.observation, state=state.share.actor)
+        if self._is_continuous:
+            action = dist_utils.rsample_action_distribution(
+                action_distribution)
+        else:
+            action = dist_utils.sample_action_distribution(action_distribution)
+
+        log_pi = dist_utils.compute_log_probability(action_distribution,
+                                                    action)
+
+        #======begin calculation==========
+        if self._is_continuous:
+            target_critic_input = (exp.observation, action)
+        else:
+            target_critic_input = exp.observation
+
+        target_critics, target_critic_states = self._target_critic_networks.get_preds(
+            target_critic_input,
+            states=[state.critic.target_critic1, state.critic.target_critic2])
+
+        if not self._is_continuous:
+            sampled_action = action.view(exp.observation.shape[0], -1).long()
+            target_critics = [
+                target_critic.gather(-1, sampled_action)
+                for target_critic in target_critics
+            ]
+
+        target_critic = tensor_utils.list_min(target_critics).reshape(log_pi.shape) - \
+                         (torch.exp(self._log_alpha) * log_pi).detach()
+
+        return target_critic
+
     def train_step(self, exp: Experience, state: SacState):
         action_distribution, share_actor_state = self._actor_network(
             exp.observation, state=state.share.actor)
