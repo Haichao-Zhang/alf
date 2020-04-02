@@ -44,7 +44,8 @@ class Ensemble(Network):
         super(Ensemble,
               self).__init__(input_tensor_spec=base_model._input_tensor_spec)
 
-        self._input_tensor_spec = base_model._input_tensor_spec
+        self._input_tensor_spec = [base_model._input_tensor_spec] * ens_size
+        self._state_spec = [base_model.state_spec] * ens_size
         self._ens_size = ens_size
         self._kappa = kappa
         self._prior_scale = prior_scale
@@ -56,6 +57,11 @@ class Ensemble(Network):
             self.models.append(base_model.copy())
             if self._prior_model:
                 self.priors.append(self._prior_model.copy())
+
+    @property
+    def state_spec(self):
+        """Return the state spec to be used by an `Algorithm`."""
+        return self._state_spec
 
     def pforward(self, ind, x, state):
         pred_i, state = self.models[ind].forward(x, state)
