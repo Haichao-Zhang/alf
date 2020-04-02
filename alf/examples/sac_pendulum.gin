@@ -2,10 +2,10 @@
 include 'sac.gin'
 
 import alf.utils.math_ops
-
+import pybullet_envs
 # environment config
 NUM_PARALLEL_ENVIRONMENTS=1
-create_environment.env_name="Pendulum-v0"
+create_environment.env_name="HalfCheetahBulletEnv-v0"
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
 
 # algorithm config
