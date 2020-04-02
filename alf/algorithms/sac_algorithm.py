@@ -140,9 +140,9 @@ class SacAlgorithm(OffPolicyAlgorithm):
         """
         # critic_network1 = critic_network.copy()
         # critic_network2 = critic_network.copy()
-        ens_size = 2
-        critic_networks = Ensemble(
-            base_model=critic_network, ens_size=ens_size)
+        #ens_size = 2
+        critic_networks = Ensemble(base_model=critic_network)
+        self._ens_size = critic_networks._ens_size
 
         log_alpha = nn.Parameter(torch.Tensor([float(initial_log_alpha)]))
 
@@ -185,7 +185,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
         # Have different names to separate their summary curves
         self._critic_losses = [
             critic_loss_ctor(name="critic_loss_" + str(i))
-            for i in range(ens_size)
+            for i in range(self._ens_size)
         ]
 
         flat_action_spec = nest.flatten(self._action_spec)
