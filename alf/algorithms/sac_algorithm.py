@@ -43,7 +43,7 @@ SacState = namedtuple("SacState", ["share", "actor", "critic"])
 
 SacActorInfo = namedtuple("SacActorInfo", ["loss"])
 
-SacCriticInfo = namedtuple("SacCriticInfo", ["critics", "target_critic"])
+SacCriticInfo = namedtuple("SacCriticInfo", ["critics", "target_critics"])
 
 SacAlphaInfo = namedtuple("SacAlphaInfo", ["loss"])
 
@@ -299,18 +299,31 @@ class SacAlgorithm(OffPolicyAlgorithm):
                 for target_critic in target_critics
             ]
 
-        target_critic = tensor_utils.list_min(target_critics).reshape(log_pi.shape) - \
+            # target_critic = tensor_utils.list_min(target_critics).reshape(log_pi.shape) - \
+            #                  (torch.exp(self._log_alpha) * log_pi).detach()
+
+            # for i in range(len(critics)):
+            #     critics[i] = critics[i].squeeze(-1)
+
+            # target_critic = target_critic.squeeze(-1).detach()
+
+        target_critics = [
+            target_critic.reshape(log_pi.shape) - \
                          (torch.exp(self._log_alpha) * log_pi).detach()
+            for target_critic in target_critics
+        ]
 
         for i in range(len(critics)):
             critics[i] = critics[i].squeeze(-1)
 
-        target_critic = target_critic.squeeze(-1).detach()
-
+        target_critics = [
+            target_critic.squeeze(-1).detach()
+            for target_critic in target_critics
+        ]
         state = SacCriticState(
             critics=critic_states, target_critics=target_critic_states)
 
-        info = SacCriticInfo(critics=critics, target_critic=target_critic)
+        info = SacCriticInfo(critics=critics, target_critics=target_critics)
 
         return state, info
 
@@ -399,14 +412,14 @@ class SacAlgorithm(OffPolicyAlgorithm):
     def _calc_critic_loss(self, training_info):
         critic_info = training_info.info.critic
 
-        target_critic = critic_info.target_critic
+        target_critics = critic_info.target_critics
 
         critic_loss = 0
         for i in range(len(critic_info.critics)):
             critic_loss_i = self._critic_losses[i](
                 training_info=training_info,
                 value=critic_info.critics[i],
-                target_value=target_critic)
+                target_value=target_critics[i])
             critic_loss = critic_loss + critic_loss_i.loss
         return LossInfo(loss=critic_loss, extra=critic_loss)
 
