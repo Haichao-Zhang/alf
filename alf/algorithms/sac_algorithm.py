@@ -358,7 +358,8 @@ class SacAlgorithm(OffPolicyAlgorithm):
                 for target_critic in target_critics
             ]
 
-        target_critic = tensor_utils.list_min(target_critics).reshape(log_pi.shape) - \
+        # changed from min to max
+        target_critic = tensor_utils.list_max(target_critics).reshape(log_pi.shape) - \
                          (torch.exp(self._log_alpha) * log_pi).detach()
 
         return target_critic
