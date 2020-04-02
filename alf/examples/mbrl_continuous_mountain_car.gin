@@ -39,7 +39,7 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 #------ ensemble config
-Ensemble.ens_size=10
+Ensemble.ens_size=3
 Ensemble.prior_model=True
 Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
@@ -49,6 +49,7 @@ critic/CriticNetwork.use_last_kernel_initializer=True
 prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
+prior/CriticNetwork.last_activation=@torch.relu
 Ensemble.prior_model=@prior/CriticNetwork()
 
 
@@ -74,7 +75,7 @@ SacAlgorithm.target_update_tau=0.005
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=1000
+QShootingAlgorithm.population_size=200
 QShootingAlgorithm.planning_horizon=5
 QShootingAlgorithm.policy_module=@SacAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
@@ -111,3 +112,4 @@ TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
 
 TrainerConfig.replay_buffer_length=100000
+TrainerConfig.random_seed=1585873587
