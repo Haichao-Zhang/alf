@@ -25,7 +25,7 @@ DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 # reward learning config
 FixedRewardFunction.reward_func=@reward_function_for_pendulum
 
-Ensemble.prior_model=True
+
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
 actor/ActorDistributionNetwork.action_spec=%action_spec
 actor/ActorDistributionNetwork.fc_layer_params=(100, 100)
@@ -38,13 +38,16 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 
-
+Ensemble.prior_model=True
+Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/CriticNetwork.joint_fc_layer_params=(100, 100)
+critic/CriticNetwork.use_last_kernel_initializer=True
 
-# actor/Adam.lr=5e-4
-# critic/Adam.lr=5e-4
-# alpha/Adam.lr=5e-4
+prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+prior/CriticNetwork.joint_fc_layer_params=(100, 100)
+prior/CriticNetwork.use_last_kernel_initializer=False
+Ensemble.prior_model=@prior/CriticNetwork()
 
 
 # agent config

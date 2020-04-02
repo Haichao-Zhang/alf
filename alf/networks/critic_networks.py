@@ -41,6 +41,7 @@ class CriticNetwork(Network):
                  joint_fc_layer_params=None,
                  activation=torch.relu,
                  kernel_initializer=None,
+                 use_last_kernel_initializer=True,
                  name="CriticNetwork"):
         """Creates an instance of `CriticNetwork` for estimating action-value of
         continuous actions. The action-value is defined as the expected return
@@ -109,8 +110,11 @@ class CriticNetwork(Network):
             activation=activation,
             kernel_initializer=kernel_initializer)
 
-        last_kernel_initializer = functools.partial(
-            torch.nn.init.uniform_, a=-0.003, b=0.003)
+        if use_last_kernel_initializer:
+            last_kernel_initializer = functools.partial(
+                torch.nn.init.uniform_, a=-0.003, b=0.003)
+        else:
+            last_kernel_initializer = None
 
         self._joint_encoder = EncodingNetwork(
             TensorSpec((self._obs_encoder.output_spec.shape[0] +

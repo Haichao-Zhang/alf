@@ -37,7 +37,7 @@ class Ensemble(Network):
 
     def __init__(self,
                  base_model: Network,
-                 prior_model=False,
+                 prior_model=None,
                  ens_size=1,
                  prior_scale=0.1,
                  kappa=0.1):
@@ -55,13 +55,14 @@ class Ensemble(Network):
         for i in range(self._ens_size):
             self.models.append(base_model.copy())
             if self._prior_model:
-                self.priors.append(base_model.copy())
+                self.priors.append(self._prior_model.copy())
 
     def pforward(self, ind, x, state):
         pred_i, state = self.models[ind].forward(x, state)
         if self._prior_model:
             # TODO: how to incorporate state_p?
-            prior, state_p = self.priors[ind].forward(x, state)
+            with torch.no_grad():
+                prior, state_p = self.priors[ind].forward(x, state)
             pred_i = pred_i + self._prior_scale * prior.detach()
         return pred_i, state
 
