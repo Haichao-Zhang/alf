@@ -42,6 +42,7 @@ class CriticNetwork(Network):
                  activation=torch.relu,
                  kernel_initializer=None,
                  use_last_kernel_initializer=True,
+                 last_activation=math_ops.identity,
                  name="CriticNetwork"):
         """Creates an instance of `CriticNetwork` for estimating action-value of
         continuous actions. The action-value is defined as the expected return
@@ -123,7 +124,7 @@ class CriticNetwork(Network):
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=1,
-            last_activation=math_ops.identity,
+            last_activation=last_activation,
             last_kernel_initializer=last_kernel_initializer)
 
         self._output_spec = TensorSpec(())

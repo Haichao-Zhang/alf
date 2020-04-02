@@ -93,7 +93,9 @@ class Ensemble(Network):
         pred_max = tensor_utils.list_max(preds)
         return pred_max, states_new
 
-    def forward(self, x, states):
+    def forward(self, x, states=None):
+        if states is None:
+            states = [None] * self._ens_size
         preds = [None] * self._ens_size
         states_new = [None] * self._ens_size
         for i in range(self._ens_size):

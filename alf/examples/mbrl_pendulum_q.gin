@@ -36,8 +36,8 @@ NormalProjectionNetwork.scale_distribution=True
 NormalProjectionNetwork.std_transform=@clipped_exp
 
 
-
-
+#------ ensemble config
+Ensemble.ens_size=3
 Ensemble.prior_model=True
 Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
@@ -47,8 +47,8 @@ critic/CriticNetwork.use_last_kernel_initializer=True
 prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
+prior/CriticNetwork.last_activation=@torch.relu
 Ensemble.prior_model=@prior/CriticNetwork()
-
 
 # agent config
 Mbrl/AdamTF.lr=1e-3
