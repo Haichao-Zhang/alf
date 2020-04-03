@@ -333,7 +333,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
         info = SacAlphaInfo(loss=LossInfo(loss=alpha_loss, extra=alpha_loss))
         return info
 
-    def cal_value(self, exp: Experience, state: SacState):
+    def cal_value(self, exp: Experience, state: SacState, flag="max"):
         action_distribution, share_actor_state = self._actor_network(
             exp.observation, state=state.share.actor)
         if self._is_continuous:
@@ -365,9 +365,18 @@ class SacAlgorithm(OffPolicyAlgorithm):
             ]
 
         # changed from min to max
-        target_critic = tensor_utils.list_max(target_critics).reshape(log_pi.shape) - \
+        if flag == "max":
+            target_critic = tensor_utils.list_max(target_critics).reshape(log_pi.shape) - \
+                            (torch.exp(self._log_alpha) * log_pi).detach()
+        elif flag == "min":
+            target_critic = tensor_utils.list_max(target_critics).reshape(log_pi.shape) - \
                          (torch.exp(self._log_alpha) * log_pi).detach()
-
+        elif flag == "mean":
+            target_critic = tensor_utils.list_mean(target_critics).reshape(log_pi.shape) - \
+                         (torch.exp(self._log_alpha) * log_pi).detach()
+        elif flag == "std":
+            target_critic = tensor_utils.list_std(target_critics).reshape(log_pi.shape) - \
+                         (torch.exp(self._log_alpha) * log_pi).detach()
         return target_critic
 
     def train_step(self, exp: Experience, state: SacState):

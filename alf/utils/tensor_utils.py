@@ -30,6 +30,16 @@ def list_max(tensors):
     return max_val
 
 
+def list_std(tensors):
+    max_val, _ = torch.std(torch.stack(tensors), dim=0)
+    return max_val
+
+
+def list_mean(tensors):
+    max_val, _ = torch.mean(torch.stack(tensors), dim=0)
+    return max_val
+
+
 def tensor_extend(x, y):
     """Extending tensor with new_slice.
 

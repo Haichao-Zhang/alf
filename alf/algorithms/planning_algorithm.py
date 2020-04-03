@@ -682,8 +682,12 @@ class QShootingAlgorithm(PlanAlgorithm):
             # critic, critic_state = self._policy_module._critic_networks.get_preds_max(
             #     critic_input)
 
-            critic = self._policy_module.cal_value(time_step,
-                                                   state.planner.policy)
+            critic_mean = self._policy_module.cal_value(
+                time_step, state.planner.policy, flag="mean")
+
+            critic_std = self._policy_module.cal_value(
+                time_step, state.planner.policy, flag="std")
+            critic = critic_mean + critic_std * 10.0
             critic = critic.reshape(-1, 1)
             cost = cost - discount * critic
 
