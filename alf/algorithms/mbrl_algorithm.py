@@ -179,7 +179,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         # note epsilon_greedy
         # 0.1 for random exploration
         return self._predict_with_planning(
-            time_step, state, epsilon_greedy=0.5)
+            time_step, state, epsilon_greedy=0.1)
 
     def train_step(self, exp: Experience, state: MbrlState):
         action = exp.action
