@@ -337,8 +337,11 @@ class SacAlgorithm(OffPolicyAlgorithm):
         action_distribution, share_actor_state = self._actor_network(
             exp.observation, state=state.share.actor)
         if self._is_continuous:
-            action = dist_utils.rsample_action_distribution(
-                action_distribution)
+            # action = dist_utils.rsample_action_distribution(
+            #     action_distribution)
+            # greedy sampling for best value estimation
+            action = dist_utils.epsilon_greedy_sample(
+                action_distribution, eps=0.0)
         else:
             action = dist_utils.sample_action_distribution(action_distribution)
 

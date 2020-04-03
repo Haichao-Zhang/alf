@@ -397,6 +397,15 @@ class QShootingAlgorithm(PlanAlgorithm):
             time_step, state, epsilon_greedy)
         action = opt_action[:, 0]
 
+        # add epsilon greedy
+        non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
+
+        # random action
+        action_rand = torch.rand(action.shape) * (
+            self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
+
+        action[non_greedy_mask] = action_rand[non_greedy_mask]
+
         # # option 3
         # action, state = self._get_action_from_Q(time_step, state,
         #                                         epsilon_greedy)
