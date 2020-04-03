@@ -31,13 +31,13 @@ def list_max(tensors):
 
 
 def list_std(tensors):
-    max_val, _ = torch.std(torch.stack(tensors), dim=0)
-    return max_val
+    std_val = torch.std(torch.stack(tensors), dim=0)
+    return std_val
 
 
 def list_mean(tensors):
-    max_val, _ = torch.mean(torch.stack(tensors), dim=0)
-    return max_val
+    mean_val = torch.mean(torch.stack(tensors), dim=0)
+    return mean_val
 
 
 def tensor_extend(x, y):

@@ -5,15 +5,20 @@ import alf.algorithms.reward_learning_algorithm
 import alf.algorithms.sac_algorithm
 import alf.examples.mbrl_pendulum
 import alf.utils.math_ops # swish
+import pybullet_envs
 
 # environment config
-# env_name='Pendulum-v0'
+env_name='Pendulum-v0'
 max_len=200
-import pybullet_envs
+
 # env_name='HalfCheetahBulletEnv-v0'
 
-env_name='ReacherBulletEnv-v0'
-max_len=150
+#env_name='InvertedDoublePendulumBulletEnv-v0'
+#max_len=200
+
+
+#-------------------
+load.max_episode_steps=%max_len
 
 NUM_PARALLEL_ENVIRONMENTS=1
 create_environment.env_load_fn=@suite_gym.load
@@ -31,11 +36,11 @@ DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 
 # reward learning config
 # fixed ----
-# FixedRewardFunction.reward_func=@reward_function_for_pendulum
+FixedRewardFunction.reward_func=@reward_function_for_pendulum
 # learned -----
-RewardAlgorithm.action_spec=%action_spec
-RewardAlgorithm.feature_spec=%observation_spec
-RewardAlgorithm.hidden_size=(500, 500, 500)
+# RewardAlgorithm.action_spec=%action_spec
+# RewardAlgorithm.feature_spec=%observation_spec
+# RewardAlgorithm.hidden_size=(500, 500, 500)
 
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
 actor/ActorDistributionNetwork.action_spec=%action_spec
@@ -65,14 +70,17 @@ Ensemble.prior_model=@prior/CriticNetwork()
 Mbrl/AdamTF.lr=1e-3
 opt=@Mbrl/AdamTF()
 
+actor/AdamTF.lr=5e-4
+critic/AdamTF.lr=5e-4
+alpha/AdamTF.lr=5e-4
 
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
 SacAlgorithm.critic_network=@critic/CriticNetwork()
-SacAlgorithm.actor_optimizer=%opt
-SacAlgorithm.critic_optimizer=%opt
-SacAlgorithm.alpha_optimizer=%opt
+SacAlgorithm.actor_optimizer=@actor/AdamTF()
+SacAlgorithm.critic_optimizer=@critic/AdamTF()
+SacAlgorithm.alpha_optimizer=@alpha/AdamTF()
 SacAlgorithm.target_update_tau=0.005
 
 
@@ -88,8 +96,8 @@ OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
-# MbrlAlgorithm.reward_module=@FixedRewardFunction()
-MbrlAlgorithm.reward_module=@RewardAlgorithm()
+MbrlAlgorithm.reward_module=@FixedRewardFunction()
+#MbrlAlgorithm.reward_module=@RewardAlgorithm()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 
@@ -102,7 +110,7 @@ MbrlAlgorithm.reward_optimizer=%opt
 TrainerConfig.initial_collect_steps=%max_len
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=%max_len
-TrainerConfig.mini_batch_size=35
+TrainerConfig.mini_batch_size=32
 TrainerConfig.num_updates_per_train_step=5 # epoches
 TrainerConfig.whole_replay_buffer_training=True
 TrainerConfig.clear_replay_buffer=False

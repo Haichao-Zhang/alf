@@ -5,7 +5,14 @@ import alf.utils.math_ops
 import pybullet_envs
 # environment config
 NUM_PARALLEL_ENVIRONMENTS=1
-create_environment.env_name="HalfCheetahBulletEnv-v0"
+
+# env_name='HalfCheetahBulletEnv-v0'
+
+env_name='InvertedDoublePendulumBulletEnv-v0'
+max_len=200
+load.max_episode_steps=%max_len
+
+create_environment.env_name=%env_name
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
 
 # algorithm config

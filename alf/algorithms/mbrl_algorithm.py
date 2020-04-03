@@ -185,7 +185,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         # note epsilon_greedy
         # 0.1 for random exploration
         return self._predict_with_planning(
-            time_step, state, epsilon_greedy=0.1)
+            time_step, state, epsilon_greedy=0.0)
 
     def train_step(self, exp: Experience, state: MbrlState):
         action = exp.action
@@ -205,12 +205,21 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
     def calc_loss(self, training_info: TrainingInfo):
         loss = training_info.info.dynamics.loss
 
-        loss_reward = training_info.info.reward.loss
+        #loss_reward = training_info.info.reward.loss
 
         # loss = add_ignore_empty(loss, training_info.info.reward)
         # loss = add_ignore_empty(loss, loss_planner)
         # return LossInfo(loss=loss.loss, extra=())
-        if 1:
+        flag = 1
+        if flag == 1:
+            MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
+            loss_planner = self._planner_module.calc_loss(
+                training_info._replace(info=training_info.info.planner))
+            return LossInfo(
+                loss=loss.loss + loss_planner.loss,
+                extra=MbrlLossInfo(
+                    dynamics=loss.extra, planner=loss_planner.extra))
+        elif flag == 0:
             MbrlLossInfo = namedtuple('MbrlLossInfo',
                                       ("dynamics", "reward", "planner"))
             loss_planner = self._planner_module.calc_loss(
