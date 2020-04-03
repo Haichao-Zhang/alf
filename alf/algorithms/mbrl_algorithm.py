@@ -98,7 +98,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         """
         train_state_spec = MbrlState(
             dynamics=dynamics_module.train_state_spec,
-            reward=(),
+            reward=reward_module.train_state_spec,
             planner=planner_module.train_state_spec)
 
         super().__init__(
@@ -126,11 +126,14 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._action_spec = action_spec
         self._num_actions = num_actions
 
-        self.add_optimizer(dynamics_optimizer, [dynamics_module])
+        if dynamics_optimizer is not None:
+            self.add_optimizer(dynamics_optimizer, [dynamics_module])
 
         if planner_optimizer is not None:
             self.add_optimizer(planner_optimizer, [planner_module])
-        # TODO: add others if learning is needed
+
+        if reward_optimizer is not None:
+            self.add_optimizer(reward_optimizer, [reward_module])
 
         self._dynamics_module = dynamics_module
         self._reward_module = reward_module

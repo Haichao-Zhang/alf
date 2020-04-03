@@ -11,34 +11,113 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from collections import namedtuple
 import gin
-
 import torch
-import torch.nn as nn
-import torch.distributions as td
-from typing import Callable
 
 from alf.algorithms.algorithm import Algorithm
-from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
-                                 TimeStep, TrainingInfo)
+from alf.data_structures import AlgStep, LossInfo, namedtuple, TimeStep
 from alf.nest import nest
+from alf.nest.utils import NestConcat
+from alf.networks import Network, EncodingNetwork
+from alf.tensor_specs import TensorSpec
+from alf.utils import losses, spec_utils, tensor_utils
+
+RewardState = namedtuple(
+    "RewardState", ["feature", "network"], default_value=())
+RewardInfo = namedtuple("RewardInfo", ["loss"])
 
 
 @gin.configurable
 class RewardEstimationAlgorithm(Algorithm):
-    """Reward Estimation Module
+    """Base Dynamics Learning Module
 
-    This module is responsible to compute/predict rewards
+    This module trys to learn the dynamics of environment.
     """
 
-    def __init__(self, name="RewardEstimationAlgorithm"):
+    def __init__(self,
+                 train_state_spec,
+                 action_spec,
+                 feature_spec,
+                 hidden_size=256,
+                 dynamics_network: Network = None,
+                 name="RewardEstimationAlgorithm"):
         """Create a RewardEstimationAlgorithm.
-        """
-        super().__init__(name=name)
 
-    def train_step(self, time_step: TimeStep, state):
+        Args:
+            hidden_size (int|tuple): size of hidden layer(s)
+            dynamics_network (Network): network for predicting next feature
+                based on the previous feature and action. It should accept
+                input with spec [feature_spec, encoded_action_spec] and output
+                a tensor of shape feature_spec. For discrete action,
+                encoded_action is an one-hot representation of the action.
+                For continuous action, encoded action is the original action.
+        """
+        super().__init__(train_state_spec=train_state_spec, name=name)
+
+        flat_action_spec = nest.flatten(action_spec)
+        assert len(flat_action_spec) == 1, "doesn't support nested action_spec"
+
+        flat_feature_spec = nest.flatten(feature_spec)
+        assert len(
+            flat_feature_spec) == 1, "doesn't support nested feature_spec"
+
+        action_spec = flat_action_spec[0]
+
+        if action_spec.is_discrete:
+            self._num_actions = action_spec.maximum - action_spec.minimum + 1
+        else:
+            self._num_actions = action_spec.shape[-1]
+
+        self._action_spec = action_spec
+        self._feature_spec = feature_spec
+
+        #feature_dim = flat_feature_spec[0].shape[-1]
+
+        if isinstance(hidden_size, int):
+            hidden_size = (hidden_size, )
+
+        if dynamics_network is None:
+            encoded_action_spec = TensorSpec((self._num_actions, ),
+                                             dtype=torch.float32)
+            dynamics_network = EncodingNetwork(
+                name="dynamics_net",
+                input_tensor_spec=(feature_spec, encoded_action_spec),
+                preprocessing_combiner=NestConcat(),
+                fc_layer_params=hidden_size,
+                last_layer_size=1)
+
+        self._dynamics_network = dynamics_network
+
+    def _encode_action(self, action):
+        if self._action_spec.is_discrete:
+            return torch.nn.functional.one_hot(
+                action, num_classes=self._num_actions)
+        else:
+            return action
+
+    def update_state(self, time_step: TimeStep, state: RewardState):
+        """Update the state based on TimeStep data. This function is
+            mainly used during rollout together with a planner
+        Args:
+            time_step (TimeStep): input data for dynamics learning
+            state (Tensor): state for DML (previous observation)
+        Returns:
+            TrainStep:
+                outputs: empty tuple ()
+                state: feature
+                info (DynamicsInfo):
+        """
+        pass
+
+    def get_state_specs(self):
+        """Get the state specs of the current module.
+        This function is mainly used for constructing the nested state specs
+        by the upper-level module.
+        """
+        pass
+
+    def train_step(self, time_step: TimeStep, state: RewardState):
         """
         Args:
             time_step (TimeStep): input data for dynamics learning
@@ -46,46 +125,92 @@ class RewardEstimationAlgorithm(Algorithm):
         Returns:
             TrainStep:
                 outputs: empty tuple ()
-                state (DynamicsState): state for training
-                info (DynamicsInfo):
+                state (RewardState): state for training
+                info (RewardInfo):
         """
         pass
 
-    def calc_loss(self, info):
+    def calc_loss(self, info: RewardInfo):
         loss = nest.map_structure(torch.mean, info.loss)
         return LossInfo(
             loss=info.loss, scalar_loss=loss.loss, extra=loss.extra)
 
-    def compute_reward(self, obs, action):
-        """Compute reward based on the provided observation and action
-        Args:
-            obs (Tensor): observation
-            action (Tensor): action
-        Returns:
-            reward (Tensor): compuated reward for the given input
-        """
-        pass
-
 
 @gin.configurable
-class FixedRewardFunction(RewardEstimationAlgorithm):
-    """Fixed Reward Estimation Module with hand-crafted computational rules.
+class RewardAlgorithm(RewardEstimationAlgorithm):
+    """Deterministic Dynamics Learning Module
+
+    This module trys to learn the dynamics of environment with a
+    determinstic model.
     """
 
-    def __init__(self, reward_func: Callable, name="FixedRewardFunction"):
-        """Create a FixedRewardFunction.
+    def __init__(self,
+                 action_spec,
+                 feature_spec,
+                 hidden_size=256,
+                 dynamics_network: Network = None,
+                 name="RewardAlgorithm"):
+        """Create a RewardAlgorithm.
 
         Args:
-            reward_func (Callable): a function for computing reward. It takes
-                as input:
-                (1) observation (tf.Tensor of shape [batch_size, observation_dim])
-                (2) action (tf.Tensor of shape [batch_size, num_actions])
-                and returns a reward Tensor of shape [batch_size]
+            hidden_size (int|tuple): size of hidden layer(s)
+            dynamics_network (Network): network for predicting next feature
+                based on the previous feature and action. It should accept
+                input with spec [feature_spec, encoded_action_spec] and output
+                a tensor of shape feature_spec. For discrete action,
+                encoded_action is an one-hot representation of the action.
+                For continuous action, encoded action is the original action.
         """
-        super().__init__(name=name)
-        self._reward_func = reward_func
+        if dynamics_network is not None:
+            dynamics_network_state_spec = dynamics_network.state_spec
+        else:
+            dynamics_network_state_spec = ()
 
-    def train_step(self, time_step: TimeStep, state):
+        reward_spec = TensorSpec((1, ), dtype=torch.float32)
+
+        super().__init__(
+            train_state_spec=RewardState(
+                feature=feature_spec, network=dynamics_network_state_spec),
+            action_spec=action_spec,
+            feature_spec=feature_spec,
+            hidden_size=hidden_size,
+            dynamics_network=dynamics_network,
+            name=name)
+
+    def predict_step(self, time_step: TimeStep, state: RewardState):
+        """Predict the next observation given the current time_step.
+                The next step is predicted using the prev_action from time_step
+                and the feature from state.
+        """
+        action = self._encode_action(time_step.prev_action)
+        obs = state.feature
+        forward_pred, network_state = self._dynamics_network(
+            inputs=(obs, action), state=state.network)
+
+        # forward_pred = spec_utils.scale_to_spec(forward_pred.tanh(),
+        #                                         self._feature_spec)
+        # state = state._replace(feature=forward_pred, network=network_state)
+        # pass the observation to next
+        state = state._replace(
+            feature=time_step.observation, network=network_state)
+        return AlgStep(output=forward_pred, state=state, info=())
+
+    def update_state(self, time_step: TimeStep, state: RewardState):
+        """Update the state based on TimeStep data. This function is
+            mainly used during rollout together with a planner
+        Args:
+            time_step (TimeStep): input data for dynamics learning
+            state (Tensor): state for DML (previous observation)
+        Returns:
+            TrainStep:
+                outputs: empty tuple ()
+                state: feature
+                info (RewardInfo):
+        """
+        feature = time_step.observation
+        return state._replace(feature=feature)
+
+    def train_step(self, time_step: TimeStep, state: RewardState):
         """
         Args:
             time_step (TimeStep): input data for dynamics learning
@@ -93,12 +218,30 @@ class FixedRewardFunction(RewardEstimationAlgorithm):
         Returns:
             TrainStep:
                 outputs: empty tuple ()
-                state (DynamicsState): state for training
-                info (DynamicsInfo):
+                state (RewardState): state for training
+                info (RewardInfo):
         """
-        return AlgStep(output=(), state=(), info=())
+        feature = time_step.reward
+        dynamics_step = self.predict_step(time_step, state)
+        forward_pred = dynamics_step.output
+        # forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
+        forward_loss = (feature - forward_pred)**2
+        forward_loss = 0.5 * forward_loss.mean(
+            list(range(1, forward_loss.ndim)))
+        info = RewardInfo(
+            loss=LossInfo(
+                loss=forward_loss, extra=dict(reward_loss=forward_loss)))
+        # pass observation down
+        state = RewardState(feature=time_step.observation)
 
-    def compute_reward(self, obs, action):
-        """Compute reward based on current observation and action
+        return AlgStep(output=(), state=state, info=info)
+
+    def compute_reward(self, obs, action, state=None):
+        """Predict the next observation given the current time_step.
+                The next step is predicted using the prev_action from time_step
+                and the feature from state.
         """
-        return self._reward_func(obs, action)
+        action = self._encode_action(action)
+        forward_pred, _ = self._dynamics_network(
+            inputs=(obs, action), state=())
+        return forward_pred

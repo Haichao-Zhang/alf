@@ -28,8 +28,12 @@ DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 
 # reward learning config
-FixedRewardFunction.reward_func=@reward_function_for_pendulum
-
+# fixed ----
+# FixedRewardFunction.reward_func=@reward_function_for_pendulum
+# learned -----
+RewardAlgorithm.action_spec=%action_spec
+RewardAlgorithm.feature_spec=%observation_spec
+RewardAlgorithm.hidden_size=(500, 500, 500)
 
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
 actor/ActorDistributionNetwork.action_spec=%action_spec
@@ -82,19 +86,21 @@ OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
-MbrlAlgorithm.reward_module=@FixedRewardFunction()
+# MbrlAlgorithm.reward_module=@FixedRewardFunction()
+MbrlAlgorithm.reward_module=@RewardAlgorithm()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 
 MbrlAlgorithm.dynamics_optimizer=%opt
 MbrlAlgorithm.planner_optimizer=%opt
+MbrlAlgorithm.reward_optimizer=%opt
 
 
 # training config
 TrainerConfig.initial_collect_steps=200
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=200
-TrainerConfig.mini_batch_size=32
+TrainerConfig.mini_batch_size=35
 TrainerConfig.num_updates_per_train_step=5 # epoches
 TrainerConfig.whole_replay_buffer_training=True
 TrainerConfig.clear_replay_buffer=False
