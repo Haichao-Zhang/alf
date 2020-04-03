@@ -85,7 +85,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
                  observation_spec,
                  action_spec: BoundedTensorSpec,
                  actor_network: ActorDistributionNetwork,
-                 critic_network: CriticNetwork,
+                 critic_networks: Ensemble,
                  env=None,
                  config: TrainerConfig = None,
                  critic_loss_ctor=None,
@@ -141,7 +141,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
         # critic_network1 = critic_network.copy()
         # critic_network2 = critic_network.copy()
         #ens_size = 2
-        critic_networks = Ensemble(base_model=critic_network)
+        #critic_networks = Ensemble(base_model=critic_network)
         self._ens_size = critic_networks._ens_size
 
         log_alpha = nn.Parameter(torch.Tensor([float(initial_log_alpha)]))

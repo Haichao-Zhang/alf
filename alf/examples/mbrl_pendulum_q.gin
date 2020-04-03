@@ -53,9 +53,9 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 #------ ensemble config
-Ensemble.ens_size=3
-Ensemble.prior_model=True
-Ensemble.prior_scale=1
+critic/Ensemble.ens_size=3
+critic/Ensemble.prior_model=True
+critic/Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/CriticNetwork.joint_fc_layer_params=(100, 100)
 critic/CriticNetwork.use_last_kernel_initializer=True
@@ -64,7 +64,8 @@ prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
 prior/CriticNetwork.last_activation=@torch.relu
-Ensemble.prior_model=@prior/CriticNetwork()
+critic/Ensemble.prior_model=@prior/CriticNetwork()
+critic/Ensemble.base_model=@critic/CriticNetwork()
 
 # agent config
 Mbrl/AdamTF.lr=1e-3
@@ -77,11 +78,13 @@ alpha/AdamTF.lr=1e-2
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
-SacAlgorithm.critic_network=@critic/CriticNetwork()
+#SacAlgorithm.critic_network=@critic/CriticNetwork()
+SacAlgorithm.critic_networks=@critic/Ensemble()
 SacAlgorithm.actor_optimizer=@actor/AdamTF()
 SacAlgorithm.critic_optimizer=@critic/AdamTF()
 SacAlgorithm.alpha_optimizer=@alpha/AdamTF()
 SacAlgorithm.target_update_tau=0.005
+
 
 
 QShootingAlgorithm.feature_spec=%observation_spec
