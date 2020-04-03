@@ -70,9 +70,9 @@ Ensemble.prior_model=@prior/CriticNetwork()
 Mbrl/AdamTF.lr=1e-3
 opt=@Mbrl/AdamTF()
 
-actor/AdamTF.lr=5e-4
-critic/AdamTF.lr=5e-4
-alpha/AdamTF.lr=5e-4
+actor/AdamTF.lr=1e-3
+critic/AdamTF.lr=1e-3
+alpha/AdamTF.lr=1e-2
 
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
