@@ -16,19 +16,40 @@ create_environment.env_name=%env_name
 
 observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
+observation_dim=@get_observation_dim()
+
+#------ ensemble dynamics config
+dynamics/Ensemble.ens_size=3
+dynamics/Ensemble.prior_model=True
+dynamics/Ensemble.prior_scale=1
+dynamics/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+dynamics/EncodingNetwork.last_layer_size=%observation_dim
+dynamics/EncodingNetwork.fc_layer_params=(500, 500, 500)
+dynamics/EncodingNetwork.preprocessing_combiner=@NestConcat()
+#dynamics/EncodingNetwork.use_last_kernel_initializer=True
+
+dynamics_prior/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+dynamics_prior/EncodingNetwork.last_layer_size=%observation_dim
+dynamics_prior/EncodingNetwork.fc_layer_params=(500, 500, 500)
+#prior/EncodingNetwork.use_last_kernel_initializer=False
+dynamics_prior/EncodingNetwork.last_activation=@torch.relu
+dynamics_prior/EncodingNetwork.preprocessing_combiner=@NestConcat()
+dynamics/Ensemble.prior_model=@dynamics_prior/EncodingNetwork()
+dynamics/Ensemble.base_model=@dynamics/EncodingNetwork()
 
 # dynamics learning config
 EncodingNetwork.activation=@swish
 DeterministicDynamicsAlgorithm.action_spec=%action_spec
 DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
+DeterministicDynamicsAlgorithm.dynamics_network=@dynamics/Ensemble()
 
 # reward learning config
-#FixedRewardFunction.reward_func=@reward_function_for_mountaincar
-# learned -----
-RewardAlgorithm.action_spec=%action_spec
-RewardAlgorithm.feature_spec=%observation_spec
-RewardAlgorithm.hidden_size=(500, 500, 500)
+FixedRewardFunction.reward_func=@reward_function_for_mountaincar
+# # learned -----
+# RewardAlgorithm.action_spec=%action_spec
+# RewardAlgorithm.feature_spec=%observation_spec
+# RewardAlgorithm.hidden_size=(500, 500, 500)
 
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
 actor/ActorDistributionNetwork.action_spec=%action_spec
@@ -54,7 +75,8 @@ prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
 prior/CriticNetwork.last_activation=@torch.relu
-Ensemble.prior_model=@prior/CriticNetwork()
+critic/Ensemble.prior_model=@prior/CriticNetwork()
+critic/Ensemble.base_model=@critic/CriticNetwork()
 
 
 # actor/Adam.lr=5e-4
@@ -70,7 +92,8 @@ opt=@Mbrl/AdamTF()
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
-SacAlgorithm.critic_network=@critic/CriticNetwork()
+#SacAlgorithm.critic_network=@critic/CriticNetwork()
+SacAlgorithm.critic_networks=@critic/Ensemble()
 SacAlgorithm.actor_optimizer=%opt
 SacAlgorithm.critic_optimizer=%opt
 SacAlgorithm.alpha_optimizer=%opt
@@ -89,8 +112,8 @@ OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
-#MbrlAlgorithm.reward_module=@FixedRewardFunction()
-MbrlAlgorithm.reward_module=@RewardAlgorithm()
+MbrlAlgorithm.reward_module=@FixedRewardFunction()
+#MbrlAlgorithm.reward_module=@RewardAlgorithm()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 
