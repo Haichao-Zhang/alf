@@ -557,6 +557,29 @@ def get_observation_spec(field=None):
 
 
 @gin.configurable
+def get_observation_dim(field=None):
+    """Get the `TensorSpec` of observations provided by the global environment.
+
+    This spec is used for creating models only! All uint8 dtype will be converted
+    to tf.float32 as a temporary solution, to be consistent with
+    `image_scale_transformer()`. See
+
+    https://github.com/HorizonRobotics/alf/pull/239#issuecomment-544644558
+
+    Args:
+        field (str): a multi-step path denoted by "A.B.C".
+    Returns:
+        A `TensorSpec`, or a nested dict, list or tuple of
+        `TensorSpec` objects, which describe the observation.
+    """
+    assert _env, "set a global env by `set_global_env` before using the function"
+    specs = _env.observation_spec()
+    flat_spec = nest.flatten(specs)
+    assert len(flat_spec) == 1, "doesn't support nested spec"
+    return flat_spec[0].shape[0]
+
+
+@gin.configurable
 def get_states_shape():
     """Get the tensor shape of internal states of the agent provided by
       the global environment

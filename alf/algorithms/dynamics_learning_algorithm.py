@@ -19,7 +19,7 @@ from alf.algorithms.algorithm import Algorithm
 from alf.data_structures import AlgStep, LossInfo, namedtuple, TimeStep
 from alf.nest import nest
 from alf.nest.utils import NestConcat
-from alf.networks import Network, EncodingNetwork
+from alf.networks import Network, EncodingNetwork, Ensemble
 from alf.tensor_specs import TensorSpec
 from alf.utils import losses, spec_utils, tensor_utils
 
@@ -40,7 +40,7 @@ class DynamicsLearningAlgorithm(Algorithm):
                  action_spec,
                  feature_spec,
                  hidden_size=256,
-                 dynamics_network: Network = None,
+                 dynamics_network: Ensemble = None,
                  name="DynamicsLearningAlgorithm"):
         """Create a DynamicsLearningAlgorithm.
 
@@ -148,7 +148,7 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
                  action_spec,
                  feature_spec,
                  hidden_size=256,
-                 dynamics_network: Network = None,
+                 dynamics_network: Ensemble = None,
                  name="DeterministicDynamicsAlgorithm"):
         """Create a DeterministicDynamicsAlgorithm.
 
@@ -182,13 +182,18 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         """
         action = self._encode_action(time_step.prev_action)
         obs = state.feature
-        forward_delta, network_state = self._dynamics_network(
-            inputs=(obs, action), state=state.network)
-        forward_pred = obs + forward_delta
+        forward_deltas, network_state = self._dynamics_network.get_preds(
+            (obs, action), states=state.network)
+
+        forward_preds = [
+            obs + forward_delta for forward_delta in forward_deltas
+        ]
         # forward_pred = spec_utils.scale_to_spec(forward_pred.tanh(),
         #                                         self._feature_spec)
-        state = state._replace(feature=forward_pred, network=network_state)
-        return AlgStep(output=forward_pred, state=state, info=())
+        state = state._replace(
+            feature=tensor_utils.list_mean(forward_preds),
+            network=network_state)
+        return AlgStep(output=forward_preds, state=state, info=())
 
     def update_state(self, time_step: TimeStep, state: DynamicsState):
         """Update the state based on TimeStep data. This function is
@@ -218,14 +223,18 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         """
         feature = time_step.observation
         dynamics_step = self.predict_step(time_step, state)
-        forward_pred = dynamics_step.output
+        forward_preds = dynamics_step.output
         # forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
-        forward_loss = (feature - forward_pred)**2
-        forward_loss = 0.5 * forward_loss.mean(
-            list(range(1, forward_loss.ndim)))
+
+        for i in range(len(forward_preds)):
+            forward_loss = (feature - forward_preds[i])**2
+            forward_loss = 0.5 * forward_loss.mean(
+                list(range(1, forward_loss.ndim)))
+        forward_loss = forward_loss / len(forward_preds)
         info = DynamicsInfo(
             loss=LossInfo(
                 loss=forward_loss, extra=dict(forward_loss=forward_loss)))
-        state = DynamicsState(feature=feature)
+
+        state = state._replace(feature=feature)
 
         return AlgStep(output=(), state=state, info=info)

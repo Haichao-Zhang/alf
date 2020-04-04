@@ -30,7 +30,7 @@ from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
 from alf.nest import nest
 from alf.networks import ActorDistributionNetwork, CriticNetwork
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
-from alf.utils import losses, common, dist_utils
+from alf.utils import losses, common, dist_utils, tensor_utils
 from alf.utils.math_ops import add_ignore_empty
 
 from alf.algorithms.dynamics_learning_algorithm import DynamicsLearningAlgorithm
@@ -154,7 +154,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         """
         dynamics_step = self._dynamics_module.predict_step(
             time_step, state.dynamics)
-        pred_obs = dynamics_step.output
+        pred_obs = tensor_utils.list_mean(dynamics_step.output)
         if detach:
             pred_obs = pred_obs.detach()
         next_time_step = time_step._replace(observation=pred_obs)

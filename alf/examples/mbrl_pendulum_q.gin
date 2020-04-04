@@ -27,13 +27,33 @@ create_environment.env_name=%env_name
 
 observation_spec=@get_observation_spec()
 action_spec=@get_action_spec()
+observation_dim=@get_observation_dim()
+
+#------ ensemble dynamics config
+dynamics/Ensemble.ens_size=3
+dynamics/Ensemble.prior_model=True
+dynamics/Ensemble.prior_scale=1
+dynamics/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+dynamics/EncodingNetwork.last_layer_size=%observation_dim
+dynamics/EncodingNetwork.fc_layer_params=(500, 500, 500)
+dynamics/EncodingNetwork.preprocessing_combiner=@NestConcat()
+#dynamics/EncodingNetwork.use_last_kernel_initializer=True
+
+dynamics_prior/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+dynamics_prior/EncodingNetwork.last_layer_size=%observation_dim
+dynamics_prior/EncodingNetwork.fc_layer_params=(500, 500, 500)
+#prior/EncodingNetwork.use_last_kernel_initializer=False
+dynamics_prior/EncodingNetwork.last_activation=@torch.relu
+dynamics_prior/EncodingNetwork.preprocessing_combiner=@NestConcat()
+dynamics/Ensemble.prior_model=@dynamics_prior/EncodingNetwork()
+dynamics/Ensemble.base_model=@dynamics/EncodingNetwork()
 
 # dynamics learning config
 EncodingNetwork.activation=@swish
 DeterministicDynamicsAlgorithm.action_spec=%action_spec
 DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
-
+DeterministicDynamicsAlgorithm.dynamics_network=@dynamics/Ensemble()
 # reward learning config
 # fixed ----
 FixedRewardFunction.reward_func=@reward_function_for_pendulum
