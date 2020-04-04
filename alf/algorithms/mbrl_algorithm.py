@@ -140,6 +140,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._planner_module = planner_module
         self._planner_module.set_reward_func(self._calc_step_reward)
         self._planner_module.set_dynamics_func(self._predict_next_step)
+        #self._planner_module.set_step_eval_func(self._calc_step_eval)
 
     def _predict_next_step(self, time_step, state, detach=True):
         """Predict the next step (observation and state) based on the current
@@ -152,18 +153,25 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                 predicted from the dynamics module
             next_state (MbrlState): updated state from the dynamics module
         """
-        dynamics_step = self._dynamics_module.predict_step(
-            time_step, state.dynamics)
-        pred_obs = tensor_utils.list_mean(dynamics_step.output)
-        if detach:
-            pred_obs = pred_obs.detach()
-        next_time_step = time_step._replace(observation=pred_obs)
-        next_state = state._replace(dynamics=dynamics_step.state)
+        with torch.no_grad():
+            dynamics_step = self._dynamics_module.predict_step(
+                time_step, state.dynamics)
+            pred_obs = tensor_utils.list_mean(dynamics_step.output)
+            if detach:
+                pred_obs = pred_obs.detach()
+            next_time_step = time_step._replace(observation=pred_obs)
+            next_state = state._replace(dynamics=dynamics_step.state)
         return next_time_step, next_state
 
     def _calc_step_reward(self, obs, action):
         reward = self._reward_module.compute_reward(obs, action)
         return reward
+
+    def _calc_step_eval(self, obs, action):
+        with torch.no_grad():
+            disagreement = self._dynamics_module.compute_disagreement(
+                obs, action)
+        return disagreement
 
     def _predict_with_planning(self, time_step: TimeStep, state,
                                epsilon_greedy):

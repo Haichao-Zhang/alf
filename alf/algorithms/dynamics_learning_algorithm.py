@@ -195,6 +195,19 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
             network=network_state)
         return AlgStep(output=forward_preds, state=state, info=())
 
+    def compute_disagreement(self, obs, action):
+        """Predict the next observation given the current time_step.
+                The next step is predicted using the prev_action from time_step
+                and the feature from state.
+        """
+        with torch.no_grad():
+            action = self._encode_action(action)
+
+            forward_std, _ = self._dynamics_network.get_preds_std((obs,
+                                                                   action))
+
+        return forward_std
+
     def update_state(self, time_step: TimeStep, state: DynamicsState):
         """Update the state based on TimeStep data. This function is
             mainly used during rollout together with a planner
