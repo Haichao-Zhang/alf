@@ -206,7 +206,8 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
             forward_std, _ = self._dynamics_network.get_preds_std((obs,
                                                                    action))
 
-        return forward_std
+        # need to reduce over observation domains
+        return forward_std.mean(-1)
 
     def update_state(self, time_step: TimeStep, state: DynamicsState):
         """Update the state based on TimeStep data. This function is

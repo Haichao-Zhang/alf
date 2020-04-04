@@ -472,7 +472,11 @@ class QShootingAlgorithm(PlanAlgorithm):
         critic_input = (obs_pop, ac_rand_pop)
 
         if self._step_eval_func is not None:
-            critic = self._step_eval_func(*critic_input)
+            critic0 = self._step_eval_func(*critic_input)
+
+            critic1, critic_state = self._policy_module._critic_networks.get_preds_std(
+                critic_input)
+            critic = critic0 + 10 * critic1
         else:
             critic, critic_state = self._policy_module._critic_networks.get_preds_std(
                 critic_input)
