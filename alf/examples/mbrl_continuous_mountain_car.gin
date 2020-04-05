@@ -124,13 +124,13 @@ MbrlAlgorithm.reward_optimizer=%opt
 # training config
 TrainerConfig.initial_collect_steps=200
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
-TrainerConfig.unroll_length=200
+TrainerConfig.unroll_length=1
 TrainerConfig.mini_batch_size=32
 TrainerConfig.num_updates_per_train_step=5 # epoches
-TrainerConfig.whole_replay_buffer_training=True
+TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@MbrlAlgorithm
-TrainerConfig.num_iterations=500 # num of interactions of unroll_length with env
+TrainerConfig.num_iterations=500000 # num of interactions of unroll_length with env
 TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=0
 TrainerConfig.eval_interval=1
@@ -140,4 +140,4 @@ TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
 
 TrainerConfig.replay_buffer_length=100000
-TrainerConfig.random_seed=1585873587
+#TrainerConfig.random_seed=1585873587
