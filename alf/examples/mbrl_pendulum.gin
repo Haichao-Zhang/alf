@@ -50,7 +50,7 @@ FixedRewardFunction.reward_func=@reward_function_for_pendulum
 # planner config
 RandomShootingAlgorithm.feature_spec=%observation_spec
 RandomShootingAlgorithm.action_spec=%action_spec
-RandomShootingAlgorithm.population_size=2000
+RandomShootingAlgorithm.population_size=5000
 RandomShootingAlgorithm.planning_horizon=25
 
 # model-based RL algo config
