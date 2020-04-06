@@ -472,11 +472,11 @@ class QShootingAlgorithm(PlanAlgorithm):
         critic_input = (obs_pop, ac_rand_pop)
 
         if self._step_eval_func is not None:
-            critic0 = self._step_eval_func(*critic_input)
+            disagreement = self._step_eval_func(*critic_input)
 
-            critic1, critic_state = self._policy_module._critic_networks.get_preds_std(
+            critic1, critic_state = self._policy_module._critic_networks.get_preds_mean(
                 critic_input)
-            critic = critic0 + 10 * critic1
+            critic = critic1 + 0 * disagreement
         else:
             critic, critic_state = self._policy_module._critic_networks.get_preds_std(
                 critic_input)
@@ -695,10 +695,10 @@ class QShootingAlgorithm(PlanAlgorithm):
         with torch.no_grad():
             # q_action, planner_state = self._get_action_from_Q(
             #     time_step, state, epsilon_greedy=0)  # always add noise
-            # # q_action, planner_state = self._get_action_from_Q_sampling(
-            # #     batch_size, time_step, state.planner)  # always add noise
+            # q_action, planner_state = self._get_action_from_Q_sampling(
+            #     batch_size, time_step, state.planner)  # always add noise
             # critic_input = (time_step.observation, q_action)
-            # critic, critic_state = self._policy_module._critic_networks.get_preds_max(
+            # critic_compare, critic_state = self._policy_module._critic_networks.get_preds_max(
             #     critic_input)
 
             # critic_mean = self._policy_module.cal_value(
@@ -708,7 +708,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             #     time_step, state.planner.policy, flag="std")
             # critic = critic_mean + critic_std * 10.0
             critic = self._policy_module.cal_value(
-                time_step, state.planner.policy, flag="std")
+                time_step, state.planner.policy, flag="mean")
             critic = critic.reshape(-1, 1)
             cost = cost - discount * critic
 

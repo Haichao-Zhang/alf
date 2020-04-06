@@ -100,6 +100,13 @@ class Ensemble(Network):
         pred_std = tensor_utils.list_std(preds)
         return pred_std, states_new
 
+    def get_preds_mean(self, x, states=None):
+        if states is None:
+            states = [None] * self._ens_size
+        preds, states_new = self.get_preds(x, states)
+        pred_std = tensor_utils.list_mean(preds)
+        return pred_std, states_new
+
     def forward(self, x, states=None):
         if states is None:
             states = [None] * self._ens_size
