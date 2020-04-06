@@ -19,6 +19,7 @@ import gym
 import numpy as np
 import time
 import cv2
+import matplotlib.pyplot as plt
 
 from alf.utils.common import add_method
 from gym.envs.classic_control import PendulumEnv
@@ -198,6 +199,33 @@ def vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, name):
         cv2.imwrite(os.path.join(viz_path, filename), img_bgr)
 
 
+def plot_actions(ac_seqs_pop, viz_path, name):
+    env_name = 'Pendulum-v0'
+    env = gym.make(env_name)
+    action_dim = env.action_space.shape[0]
+
+    os.makedirs(viz_path, exist_ok=True)
+    # population number
+    pop_num = ac_seqs_pop.shape[1]
+
+    filename = 'plan_plot_{}_action.png'.format(name)
+
+    for p in range(min(10, pop_num)):
+        ac_seqs = np.reshape(
+            np.squeeze(ac_seqs_pop[0, p, :]), [-1, action_dim])
+
+        ac_seqs = ac_seqs.flatten()
+
+        print(ac_seqs)
+
+        plt.plot(ac_seqs, linewidth=2)
+        #plt.show()
+
+        print(os.path.join(viz_path, filename))
+        plt.savefig(os.path.join(viz_path, filename))
+        # cv2.imwrite(os.path.join(viz_path, filename), img_bgr)
+
+
 def viz():
     # random
     # latest
@@ -206,19 +234,15 @@ def viz():
     #     '/mnt/DATA/work/RL/alf/ac_seq.mat.npy')  # [batch, pop, T]
     # obs_seqs_pop = np.load('/mnt/DATA/work/RL/alf/obs_seqs.mat.npy')  # [1, 3]
     ac_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/ac_seqs_std.mat.npy')  # [batch, pop, T]
-    obs_seqs_pop = np.load(
-        '/mnt/DATA/work/RL/alf/obs_seqs_std.mat.npy')  # [1, 3]
-    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_std'
+        '/mnt/DATA/work/RL/alf/ac_seqs_std_car_before_train.mat.npy'
+    )  # [batch, pop, T]
+    # obs_seqs_pop = np.load(
+    #     '/mnt/DATA/work/RL/alf/obs_seqs_std.mat.npy')  # [1, 3]
+    viz_path = '/home/haichaozhang/Documents/data/mbrl/viz_plot_car'
 
-    if 0:
-        vis_observations(obs_seqs_pop, ac_seqs_pop, viz_path, "std")
-    else:
-        s0 = obs_seqs_pop[:, 0, 0, :]
-        s0 = np.squeeze(s0)
+    plot_actions(ac_seqs_pop, viz_path, "action_before_train")
 
-        # s0 = obs_seqs_pop.reshape([-1, 1])
-        vis_actions(s0, ac_seqs_pop, viz_path, "std")
+    # plt.plot([1, 2, 3, 4])
 
 
 if __name__ == '__main__':

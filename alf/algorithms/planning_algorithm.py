@@ -730,8 +730,8 @@ class QShootingAlgorithm(PlanAlgorithm):
         # obs_seqs = torch.reshape(obs_seqs,
         #                          [batch_size, self._population_size, -1])
 
-        # vis_utils.save_to_np(ac_seqs, './ac_seqs_parallel_beam_bf_train.mat')
-        # vis_utils.save_to_np(obs_seqs, './obs_seqs_parallel_beam_bf_train.mat')
+        # vis_utils.save_to_np(ac_seqs, './ac_seqs_std_car_before_train.mat')
+        # vis_utils.save_to_np(obs_seqs, './obs_seqs_std_car_before_train.mat')
 
         min_ind = torch.argmin(cost, dim=-1).long()
         # TODO: need to check if batch_index_select is needed

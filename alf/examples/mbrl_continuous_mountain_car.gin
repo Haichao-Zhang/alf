@@ -64,9 +64,9 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 #------ ensemble config
-Ensemble.ens_size=3
-Ensemble.prior_model=True
-Ensemble.prior_scale=1
+critic/Ensemble.ens_size=3
+critic/Ensemble.prior_model=True
+critic/Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/CriticNetwork.joint_fc_layer_params=(100, 100)
 critic/CriticNetwork.use_last_kernel_initializer=True
@@ -125,7 +125,7 @@ MbrlAlgorithm.reward_optimizer=%opt
 TrainerConfig.initial_collect_steps=200
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=1
-TrainerConfig.mini_batch_size=32
+TrainerConfig.mini_batch_size=128
 TrainerConfig.num_updates_per_train_step=5 # epoches
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
