@@ -49,7 +49,7 @@ class Ensemble(Network):
         self._ens_size = ens_size
         self._kappa = kappa
         self._prior_scale = prior_scale
-        self._prior_model = prior_model is not None or prior_model is not False
+        self._prior_model = prior_model is not None and prior_model is not False
         self.models = nn.ModuleList()
         self.priors = nn.ModuleList()
 
