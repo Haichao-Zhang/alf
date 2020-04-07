@@ -153,14 +153,14 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                 predicted from the dynamics module
             next_state (MbrlState): updated state from the dynamics module
         """
-        #with torch.no_grad():
-        dynamics_step = self._dynamics_module.predict_step(
-            time_step, state.dynamics)
-        pred_obs = tensor_utils.list_mean(dynamics_step.output)
-        if detach:
-            pred_obs = pred_obs.detach()
-        next_time_step = time_step._replace(observation=pred_obs)
-        next_state = state._replace(dynamics=dynamics_step.state)
+        with torch.no_grad():
+            dynamics_step = self._dynamics_module.predict_step(
+                time_step, state.dynamics)
+            pred_obs = tensor_utils.list_mean(dynamics_step.output)
+            if detach:
+                pred_obs = pred_obs.detach()
+            next_time_step = time_step._replace(observation=pred_obs)
+            next_state = state._replace(dynamics=dynamics_step.state)
         return next_time_step, next_state
 
     def _calc_step_reward(self, obs, action):
@@ -218,7 +218,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         # loss = add_ignore_empty(loss, training_info.info.reward)
         # loss = add_ignore_empty(loss, loss_planner)
         # return LossInfo(loss=loss.loss, extra=())
-        flag = 3
+        flag = 1
         if flag == 1:
             MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
             loss_planner = self._planner_module.calc_loss(
