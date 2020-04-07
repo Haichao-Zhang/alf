@@ -21,23 +21,35 @@ from alf.utils import math_ops
 
 
 def list_min(tensors):
-    min_val, _ = torch.min(torch.stack(tensors), dim=0)
-    return min_val
+    if len(tensors) == 1:
+        return tensors[0]
+    else:
+        min_val, _ = torch.min(torch.stack(tensors), dim=0)
+        return min_val
 
 
 def list_max(tensors):
-    max_val, _ = torch.max(torch.stack(tensors), dim=0)
-    return max_val
+    if len(tensors) == 1:
+        return tensors[0]
+    else:
+        max_val, _ = torch.max(torch.stack(tensors), dim=0)
+        return max_val
 
 
 def list_std(tensors):
-    std_val = torch.std(torch.stack(tensors), dim=0)
-    return std_val
+    if len(tensors) == 1:
+        return tensors[0]
+    else:
+        std_val = torch.std(torch.stack(tensors), dim=0)
+        return std_val
 
 
 def list_mean(tensors):
-    mean_val = torch.mean(torch.stack(tensors), dim=0)
-    return mean_val
+    if len(tensors) == 1:
+        return tensors[0]
+    else:
+        mean_val = torch.mean(torch.stack(tensors), dim=0)
+        return mean_val
 
 
 def tensor_extend(x, y):

@@ -49,14 +49,14 @@ class Ensemble(Network):
         self._ens_size = ens_size
         self._kappa = kappa
         self._prior_scale = prior_scale
-        self._prior_model = prior_model
+        self._prior_model = prior_model is not None or prior_model is not False
         self.models = nn.ModuleList()
         self.priors = nn.ModuleList()
 
         for i in range(self._ens_size):
             self.models.append(base_model.copy())
             if self._prior_model:
-                self.priors.append(self._prior_model.copy())
+                self.priors.append(prior_model.copy())
 
     @property
     def state_spec(self):
