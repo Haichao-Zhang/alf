@@ -21,7 +21,7 @@ from alf.nest import nest
 from alf.nest.utils import NestConcat
 from alf.networks import Network, EncodingNetwork, Ensemble
 from alf.tensor_specs import TensorSpec
-from alf.utils import losses, spec_utils, tensor_utils
+from alf.utils import losses, math_ops, spec_utils, tensor_utils
 
 DynamicsState = namedtuple(
     "DynamicsState", ["feature", "network"], default_value=())
@@ -85,7 +85,8 @@ class DynamicsLearningAlgorithm(Algorithm):
                 input_tensor_spec=(feature_spec, encoded_action_spec),
                 preprocessing_combiner=NestConcat(),
                 fc_layer_params=hidden_size,
-                last_layer_size=feature_dim)
+                last_layer_size=feature_dim,
+                last_activation=math_ops.identity)
 
         self._dynamics_network = dynamics_network
 
