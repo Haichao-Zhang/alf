@@ -302,6 +302,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                  upper_bound=None,
                  lower_bound=None,
                  hidden_size=256,
+                 repeat_times=10,
                  name="QShootingAlgorithm"):
         """Create a QShootingAlgorithm.
         Args:
@@ -342,6 +343,7 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         self._policy_module = policy_module
         self._discount = 0.9
+        self._repeat_times = repeat_times
 
     def train_step(self, exp: Experience, state):
         """ Performing Q (actor and critic) training
@@ -464,10 +466,10 @@ class QShootingAlgorithm(PlanAlgorithm):
         solution_size = self._num_actions  # one-step horizon
 
         # expand
-        repeat_times = 10
-        obs_pop = torch.repeat_interleave(obs_pop, repeat_times, dim=0)
-        ac_rand_pop = torch.rand(batch_size * repeat_times, solution_size) * (
-            self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
+        obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
+        ac_rand_pop = torch.rand(
+            batch_size * self._repeat_times, solution_size
+        ) * (self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
 
         critic_input = (obs_pop, ac_rand_pop)
 
@@ -478,7 +480,9 @@ class QShootingAlgorithm(PlanAlgorithm):
                 critic_input)
             critic = critic1 + 0 * disagreement
         else:
-            critic, critic_state = self._policy_module._critic_networks.get_preds_std(
+            # critic0, critic_state0 = self._policy_module._critic_networks.get_preds_mean(
+            #     critic_input)
+            critic, critic_state = self._policy_module._critic_networks(
                 critic_input)
 
         # include some diversity mearsure
@@ -691,26 +695,26 @@ class QShootingAlgorithm(PlanAlgorithm):
                 reward_step = reward_step.reshape(-1, 1)
                 cost = cost - discount * reward_step
                 discount *= self._discount
-        # further add terminal values to the cost with the learned value func
-        with torch.no_grad():
-            # q_action, planner_state = self._get_action_from_Q(
-            #     time_step, state, epsilon_greedy=0)  # always add noise
-            # q_action, planner_state = self._get_action_from_Q_sampling(
-            #     batch_size, time_step, state.planner)  # always add noise
-            # critic_input = (time_step.observation, q_action)
-            # critic_compare, critic_state = self._policy_module._critic_networks.get_preds_max(
-            #     critic_input)
+        # # further add terminal values to the cost with the learned value func
+        # with torch.no_grad():
+        #     # q_action, planner_state = self._get_action_from_Q(
+        #     #     time_step, state, epsilon_greedy=0)  # always add noise
+        #     # q_action, planner_state = self._get_action_from_Q_sampling(
+        #     #     batch_size, time_step, state.planner)  # always add noise
+        #     # critic_input = (time_step.observation, q_action)
+        #     # critic_compare, critic_state = self._policy_module._critic_networks.get_preds_max(
+        #     #     critic_input)
 
-            # critic_mean = self._policy_module.cal_value(
-            #     time_step, state.planner.policy, flag="mean")
+        #     # critic_mean = self._policy_module.cal_value(
+        #     #     time_step, state.planner.policy, flag="mean")
 
-            # critic_std = self._policy_module.cal_value(
-            #     time_step, state.planner.policy, flag="std")
-            # critic = critic_mean + critic_std * 10.0
-            critic = self._policy_module.cal_value(
-                time_step, state.planner.policy, flag="mean")
-            critic = critic.reshape(-1, 1)
-            cost = cost - discount * critic
+        #     # critic_std = self._policy_module.cal_value(
+        #     #     time_step, state.planner.policy, flag="std")
+        #     # critic = critic_mean + critic_std * 10.0
+        #     critic = self._policy_module.cal_value(
+        #         time_step, state.planner.policy, flag="mean")
+        #     critic = critic.reshape(-1, 1)
+        #     cost = cost - discount * critic
 
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])

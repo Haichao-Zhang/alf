@@ -117,10 +117,8 @@ class Ensemble(Network):
 
         if self._kappa is not None:
             # log n is correction for adding together multiple values
-            n = torch.tensor(self._ens_size, dtype=torch.float32)
-            exp_term = self._kappa * preds - torch.log(n)
-            lse = torch.logsumexp(exp_term, dim=1, keepdim=True)
-            return (1 / self.kappa) * lse, states_new
+            pred = tensor_utils.list_softmax(preds, self._kappa)
+            return pred, states_new
         else:
             # hard max
             return torch.max(preds), states_new

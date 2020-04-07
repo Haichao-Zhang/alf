@@ -140,7 +140,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._planner_module = planner_module
         self._planner_module.set_reward_func(self._calc_step_reward)
         self._planner_module.set_dynamics_func(self._predict_next_step)
-        self._planner_module.set_step_eval_func(self._calc_step_eval)
+        #self._planner_module.set_step_eval_func(self._calc_step_eval)
 
     def _predict_next_step(self, time_step, state, detach=True):
         """Predict the next step (observation and state) based on the current

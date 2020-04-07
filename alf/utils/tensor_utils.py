@@ -28,6 +28,18 @@ def list_min(tensors):
         return min_val
 
 
+def list_softmax(tensors, kappa):
+    if len(tensors) == 1:
+        return tensors[0]
+    else:
+        n = torch.tensor(len(tensors), dtype=torch.float32)
+        preds = torch.stack(tensors)
+        exp_term = kappa * preds - torch.log(n)
+        pred_softmax = (1. / kappa) * torch.logsumexp(
+            exp_term, dim=0, keepdim=False)
+        return pred_softmax
+
+
 def list_max(tensors):
     if len(tensors) == 1:
         return tensors[0]
