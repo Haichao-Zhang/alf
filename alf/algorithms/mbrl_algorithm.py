@@ -186,7 +186,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             state=mbrl_state._replace(dynamics=dynamics_state),
             info=MbrlInfo())
 
-    def predict_step(self, time_step: TimeStep, state, epsilon_greedy):
+    def predict_step(self, time_step: TimeStep, state, epsilon_greedy=0.0):
         return self._predict_with_planning(time_step, state, epsilon_greedy)
 
     def rollout_step(self, time_step: TimeStep, state):

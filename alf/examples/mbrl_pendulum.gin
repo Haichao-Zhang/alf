@@ -40,6 +40,7 @@ observation_dim=@get_observation_dim()
 # dynamics/Ensemble.base_model=@dynamics/EncodingNetwork()
 
 # dynamics learning config
+EncodingNetwork.activation=@swish
 DeterministicDynamicsAlgorithm.action_spec=%action_spec
 DeterministicDynamicsAlgorithm.feature_spec=%observation_spec
 DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
@@ -62,8 +63,8 @@ MbrlAlgorithm.reward_module=@FixedRewardFunction()
 MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 
 # agent config
-Mbrl/Adam.lr=1e-3
-MbrlAlgorithm.dynamics_optimizer=@Mbrl/Adam()
+Mbrl/AdamTF.lr=1e-3
+MbrlAlgorithm.dynamics_optimizer=@Mbrl/AdamTF()
 
 # training config
 TrainerConfig.initial_collect_steps=200
@@ -82,5 +83,5 @@ TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True
-TrainerConfig.random_seed=101
+#TrainerConfig.random_seed=101
 TrainerConfig.replay_buffer_length=100000
