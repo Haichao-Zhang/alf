@@ -22,7 +22,7 @@ import torch.nn as nn
 
 import alf
 import alf.layers as layers
-from alf.networks.initializers import variance_scaling_init
+from alf.networks.initializers import variance_scaling_init, _numerical_calculate_gain
 from alf.networks.network import Network
 from alf.tensor_specs import TensorSpec
 
@@ -321,7 +321,11 @@ class EncodingNetwork(Network):
             name=name)
 
         if kernel_initializer is None:
-            kernel_initializer = torch.nn.init.xavier_uniform_
+            #kernel_initializer = torch.nn.init.xavier_uniform_
+            gain = _numerical_calculate_gain(activation)
+            kernel_initializer = functools.partial(
+                torch.nn.init.xavier_uniform_, gain=gain)
+
             # kernel_initializer = functools.partial(
             #     variance_scaling_init,
             #     mode='fan_in',
