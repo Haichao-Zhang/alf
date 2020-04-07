@@ -218,7 +218,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         # loss = add_ignore_empty(loss, training_info.info.reward)
         # loss = add_ignore_empty(loss, loss_planner)
         # return LossInfo(loss=loss.loss, extra=())
-        flag = 3
+        flag = 1
         if flag == 1:
             MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
             loss_planner = self._planner_module.calc_loss(
