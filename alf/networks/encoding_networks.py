@@ -321,10 +321,10 @@ class EncodingNetwork(Network):
             name=name)
 
         if kernel_initializer is None:
-            #kernel_initializer = torch.nn.init.xavier_uniform_
-            gain = _numerical_calculate_gain(activation)
-            kernel_initializer = functools.partial(
-                torch.nn.init.xavier_uniform_, gain=gain)
+            kernel_initializer = torch.nn.init.xavier_uniform_
+            # gain = _numerical_calculate_gain(activation)
+            # kernel_initializer = functools.partial(
+            #     torch.nn.init.xavier_uniform_, gain=gain)
 
             # kernel_initializer = functools.partial(
             #     variance_scaling_init,
