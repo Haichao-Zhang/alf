@@ -119,7 +119,7 @@ RandomShootingAlgorithm.planning_horizon=25
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=200
+QShootingAlgorithm.population_size=5000
 QShootingAlgorithm.planning_horizon=25
 QShootingAlgorithm.policy_module=@SacAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
@@ -131,8 +131,8 @@ MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
 MbrlAlgorithm.reward_module=@FixedRewardFunction()
 #MbrlAlgorithm.reward_module=@RewardAlgorithm()
-MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
-#MbrlAlgorithm.planner_module=@QShootingAlgorithm()
+#MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
+MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 
 MbrlAlgorithm.dynamics_optimizer=%opt
