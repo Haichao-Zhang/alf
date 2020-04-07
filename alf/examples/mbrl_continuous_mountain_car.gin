@@ -19,22 +19,17 @@ action_spec=@get_action_spec()
 observation_dim=@get_observation_dim()
 
 #------ ensemble dynamics config
-dynamics/Ensemble.ens_size=3
-dynamics/Ensemble.prior_model=True
+dynamics/Ensemble.ens_size=1
 dynamics/Ensemble.prior_scale=1
 dynamics/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 dynamics/EncodingNetwork.last_layer_size=%observation_dim
+dynamics/EncodingNetwork.last_activation=@identity
+dynamics/EncodingNetwork.activation=@swish
 dynamics/EncodingNetwork.fc_layer_params=(500, 500, 500)
 dynamics/EncodingNetwork.preprocessing_combiner=@NestConcat()
 #dynamics/EncodingNetwork.use_last_kernel_initializer=True
-
-dynamics_prior/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
-dynamics_prior/EncodingNetwork.last_layer_size=%observation_dim
-dynamics_prior/EncodingNetwork.fc_layer_params=(500, 500, 500)
-#prior/EncodingNetwork.use_last_kernel_initializer=False
-dynamics_prior/EncodingNetwork.last_activation=@torch.relu
-dynamics_prior/EncodingNetwork.preprocessing_combiner=@NestConcat()
-dynamics/Ensemble.prior_model=@dynamics_prior/EncodingNetwork()
+#dynamics/Ensemble.prior_model=@dynamics_prior/EncodingNetwork()
+dynamics/Ensemble.prior_model=False
 dynamics/Ensemble.base_model=@dynamics/EncodingNetwork()
 
 # dynamics learning config
@@ -64,8 +59,7 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 #------ ensemble config
-critic/Ensemble.ens_size=3
-critic/Ensemble.prior_model=True
+critic/Ensemble.ens_size=2
 critic/Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/CriticNetwork.joint_fc_layer_params=(100, 100)
@@ -75,7 +69,8 @@ prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
 prior/CriticNetwork.last_activation=@torch.relu
-critic/Ensemble.prior_model=@prior/CriticNetwork()
+#critic/Ensemble.prior_model=@prior/CriticNetwork()
+critic/Ensemble.prior_model=False
 critic/Ensemble.base_model=@critic/CriticNetwork()
 
 
@@ -102,8 +97,8 @@ SacAlgorithm.target_update_tau=0.005
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=1000
-QShootingAlgorithm.planning_horizon=20
+QShootingAlgorithm.population_size=100
+QShootingAlgorithm.planning_horizon=200
 QShootingAlgorithm.policy_module=@SacAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
@@ -124,16 +119,16 @@ MbrlAlgorithm.reward_optimizer=%opt
 # training config
 TrainerConfig.initial_collect_steps=200
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
-TrainerConfig.unroll_length=1
-TrainerConfig.mini_batch_size=128
+TrainerConfig.unroll_length=200
+TrainerConfig.mini_batch_size=64
 TrainerConfig.num_updates_per_train_step=5 # epoches
-TrainerConfig.whole_replay_buffer_training=False
+TrainerConfig.whole_replay_buffer_training=True
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@MbrlAlgorithm
 TrainerConfig.num_iterations=500000 # num of interactions of unroll_length with env
 TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=0
-TrainerConfig.eval_interval=1
+TrainerConfig.eval_interval=10
 TrainerConfig.debug_summaries=1
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
