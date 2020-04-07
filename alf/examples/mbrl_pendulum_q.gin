@@ -41,7 +41,6 @@ dynamics_prior/EncodingNetwork.preprocessing_combiner=@NestConcat()
 
 #------ ensemble dynamics config
 dynamics/Ensemble.ens_size=1
-dynamics/Ensemble.prior_model=False
 dynamics/Ensemble.prior_scale=1
 dynamics/EncodingNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 dynamics/EncodingNetwork.last_layer_size=%observation_dim
@@ -51,6 +50,7 @@ dynamics/EncodingNetwork.fc_layer_params=(500, 500, 500)
 dynamics/EncodingNetwork.preprocessing_combiner=@NestConcat()
 #dynamics/EncodingNetwork.use_last_kernel_initializer=True
 #dynamics/Ensemble.prior_model=@dynamics_prior/EncodingNetwork()
+dynamics/Ensemble.prior_model=False
 dynamics/Ensemble.base_model=@dynamics/EncodingNetwork()
 
 # dynamics learning config
@@ -78,8 +78,7 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 
 
 #------ ensemble config
-critic/Ensemble.ens_size=3
-critic/Ensemble.prior_model=True
+critic/Ensemble.ens_size=1
 critic/Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/CriticNetwork.joint_fc_layer_params=(100, 100)
@@ -89,7 +88,8 @@ prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
 prior/CriticNetwork.last_activation=@torch.relu
-critic/Ensemble.prior_model=@prior/CriticNetwork()
+#critic/Ensemble.prior_model=@prior/CriticNetwork()
+critic/Ensemble.prior_model=False
 critic/Ensemble.base_model=@critic/CriticNetwork()
 
 # agent config
@@ -110,6 +110,11 @@ SacAlgorithm.critic_optimizer=%opt
 SacAlgorithm.alpha_optimizer=%opt
 SacAlgorithm.target_update_tau=0.005
 
+# planner config
+RandomShootingAlgorithm.feature_spec=%observation_spec
+RandomShootingAlgorithm.action_spec=%action_spec
+RandomShootingAlgorithm.population_size=5000
+RandomShootingAlgorithm.planning_horizon=25
 
 
 QShootingAlgorithm.feature_spec=%observation_spec
@@ -126,7 +131,8 @@ MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
 MbrlAlgorithm.reward_module=@FixedRewardFunction()
 #MbrlAlgorithm.reward_module=@RewardAlgorithm()
-MbrlAlgorithm.planner_module=@QShootingAlgorithm()
+MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
+#MbrlAlgorithm.planner_module=@QShootingAlgorithm()
 
 
 MbrlAlgorithm.dynamics_optimizer=%opt
