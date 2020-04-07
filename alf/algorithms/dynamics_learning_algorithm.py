@@ -182,17 +182,22 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         """
         action = self._encode_action(time_step.prev_action)
         obs = state.feature
-        forward_deltas, network_state = self._dynamics_network.get_preds(
-            (obs, action), states=state.network)
 
-        forward_preds = [
-            obs + forward_delta for forward_delta in forward_deltas
-        ]
+        if isinstance(self._dynamics_network, Ensemble):
+            forward_deltas, network_state = self._dynamics_network.get_preds(
+                (obs, action), states=state.network)
+
+            forward_preds = [
+                obs + forward_delta for forward_delta in forward_deltas
+            ]
+            forward_pred = tensor_utils.list_mean(forward_preds)
+        else:
+            forward_delta, network_state = self._dynamics_network(
+                (obs, action), states=state.network)
+            forward_pred = forward_delta + obs
         # forward_pred = spec_utils.scale_to_spec(forward_pred.tanh(),
         #                                         self._feature_spec)
-        state = state._replace(
-            feature=tensor_utils.list_mean(forward_preds),
-            network=network_state)
+        state = state._replace(feature=forward_pred, network=network_state)
         return AlgStep(output=forward_preds, state=state, info=())
 
     def compute_disagreement(self, obs, action):
@@ -240,11 +245,14 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         forward_preds = dynamics_step.output
         # forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
 
+        forward_loss_acc = 0
+        if not isinstance(forward_preds, list):
+            forward_preds = [forward_preds]
         for i in range(len(forward_preds)):
             forward_loss = (feature - forward_preds[i])**2
-            forward_loss = 0.5 * forward_loss.mean(
+            forward_loss_acc += 0.5 * forward_loss.mean(
                 list(range(1, forward_loss.ndim)))
-        forward_loss = forward_loss / len(forward_preds)
+        forward_loss = forward_loss_acc / len(forward_preds)
         info = DynamicsInfo(
             loss=LossInfo(
                 loss=forward_loss, extra=dict(forward_loss=forward_loss)))
