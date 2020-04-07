@@ -193,8 +193,9 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
             forward_pred = tensor_utils.list_mean(forward_preds)
         else:
             forward_delta, network_state = self._dynamics_network(
-                (obs, action), states=state.network)
+                (obs, action), state=state.network)
             forward_pred = forward_delta + obs
+            forward_preds = [forward_pred]
         # forward_pred = spec_utils.scale_to_spec(forward_pred.tanh(),
         #                                         self._feature_spec)
         state = state._replace(feature=forward_pred, network=network_state)
