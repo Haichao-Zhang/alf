@@ -543,8 +543,8 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         return action, state
 
-    def _get_action_from_A_sampling(self, org_batch_size, time_step: TimeStep,
-                                    state):
+    def _get_action_from_A_sampling_with_Q_beam_search(
+            self, org_batch_size, time_step: TimeStep, state):
         """ Action Sampling-based approach for select next action
         Returns:
             state: planner state
@@ -611,6 +611,30 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         action = _batched_index_select(ac_rand_pop, 1, sel_ind).squeeze(1)
         action = action.reshape(-1, solution_size)
+
+        return action, state
+
+    def _get_action_from_A_sampling(self, org_batch_size, time_step: TimeStep,
+                                    state):
+        """ Action Sampling-based approach for select next action
+        Returns:
+            state: planner state
+        """
+        obs_pop = time_step.observation  # obs has already be expanded
+
+        # batch size after expansion
+        batch_size = obs_pop.shape[0]
+        pop_size = batch_size // org_batch_size
+
+        solution_size = self._num_actions  # one-step horizon
+
+        # # expand
+        # obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
+
+        # # option 3 sac actor
+        action, _ = self._get_action_from_Q(
+            time_step._replace(observation=obs_pop), state, epsilon_greedy=1
+        )  # always perform sampling from the action distribution
 
         return action, state
 
