@@ -134,6 +134,7 @@ MbrlAlgorithm.reward_module=@FixedRewardFunction()
 #MbrlAlgorithm.reward_module=@RewardAlgorithm()
 #MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
+MbrlAlgorithm.planning_method="q_planning"
 
 
 MbrlAlgorithm.dynamics_optimizer=%opt

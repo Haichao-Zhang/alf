@@ -63,10 +63,12 @@ MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
 MbrlAlgorithm.reward_module=@FixedRewardFunction()
 MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
+MbrlAlgorithm.planning_method="random"
 
 # agent config
-Mbrl/AdamTF.lr=1e-3
-MbrlAlgorithm.dynamics_optimizer=@Mbrl/AdamTF()
+Mbrl/AdamW.lr=1e-3
+Mbrl/AdamW.weight_decay=1e-4
+MbrlAlgorithm.dynamics_optimizer=@Mbrl/AdamW()
 
 # training config
 TrainerConfig.initial_collect_steps=200

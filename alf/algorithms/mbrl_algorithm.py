@@ -63,6 +63,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                  planner_optimizer=None,
                  gradient_clipping=None,
                  debug_summaries=False,
+                 planning_method="random",
                  name="MbrlAlgorithm"):
         """Create an MbrlAlgorithm.
         The MbrlAlgorithm takes as input the following set of modules for
@@ -142,6 +143,8 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         self._planner_module.set_dynamics_func(self._predict_next_step)
         #self._planner_module.set_step_eval_func(self._calc_step_eval)
 
+        self._planning_method = planning_method
+
     def _predict_next_step(self, time_step, state, detach=True):
         """Predict the next step (observation and state) based on the current
             time step and state
@@ -218,8 +221,12 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
         # loss = add_ignore_empty(loss, training_info.info.reward)
         # loss = add_ignore_empty(loss, loss_planner)
         # return LossInfo(loss=loss.loss, extra=())
-        flag = 3
-        if flag == 1:
+
+        if self._planning_method == "random":
+            MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics"))
+            return LossInfo(
+                loss=loss.loss, extra=MbrlLossInfo(dynamics=loss.extra))
+        elif self._planning_method == "q_planning":
             MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics", "planner"))
             loss_planner = self._planner_module.calc_loss(
                 training_info._replace(info=training_info.info.planner))
@@ -227,7 +234,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                 loss=loss.loss + loss_planner.loss,
                 extra=MbrlLossInfo(
                     dynamics=loss.extra, planner=loss_planner.extra))
-        elif flag == 0:
+        else:
             MbrlLossInfo = namedtuple('MbrlLossInfo',
                                       ("dynamics", "reward", "planner"))
             loss_planner = self._planner_module.calc_loss(
@@ -238,10 +245,6 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                     dynamics=loss.extra,
                     reward=loss_reward.extra,
                     planner=loss_planner.extra))
-        else:
-            MbrlLossInfo = namedtuple('MbrlLossInfo', ("dynamics"))
-            return LossInfo(
-                loss=loss.loss, extra=MbrlLossInfo(dynamics=loss.extra))
 
     # mbrl needs after train method
     def after_update(self, training_info):

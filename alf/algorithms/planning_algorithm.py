@@ -492,7 +492,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             c_mean = tensor_utils.list_mean(critics)
             c_std = tensor_utils.list_std(critics)
             critic = c_mean
-            if c_std.mean() > 1e-3:
+            if c_std.max() > 5e-4:
                 return action, state
 
         # include some diversity mearsure
