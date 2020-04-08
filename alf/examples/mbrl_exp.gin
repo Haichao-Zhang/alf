@@ -8,6 +8,8 @@ import pybullet_envs
 
 # environment config
 env_name='HalfCheetahBulletEnv-v0'
+max_len=200
+load.max_episode_steps=%max_len
 NUM_PARALLEL_ENVIRONMENTS=1
 create_environment.env_load_fn=@suite_gym.load
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
@@ -72,9 +74,9 @@ Mbrl/AdamW.lr=1e-3
 MbrlAlgorithm.dynamics_optimizer=@Mbrl/AdamW()
 
 # training config
-TrainerConfig.initial_collect_steps=200
+TrainerConfig.initial_collect_steps=%max_len
 TrainerConfig.mini_batch_length=1
-TrainerConfig.unroll_length=200
+TrainerConfig.unroll_length=%max_len
 TrainerConfig.mini_batch_size=32
 TrainerConfig.num_updates_per_train_step=5 # epoches
 TrainerConfig.whole_replay_buffer_training=True
