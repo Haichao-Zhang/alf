@@ -6,9 +6,8 @@ import pybullet_envs
 # environment config
 NUM_PARALLEL_ENVIRONMENTS=1
 
-# env_name='HalfCheetahBulletEnv-v0'
+env_name='Pendulum-v0'
 
-env_name='InvertedDoublePendulumBulletEnv-v0'
 max_len=200
 load.max_episode_steps=%max_len
 
@@ -28,8 +27,7 @@ NormalProjectionNetwork.std_transform=@clipped_exp
 actor/Adam.lr=5e-4
 
 #------ ensemble config
-Ensemble.ens_size=10
-Ensemble.prior_model=True
+Ensemble.ens_size=2
 Ensemble.prior_scale=1
 critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/CriticNetwork.joint_fc_layer_params=(100, 100)
@@ -38,7 +36,9 @@ critic/CriticNetwork.use_last_kernel_initializer=True
 prior/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 prior/CriticNetwork.joint_fc_layer_params=(100, 100)
 prior/CriticNetwork.use_last_kernel_initializer=False
-Ensemble.prior_model=@prior/CriticNetwork()
+#Ensemble.prior_model=@prior/CriticNetwork()
+Ensemble.prior_model=False
+Ensemble.base_model=@critic/CriticNetwork()
 
 
 critic/Adam.lr=5e-4
@@ -46,7 +46,8 @@ critic/Adam.lr=5e-4
 alpha/Adam.lr=5e-4
 
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
-SacAlgorithm.critic_network=@critic/CriticNetwork()
+#SacAlgorithm.critic_networks=@critic/CriticNetwork()
+SacAlgorithm.critic_networks=@Ensemble()
 SacAlgorithm.actor_optimizer=@actor/Adam()
 SacAlgorithm.critic_optimizer=@critic/Adam()
 SacAlgorithm.alpha_optimizer=@alpha/Adam()

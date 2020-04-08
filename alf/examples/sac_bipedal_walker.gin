@@ -46,5 +46,5 @@ TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=False
 TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=True
-TrainerConfig.summary_interval=1
+TrainerConfig.summary_interval=500
 TrainerConfig.replay_buffer_length=1000000

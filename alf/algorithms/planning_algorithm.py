@@ -410,11 +410,16 @@ class QShootingAlgorithm(PlanAlgorithm):
         # opt_action = self._plan_optimizer.obtain_solution(
         #     time_step, state, ac_q_pop)
 
-        # option 2
-        # simutineously generate action sequence and evaluate
-        opt_action = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy, mode="mix")
-        action = opt_action[:, 0]
+        # # option 2
+        # # simutineously generate action sequence and evaluate
+        # opt_action = self._generate_action_sequence_random_sampling(
+        #     time_step, state, epsilon_greedy, mode="mix")
+        # action = opt_action[:, 0]
+
+        # option 3 sac actor
+        action, _ = self._get_action_from_Q(
+            time_step, state.planner, epsilon_greedy=1
+        )  # always perform sampling from the action distribution
 
         # add epsilon greedy
         non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
@@ -451,8 +456,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             state: planner state
         """
 
-        policy_step = self._policy_module.predict_step(
-            time_step, state.planner.policy, epsilon_greedy)
+        policy_step = self._policy_module.predict_step(time_step, state.policy,
+                                                       epsilon_greedy)
 
         action = policy_step.output
 
@@ -480,6 +485,12 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         critic_input = (obs_pop, ac_rand_pop)
 
+        # # # option 3 sac actor
+        # action0, _ = self._get_action_from_Q(
+        #     time_step._replace(observation=obs_pop), state, epsilon_greedy=1
+        # )  # always perform sampling from the action distribution
+        # critic_input0 = (obs_pop, action0)
+
         # init an empty action for returning, indicating terminate
         action = []
 
@@ -494,6 +505,9 @@ class QShootingAlgorithm(PlanAlgorithm):
             #     critic_input)
             # critic, critic_state = self._policy_module._critic_networks(
             #     critic_input)
+            # critics0, _ = self._policy_module._critic_networks.get_preds(
+            #     critic_input0)
+
             critics, critic_state0 = self._policy_module._critic_networks.get_preds(
                 critic_input)
             c_mean = tensor_utils.list_mean(critics)
