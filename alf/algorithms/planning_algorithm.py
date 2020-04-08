@@ -26,7 +26,7 @@ from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
 from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer, QOptimizer
 
-from alf.utils import vis_utils, beam_search
+from alf.utils import vis_utils, beam_search, tensor_utils
 
 PlannerState = namedtuple("PlannerState", ["policy"], default_value=())
 # PlannerInfo = namedtuple("PlannerInfo", ["policy", "loss"])  # can add loss
@@ -406,7 +406,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         # option 2
         # simutineously generate action sequence and evaluate
         opt_action = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy)
+            time_step, state, epsilon_greedy, mode="mix")
         action = opt_action[:, 0]
 
         # add epsilon greedy
@@ -473,6 +473,9 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         critic_input = (obs_pop, ac_rand_pop)
 
+        # init an empty action for returning, indicating terminate
+        action = []
+
         if self._step_eval_func is not None:
             disagreement = self._step_eval_func(*critic_input)
 
@@ -482,8 +485,15 @@ class QShootingAlgorithm(PlanAlgorithm):
         else:
             # critic0, critic_state0 = self._policy_module._critic_networks.get_preds_mean(
             #     critic_input)
-            critic, critic_state = self._policy_module._critic_networks(
+            # critic, critic_state = self._policy_module._critic_networks(
+            #     critic_input)
+            critics, critic_state0 = self._policy_module._critic_networks.get_preds(
                 critic_input)
+            c_mean = tensor_utils.list_mean(critics)
+            c_std = tensor_utils.list_std(critics)
+            critic = c_mean
+            if c_std.mean() > 1e-3:
+                return action, state
 
         # include some diversity mearsure
         # [org_batch_size, expanded_pop]
@@ -681,18 +691,27 @@ class QShootingAlgorithm(PlanAlgorithm):
         cost = 0
         discount = 1.0
         # TODO: this is related to target value
+        terminated = False
         with torch.no_grad():
             for i in range(self._planning_horizon):
                 obs_seqs[i] = time_step.observation
                 if mode == "random":
                     action = ac_seqs[i]
+                elif mode == "mix":
                     #else:
                     #---Q
-                    action0, planner_state = self._get_action_from_Q_sampling(
-                        batch_size, time_step,
-                        state.planner)  # always add noise
-                    # update policy state part
-                    state = state._replace(planner=planner_state)
+                    if not terminated:
+                        action, planner_state = self._get_action_from_Q_sampling(
+                            batch_size, time_step,
+                            state.planner)  # always add noise
+                        # update policy state part
+                        state = state._replace(planner=planner_state)
+                        if len(action) == 0:
+                            action = ac_seqs[i]
+                            terminated = True
+                    else:
+                        action = ac_seqs[i]
+
                     ac_seqs[i] = action
 
                 time_step = time_step._replace(prev_action=action)

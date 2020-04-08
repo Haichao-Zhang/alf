@@ -72,7 +72,9 @@ class Ensemble(Network):
             pred_i = pred_i + self._prior_scale * prior.detach()
         return pred_i, state
 
-    def get_preds(self, x, states):
+    def get_preds(self, x, states=None):
+        if states is None:
+            states = [None] * self._ens_size
         preds = [None] * self._ens_size
         states_new = [None] * self._ens_size
         for i in range(self._ens_size):
