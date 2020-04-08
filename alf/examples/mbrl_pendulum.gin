@@ -67,7 +67,7 @@ MbrlAlgorithm.planning_method="random"
 
 # agent config
 Mbrl/AdamW.lr=1e-3
-Mbrl/AdamW.weight_decay=1e-4
+#Mbrl/AdamW.weight_decay=1e-4
 MbrlAlgorithm.dynamics_optimizer=@Mbrl/AdamW()
 
 # training config
