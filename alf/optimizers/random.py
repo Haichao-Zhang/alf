@@ -51,9 +51,11 @@ class RandomOptimizer(Optimizer):
         solutions = torch.rand(
             batch_size, self._population_size, self._solution_dim
         ) * (self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
-        costs = self.cost_function(time_step, state, solutions)
+        costs, ac_seqs = self.cost_function(time_step, state,
+                                            solutions.clone())
         min_ind = torch.argmin(costs, dim=-1).long()
-        solution = solutions.index_select(1, min_ind).squeeze(1)
+        # solution = solutions.index_select(1, min_ind).squeeze(1)
+        solution = ac_seqs.index_select(1, min_ind).squeeze(1)
         return solution
 
 

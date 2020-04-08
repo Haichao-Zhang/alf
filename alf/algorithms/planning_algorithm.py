@@ -220,6 +220,7 @@ class RandomShootingAlgorithm(PlanAlgorithm):
 
         self._plan_optimizer.set_cost(self._calc_cost_for_action_sequence)
         opt_action = self._plan_optimizer.obtain_solution(time_step, state)
+        # [B, T]
         action = opt_action[:, 0]
         action = torch.reshape(action, [time_step.observation.shape[0], -1])
         return action, state
@@ -282,7 +283,13 @@ class RandomShootingAlgorithm(PlanAlgorithm):
 
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])
-        return cost
+
+        # reshape and permute back
+        ac_seqs = torch.reshape(ac_seqs, [
+            self._planning_horizon, batch_size, self._population_size,
+            self._num_actions
+        ]).permute(1, 2, 0, 3)
+        return cost, ac_seqs
 
     def after_update(self, training_info):
         pass
