@@ -342,7 +342,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             lower_bound=action_spec.minimum)
 
         self._policy_module = policy_module
-        self._discount = 0.9
+        self._discount = 1.0
         self._repeat_times = repeat_times
 
     def train_step(self, exp: Experience, state):
@@ -628,8 +628,11 @@ class QShootingAlgorithm(PlanAlgorithm):
         cost = torch.reshape(cost, [batch_size, -1])
         return cost
 
-    def _generate_action_sequence_random_sampling(self, time_step: TimeStep,
-                                                  state, epsilon_greedy):
+    def _generate_action_sequence_random_sampling(self,
+                                                  time_step: TimeStep,
+                                                  state,
+                                                  epsilon_greedy,
+                                                  mode="random"):
         """Generate action sequence proposals according to dynamics and Q by
         random sampling. The generated action sequences will then be evaluated
         using the cost.
@@ -653,12 +656,13 @@ class QShootingAlgorithm(PlanAlgorithm):
             observation=obs, prev_action=init_action)  # for Q
 
         # [b, p, h, a]
-        ac_seqs = torch.zeros([
+        ac_seqs = torch.rand([
             batch_size, self._population_size, self._planning_horizon,
             self._num_actions
-        ])
+        ]) * (self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
 
-        # obs
+        ac_seqs_org = ac_seqs.clone()
+
         obs_seqs = torch.zeros([
             batch_size, self._population_size, self._planning_horizon,
             obs.shape[1]
@@ -680,18 +684,24 @@ class QShootingAlgorithm(PlanAlgorithm):
         with torch.no_grad():
             for i in range(self._planning_horizon):
                 obs_seqs[i] = time_step.observation
-                action, planner_state = self._get_action_from_Q_sampling(
-                    batch_size, time_step, state.planner)  # always add noise
-                # update policy state part
-                state = state._replace(planner=planner_state)
+                if mode == "random":
+                    action = ac_seqs[i]
+                    #else:
+                    #---Q
+                    action0, planner_state = self._get_action_from_Q_sampling(
+                        batch_size, time_step,
+                        state.planner)  # always add noise
+                    # update policy state part
+                    state = state._replace(planner=planner_state)
+                    ac_seqs[i] = action
+
                 time_step = time_step._replace(prev_action=action)
                 time_step, state = self._dynamics_func(time_step, state)
-                ac_seqs[i] = action
 
                 # immediate evaluation using reward function
-                #next_obs = time_step.observation
-                cur_obs = obs_seqs[i]
-                reward_step = self._reward_func(cur_obs, action)
+                next_obs = time_step.observation
+                #cur_obs = obs_seqs[i]
+                reward_step = self._reward_func(next_obs, action)
                 reward_step = reward_step.reshape(-1, 1)
                 cost = cost - discount * reward_step
                 discount *= self._discount
@@ -740,6 +750,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         min_ind = torch.argmin(cost, dim=-1).long()
         # TODO: need to check if batch_index_select is needed
         opt_ac_seqs = ac_seqs.index_select(1, min_ind).squeeze(1)
+        #opt_ac_seqs = ac_seqs_org.index_select(1, min_ind).squeeze(1)
 
         return opt_ac_seqs
 

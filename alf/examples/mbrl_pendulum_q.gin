@@ -119,7 +119,7 @@ RandomShootingAlgorithm.planning_horizon=25
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=50
+QShootingAlgorithm.population_size=5000
 QShootingAlgorithm.planning_horizon=25
 QShootingAlgorithm.repeat_times=100
 QShootingAlgorithm.policy_module=@SacAlgorithm()
