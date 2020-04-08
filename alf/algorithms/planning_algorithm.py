@@ -416,10 +416,15 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state, epsilon_greedy, mode="mix")
         # action = opt_action[:, 0]
 
-        # option 3 sac actor
-        action, _ = self._get_action_from_Q(
-            time_step, state.planner, epsilon_greedy=1
-        )  # always perform sampling from the action distribution
+        # # option 3 sac actor: single step action generation
+        # action, _ = self._get_action_from_Q(
+        #     time_step, state.planner, epsilon_greedy=1
+        # )  # always perform sampling from the action distribution
+
+        # option 4 multi-step action generation
+        opt_action = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy, mode="mix")
+        action = opt_action[:, 0]
 
         # add epsilon greedy
         non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
@@ -515,6 +520,77 @@ class QShootingAlgorithm(PlanAlgorithm):
             critic = c_mean
             if c_std.max() > 5e-4:
                 return action, state
+
+        # include some diversity mearsure
+        # [org_batch_size, expanded_pop]
+        critic = critic.reshape(org_batch_size, -1)
+        top_k = pop_size
+        _, sel_ind = torch.topk(critic, k=top_k)
+        #sel_ind = torch.zeros_like(sel_ind)
+
+        # reshape to org batch size*expanded_pop_size*sol_dim
+        # and select top-k
+        ac_rand_pop = ac_rand_pop.reshape(org_batch_size, -1, solution_size)
+
+        def _batched_index_select(t, dim, inds):
+            dummy = inds.unsqueeze(2).expand(
+                inds.size(0), inds.size(1), t.size(2))
+            out = t.gather(dim, dummy)  # b x e x f
+            return out
+
+        action = _batched_index_select(ac_rand_pop, 1, sel_ind).squeeze(1)
+        action = action.reshape(-1, solution_size)
+
+        return action, state
+
+    def _get_action_from_A_sampling(self, org_batch_size, time_step: TimeStep,
+                                    state):
+        """ Action Sampling-based approach for select next action
+        Returns:
+            state: planner state
+        """
+        obs_pop = time_step.observation  # obs has already be expanded
+
+        # batch size after expansion
+        batch_size = obs_pop.shape[0]
+        pop_size = batch_size // org_batch_size
+
+        solution_size = self._num_actions  # one-step horizon
+
+        # expand
+        obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
+
+        # # option 3 sac actor
+        ac_rand_pop, _ = self._get_action_from_Q(
+            time_step._replace(observation=obs_pop), state, epsilon_greedy=1
+        )  # always perform sampling from the action distribution
+
+        critic_input = (obs_pop, ac_rand_pop)
+
+        # init an empty action for returning, indicating terminate
+        action = []
+
+        if self._step_eval_func is not None:
+            disagreement = self._step_eval_func(*critic_input)
+
+            critic1, critic_state = self._policy_module._critic_networks.get_preds_mean(
+                critic_input)
+            critic = critic1 + 0 * disagreement
+        else:
+            # critic0, critic_state0 = self._policy_module._critic_networks.get_preds_mean(
+            #     critic_input)
+            # critic, critic_state = self._policy_module._critic_networks(
+            #     critic_input)
+            # critics0, _ = self._policy_module._critic_networks.get_preds(
+            #     critic_input0)
+
+            critics, critic_state0 = self._policy_module._critic_networks.get_preds(
+                critic_input)
+            c_mean = tensor_utils.list_mean(critics)
+            c_std = tensor_utils.list_std(critics)
+            critic = c_mean
+            # if c_std.max() > 5e-4:
+            #     return action, state
 
         # include some diversity mearsure
         # [org_batch_size, expanded_pop]
@@ -718,11 +794,14 @@ class QShootingAlgorithm(PlanAlgorithm):
                 obs_seqs[i] = time_step.observation
                 if mode == "random":
                     action = ac_seqs[i]
-                elif mode == "mix":
+                elif "mix" in mode:
                     #else:
                     #---Q
                     if not terminated:
-                        action, planner_state = self._get_action_from_Q_sampling(
+                        # action, planner_state = self._get_action_from_Q_sampling(
+                        #     batch_size, time_step,
+                        #     state.planner)  # always add noise
+                        action, planner_state = self._get_action_from_A_sampling(
                             batch_size, time_step,
                             state.planner)  # always add noise
                         # update policy state part
