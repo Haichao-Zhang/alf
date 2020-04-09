@@ -518,8 +518,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             c_mean = tensor_utils.list_mean(critics)
             c_std = tensor_utils.list_std(critics)
             critic = c_mean
-            if c_std.max() > 5e-4:
-                return action, state
+            # if c_std.max() > 5e-4:
+            #     return action, state
 
         # include some diversity mearsure
         # [org_batch_size, expanded_pop]
@@ -822,13 +822,13 @@ class QShootingAlgorithm(PlanAlgorithm):
                     #else:
                     #---Q
                     if not terminated:
-                        # action, planner_state = self._get_action_from_Q_sampling(
-                        #     batch_size, time_step,
-                        #     state.planner)  # always add noise
-                        action, planner_state = self._get_action_from_A_sampling(
+                        action, planner_state = self._get_action_from_Q_sampling(
                             batch_size, time_step,
                             state.planner)  # always add noise
-                        # update policy state part
+                        # action, planner_state = self._get_action_from_A_sampling(
+                        #     batch_size, time_step,
+                        #     state.planner)  # always add noise
+                        # # update policy state part
                         state = state._replace(planner=planner_state)
                         if len(action) == 0:
                             action = ac_seqs[i]
