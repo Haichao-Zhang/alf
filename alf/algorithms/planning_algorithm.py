@@ -422,9 +422,13 @@ class QShootingAlgorithm(PlanAlgorithm):
         # )  # always perform sampling from the action distribution
 
         # option 4 multi-step action generation [Q and A variants]
-        opt_action = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy, mode="mix")
-        action = opt_action[:, 0]
+        # opt_action = self._generate_action_sequence_random_sampling(
+        #     time_step, state, epsilon_greedy, mode="mix")
+        # action = opt_action[:, 0]
+
+        # option 5 do action optimization
+        action, planner_state = self._get_action_from_A_optimization(
+            time_step, state.planner)
 
         # add epsilon greedy
         non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
@@ -638,6 +642,16 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         return action, state
 
+    def _get_action_from_A_optimization(self, time_step: TimeStep, state):
+        """ Action optimization-based approach for select next action
+        Returns:
+            state: planner state
+        """
+
+        action = self._policy_module.action_optimization(
+            time_step, state.policy)
+        return action, state
+
     def _generate_action_sequence_random(self, time_step: TimeStep, state):
         # random population
         # TODO: a future refactor for this and random optimizer
@@ -822,13 +836,20 @@ class QShootingAlgorithm(PlanAlgorithm):
                     #else:
                     #---Q
                     if not terminated:
+                        #1
                         # action, planner_state = self._get_action_from_Q_sampling(
                         #     batch_size, time_step,
                         #     state.planner)  # always add noise
+                        # 2
                         action, planner_state = self._get_action_from_A_sampling(
                             batch_size, time_step,
                             state.planner)  # always add noise
-                        # # update policy state part
+                        # update policy state part
+                        # 3
+                        # action, planner_state = self._get_action_from_A_optimization(
+                        #     batch_size, time_step,
+                        #     state.planner)
+
                         state = state._replace(planner=planner_state)
                         if len(action) == 0:
                             action = ac_seqs[i]

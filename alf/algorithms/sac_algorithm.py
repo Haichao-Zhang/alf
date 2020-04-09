@@ -31,7 +31,7 @@ from alf.data_structures import AlgStep, TrainingInfo
 from alf.nest import nest
 from alf.networks import ActorDistributionNetwork, CriticNetwork, Ensemble
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
-from alf.utils import losses, common, dist_utils, tensor_utils
+from alf.utils import losses, common, dist_utils, spec_utils, tensor_utils
 
 SacShareState = namedtuple("SacShareState", ["actor"])
 
@@ -225,6 +225,41 @@ class SacAlgorithm(OffPolicyAlgorithm):
             raise NotImplementedError("Storing RNN state to replay buffer "
                                       "is not supported by SacAlgorithm")
         return self._predict(time_step, state, epsilon_greedy=1.0)
+
+    def action_optimization(self, exp: Experience, state: SacState):
+        action_distribution, share_actor_state = self._actor_network(
+            exp.observation, state=state.share.actor)
+        if self._is_continuous:
+            action = dist_utils.rsample_action_distribution(
+                action_distribution)
+        else:
+            action = dist_utils.sample_action_distribution(action_distribution)
+
+        # log_pi = dist_utils.compute_log_probability(action_distribution,
+        #                                             action)
+
+        action.requires_grad = True
+        with torch.enable_grad():
+            critic_input = (exp.observation, action)
+            target_q_value, critic_states = self._critic_networks.get_preds_min(
+                critic_input, states=state.critic)
+
+            dqda = nest.pack_sequence_as(
+                action,
+                list(
+                    torch.autograd.grad(
+                        target_q_value.sum(),
+                        nest.flatten(action),
+                    )))
+
+        def action_update(dqda, action, action_spec):
+            # maximization
+            action_new = action + torch.sign(dqda)
+            return spec_utils.scale_to_spec(action_new, action_spec)
+
+        action = nest.map_structure(action_update, dqda, action,
+                                    self._action_spec)
+        return action
 
     def _actor_train_step(self, exp: Experience, state: SacActorState,
                           action_distribution, action, log_pi):
