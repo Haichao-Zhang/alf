@@ -1,7 +1,7 @@
 import alf.algorithms.mbrl_algorithm
 import alf.algorithms.dynamics_learning_algorithm
 import alf.algorithms.planning_algorithm
-import alf.algorithms.reward_learning_algorithm
+import alf.algorithms.reward_learning_algorithm_2
 import alf.algorithms.sac_algorithm
 import alf.examples.mbrl_pendulum
 import alf.utils.math_ops # swish
@@ -61,11 +61,11 @@ DeterministicDynamicsAlgorithm.hidden_size=(500, 500, 500)
 DeterministicDynamicsAlgorithm.dynamics_network=@dynamics/Ensemble()
 # reward learning config
 # fixed ----
-FixedRewardFunction.reward_func=@reward_function_for_pendulum
+#FixedRewardFunction.reward_func=@reward_function_for_pendulum
 # learned -----
-# RewardAlgorithm.action_spec=%action_spec
-# RewardAlgorithm.feature_spec=%observation_spec
-# RewardAlgorithm.hidden_size=(500, 500, 500)
+RewardAlgorithm.action_spec=%action_spec
+RewardAlgorithm.feature_spec=%observation_spec
+RewardAlgorithm.hidden_size=(500, 500, 500)
 
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
 actor/ActorDistributionNetwork.action_spec=%action_spec
@@ -130,12 +130,13 @@ OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
-MbrlAlgorithm.reward_module=@FixedRewardFunction()
-#MbrlAlgorithm.reward_module=@RewardAlgorithm()
+#MbrlAlgorithm.reward_module=@FixedRewardFunction()
+MbrlAlgorithm.reward_module=@RewardAlgorithm()
 #MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
-MbrlAlgorithm.planning_method="q_planning"
-
+#MbrlAlgorithm.planning_method="random"
+#MbrlAlgorithm.planning_method="q_planning"
+MbrlAlgorithm.planning_method="reward_learning"
 
 MbrlAlgorithm.dynamics_optimizer=%opt
 MbrlAlgorithm.planner_optimizer=%opt
