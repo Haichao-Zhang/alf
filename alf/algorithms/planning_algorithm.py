@@ -421,7 +421,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state.planner, epsilon_greedy=1
         # )  # always perform sampling from the action distribution
 
-        # option 4 multi-step action generation
+        # option 4 multi-step action generation [Q and A variants]
         opt_action = self._generate_action_sequence_random_sampling(
             time_step, state, epsilon_greedy, mode="mix")
         action = opt_action[:, 0]
@@ -822,12 +822,12 @@ class QShootingAlgorithm(PlanAlgorithm):
                     #else:
                     #---Q
                     if not terminated:
-                        action, planner_state = self._get_action_from_Q_sampling(
-                            batch_size, time_step,
-                            state.planner)  # always add noise
-                        # action, planner_state = self._get_action_from_A_sampling(
+                        # action, planner_state = self._get_action_from_Q_sampling(
                         #     batch_size, time_step,
                         #     state.planner)  # always add noise
+                        action, planner_state = self._get_action_from_A_sampling(
+                            batch_size, time_step,
+                            state.planner)  # always add noise
                         # # update policy state part
                         state = state._replace(planner=planner_state)
                         if len(action) == 0:
