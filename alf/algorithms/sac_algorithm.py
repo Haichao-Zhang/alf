@@ -377,6 +377,9 @@ class SacAlgorithm(OffPolicyAlgorithm):
         elif flag == "std":
             target_critic = tensor_utils.list_std(target_critics).reshape(log_pi.shape) - \
                          (torch.exp(self._log_alpha) * log_pi).detach()
+        elif flag == "softmax":
+            target_critic = tensor_utils.list_softmax(target_critics, kappa=0.5).reshape(log_pi.shape) - \
+                         (torch.exp(self._log_alpha) * log_pi).detach()
         return target_critic
 
     def train_step(self, exp: Experience, state: SacState):
