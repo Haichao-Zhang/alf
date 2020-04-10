@@ -94,14 +94,18 @@ opt=@Mbrl/AdamTF()
 # critic/AdamTF.lr=1e-3
 # alpha/AdamTF.lr=1e-2
 
+actor/Adam.lr=5e-4
+critic/Adam.lr=5e-4
+alpha/Adam.lr=5e-4
+
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
 #SacAlgorithm.critic_network=@critic/CriticNetwork()
 SacAlgorithm.critic_networks=@critic/Ensemble()
-# SacAlgorithm.actor_optimizer=%opt
-# SacAlgorithm.critic_optimizer=%opt
-# SacAlgorithm.alpha_optimizer=%opt
+SacAlgorithm.actor_optimizer=@actor/Adam()
+SacAlgorithm.critic_optimizer=@critic/Adam()
+SacAlgorithm.alpha_optimizer=@alpha/Adam()
 SacAlgorithm.target_update_tau=0.005
 #----------------------
 
@@ -139,14 +143,14 @@ MbrlAlgorithm.reward_optimizer=%opt
 # training config
 TrainerConfig.initial_collect_steps=1000
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
-TrainerConfig.unroll_length=5
+TrainerConfig.unroll_length=1
 TrainerConfig.mini_batch_size=256
-TrainerConfig.num_updates_per_train_step=5 # epoches
+TrainerConfig.num_updates_per_train_step=1 # epoches
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@MbrlAlgorithm
 TrainerConfig.num_iterations=200000 # num of interactions of unroll_length with env20
-TrainerConfig.num_checkpoints=50
+TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=0
 TrainerConfig.eval_interval=50
 TrainerConfig.debug_summaries=False

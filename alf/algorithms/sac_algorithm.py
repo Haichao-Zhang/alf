@@ -244,8 +244,11 @@ class SacAlgorithm(OffPolicyAlgorithm):
             action.requires_grad = True
             with torch.enable_grad():
                 critic_input = (exp.observation, action)
-                target_q_value, critic_states = self._critic_networks.get_preds_min(
-                    critic_input, states=state.critic)
+                # target_q_value, critic_states = self._critic_networks.get_preds_max(
+                #     critic_input, states=state.critic)
+                ind = 0
+                target_q_value, critic_states = self._critic_networks.pforward(
+                    ind, critic_input, state=state.critic[ind])
                 # print(target_q_value)
                 # print(action)
                 dqda = nest.pack_sequence_as(
