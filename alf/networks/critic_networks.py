@@ -113,7 +113,7 @@ class CriticNetwork(Network):
 
         if use_last_kernel_initializer:
             last_kernel_initializer = functools.partial(
-                torch.nn.init.uniform_, a=-0.000003, b=0.000003)
+                torch.nn.init.uniform_, a=-0.003, b=0.003)
         else:
             last_kernel_initializer = None
 

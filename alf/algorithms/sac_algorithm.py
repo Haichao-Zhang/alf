@@ -226,7 +226,8 @@ class SacAlgorithm(OffPolicyAlgorithm):
                                       "is not supported by SacAlgorithm")
         return self._predict(time_step, state, epsilon_greedy=1.0)
 
-    def action_optimization(self, exp: Experience, state: SacState):
+    def action_optimization(self, exp: Experience, state: SacState,
+                            iter_num=5):
         action_distribution, share_actor_state = self._actor_network(
             exp.observation, state=state.share.actor)
         if self._is_continuous:
@@ -238,27 +239,35 @@ class SacAlgorithm(OffPolicyAlgorithm):
         # log_pi = dist_utils.compute_log_probability(action_distribution,
         #                                             action)
 
-        action.requires_grad = True
-        with torch.enable_grad():
-            critic_input = (exp.observation, action)
-            target_q_value, critic_states = self._critic_networks.get_preds_min(
-                critic_input, states=state.critic)
+        # print("====================")
+        for iter in range(iter_num):
+            action.requires_grad = True
+            with torch.enable_grad():
+                critic_input = (exp.observation, action)
+                target_q_value, critic_states = self._critic_networks.get_preds_min(
+                    critic_input, states=state.critic)
+                # print(target_q_value)
+                # print(action)
+                dqda = nest.pack_sequence_as(
+                    action,
+                    list(
+                        torch.autograd.grad(
+                            target_q_value.sum(),
+                            nest.flatten(action),
+                        )))
 
-            dqda = nest.pack_sequence_as(
-                action,
-                list(
-                    torch.autograd.grad(
-                        target_q_value.sum(),
-                        nest.flatten(action),
-                    )))
+                # print(dqda)
+                # print("----")
+                def action_update(dqda, action, action_spec, step_size=1e-1):
+                    # maximization
+                    action_new = action + step_size * torch.sign(dqda)
+                    return spec_utils.clip_to_spec(action_new, action_spec)
 
-        def action_update(dqda, action, action_spec):
-            # maximization
-            action_new = action + torch.sign(dqda)
-            return spec_utils.scale_to_spec(action_new, action_spec)
+            # note action is outside of with block
+            # therefore action.requires_grad is False
+            action = nest.map_structure(action_update, dqda, action,
+                                        self._action_spec)
 
-        action = nest.map_structure(action_update, dqda, action,
-                                    self._action_spec)
         return action
 
     def _actor_train_step(self, exp: Experience, state: SacActorState,
