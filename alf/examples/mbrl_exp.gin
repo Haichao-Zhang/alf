@@ -94,18 +94,18 @@ opt=@Mbrl/AdamTF()
 # critic/AdamTF.lr=1e-3
 # alpha/AdamTF.lr=1e-2
 
-actor/Adam.lr=5e-4
-critic/Adam.lr=5e-4
-alpha/Adam.lr=5e-4
+# actor/Adam.lr=5e-4
+# critic/Adam.lr=5e-4
+# alpha/Adam.lr=5e-4
 
 SacAlgorithm.observation_spec=%observation_spec
 SacAlgorithm.action_spec=%action_spec
 SacAlgorithm.actor_network=@actor/ActorDistributionNetwork()
 #SacAlgorithm.critic_network=@critic/CriticNetwork()
 SacAlgorithm.critic_networks=@critic/Ensemble()
-SacAlgorithm.actor_optimizer=@actor/Adam()
-SacAlgorithm.critic_optimizer=@critic/Adam()
-SacAlgorithm.alpha_optimizer=@alpha/Adam()
+SacAlgorithm.actor_optimizer=%opt
+SacAlgorithm.critic_optimizer=%opt
+SacAlgorithm.alpha_optimizer=%opt
 SacAlgorithm.target_update_tau=0.005
 #----------------------
 
@@ -153,7 +153,7 @@ TrainerConfig.num_iterations=200000 # num of interactions of unroll_length with 
 TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=0
 TrainerConfig.eval_interval=50
-TrainerConfig.debug_summaries=False
+TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=1
 TrainerConfig.use_rollout_state=True

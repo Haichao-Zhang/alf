@@ -226,10 +226,10 @@ class SacAlgorithm(OffPolicyAlgorithm):
                                       "is not supported by SacAlgorithm")
         return self._predict(time_step, state, epsilon_greedy=1.0)
 
-    def action_optimization(self, exp: Experience, state: SacState,
-                            iter_num=5):
+    def action_optimization(self, exp: Experience, state, iter_num=5):
+        sac_state = state.planner.policy
         action_distribution, share_actor_state = self._actor_network(
-            exp.observation, state=state.share.actor)
+            exp.observation, state=sac_state.share.actor)
         if self._is_continuous:
             action = dist_utils.rsample_action_distribution(
                 action_distribution)
@@ -248,9 +248,62 @@ class SacAlgorithm(OffPolicyAlgorithm):
                 #     critic_input, states=state.critic)
                 ind = 0
                 target_q_value, critic_states = self._critic_networks.pforward(
-                    ind, critic_input, state=state.critic[ind])
+                    ind, critic_input, state=sac_state.critic[ind])
                 # print(target_q_value)
                 # print(action)
+                dqda = nest.pack_sequence_as(
+                    action,
+                    list(
+                        torch.autograd.grad(
+                            target_q_value.sum(),
+                            nest.flatten(action),
+                        )))
+
+                # print(dqda)
+                # print("----")
+                def action_update(dqda, action, action_spec, step_size=1e-1):
+                    # maximization
+                    action_new = action + step_size * torch.sign(dqda)
+                    return spec_utils.clip_to_spec(action_new, action_spec)
+
+            # note action is outside of with block
+            # therefore action.requires_grad is False
+            action = nest.map_structure(action_update, dqda, action,
+                                        self._action_spec)
+
+        return action
+
+    def action_optimization_multi_step(self,
+                                       exp: Experience,
+                                       state,
+                                       dynamic_func,
+                                       H,
+                                       iter_num=5):
+        # state: mbrl state
+        sac_state = state.planner.policy
+        action_distribution, share_actor_state = self._actor_network(
+            exp.observation, state=sac_state.share.actor)
+        if self._is_continuous:
+            action = dist_utils.rsample_action_distribution(
+                action_distribution)
+        else:
+            action = dist_utils.sample_action_distribution(action_distribution)
+
+        for iter in range(iter_num):
+            action.requires_grad = True
+            with torch.enable_grad():
+                for t in range(H):
+                    critic_input = (exp.observation, action)
+                    # target_q_value, critic_states = self._critic_networks.get_preds_max(
+                    #     critic_input, states=state.critic)
+                    ind = 0
+                    target_q_value, critic_states = self._critic_networks.pforward(
+                        ind, critic_input, state=sac_state.critic[ind])
+                    # print(target_q_value)
+                    # print(action)
+                    time_step = time_step._replace(prev_action=action)
+                    time_step, state = dynamics_func(time_step, state)
+
                 dqda = nest.pack_sequence_as(
                     action,
                     list(

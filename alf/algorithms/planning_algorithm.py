@@ -382,7 +382,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         self._policy_module._update_target()
 
     def _trainable_attributes_to_ignore(self):
-        return ['policy_module']
+        return ['_policy_module']
 
     def generate_plan(self, time_step: TimeStep, state, epsilon_greedy):
         assert self._reward_func is not None, ("specify reward function "
@@ -428,7 +428,11 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # option 5 do action optimization
         action, planner_state = self._get_action_from_A_optimization(
-            time_step, state.planner)
+            time_step, state)
+
+        # # option 6:
+        # action, planner_state = self._get_action_multi_step_optimization(
+        #     time_step, state, self._dynamics_func,  H=1)
 
         # add epsilon greedy
         non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
@@ -645,11 +649,20 @@ class QShootingAlgorithm(PlanAlgorithm):
     def _get_action_from_A_optimization(self, time_step: TimeStep, state):
         """ Action optimization-based approach for select next action
         Returns:
+            state: mbrl state
+        """
+
+        action = self._policy_module.action_optimization(time_step, state)
+        return action, state
+
+    def _get_action_multi_step_optimization(self, time_step: TimeStep, state):
+        """ Action optimization-based approach for select next action
+        Returns:
             state: planner state
         """
 
-        action = self._policy_module.action_optimization(
-            time_step, state.policy)
+        action = self._policy_module.action_optimization_multi_step(
+            time_step, state.policy, H=1)
         return action, state
 
     def _generate_action_sequence_random(self, time_step: TimeStep, state):
