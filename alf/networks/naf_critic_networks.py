@@ -117,7 +117,7 @@ class NafCriticNetwork(Network):
         # [hidden_dim -> action_dim]
         # might need action squash
         self._mu = EncodingNetwork(
-            TensorSpec((self._obs_encoder.output_spec.shape[0])),
+            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
             fc_layer_params=joint_fc_layer_params,
             activation=activation,
             kernel_initializer=kernel_initializer,
@@ -128,7 +128,7 @@ class NafCriticNetwork(Network):
         # [hidden_dim -> 1]
         # TODO joint_fc_layer_params change to non-shared
         self._V = EncodingNetwork(
-            TensorSpec((self._obs_encoder.output_spec.shape[0])),
+            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
             fc_layer_params=joint_fc_layer_params,
             activation=activation,
             kernel_initializer=kernel_initializer,
@@ -137,7 +137,7 @@ class NafCriticNetwork(Network):
             last_kernel_initializer=last_kernel_initializer)
 
         self._L = EncodingNetwork(
-            TensorSpec((self._obs_encoder.output_spec.shape[0])),
+            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
             fc_layer_params=joint_fc_layer_params,
             activation=activation,
             kernel_initializer=kernel_initializer,
@@ -145,9 +145,9 @@ class NafCriticNetwork(Network):
             last_activation=last_activation,
             last_kernel_initializer=last_kernel_initializer)
 
-        self.tril_mask = torch.tril(
-            torch.ones(action_dim, num_outputs), diagonal=-1).unsqueeze(0)
-        self.diag_mask = torch.diag(
+        self._tril_mask = torch.tril(
+            torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
+        self._diag_mask = torch.diag(
             torch.diag(torch.ones(action_dim, action_dim))).unsqueeze(0)
 
         self._output_spec = TensorSpec(())
@@ -167,7 +167,6 @@ class NafCriticNetwork(Network):
         inputs, state = Network.forward(self, inputs, state)
 
         observations, actions = inputs
-        actions = actions.to(torch.float32)
 
         # 0 encode observation
         encoded_obs, _ = self._obs_encoder(observations)
@@ -181,11 +180,13 @@ class NafCriticNetwork(Network):
         # 3 Q
         Q = None
         if actions is not None:
+            actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
-            L = self.L(encoded_obs).view(-1, num_outputs, num_outputs)
+            L, _ = self._L(encoded_obs)
+            L = L.view(-1, num_outputs, num_outputs)
             L = L * \
-                self.tril_mask.expand_as(
-                    L) + torch.exp(L) * self.diag_mask.expand_as(L)
+                self._tril_mask.expand_as(
+                    L) + torch.exp(L) * self._diag_mask.expand_as(L)
             P = torch.bmm(L, L.transpose(2, 1))
 
             u_mu = (actions - mu).unsqueeze(2)
@@ -194,4 +195,4 @@ class NafCriticNetwork(Network):
 
             Q = A + V
 
-        return mu, Q, V
+        return (mu, Q, V), state
