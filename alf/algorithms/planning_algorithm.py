@@ -381,8 +381,11 @@ class QShootingAlgorithm(PlanAlgorithm):
     def after_update(self, training_info):
         self._policy_module._update_target()
 
+    # def _trainable_attributes_to_ignore(self):
+    #     return ['_policy_module']
+
     def _trainable_attributes_to_ignore(self):
-        return ['_policy_module']
+        return ['']
 
     def generate_plan(self, time_step: TimeStep, state, epsilon_greedy):
         assert self._reward_func is not None, ("specify reward function "
