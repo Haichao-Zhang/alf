@@ -3,6 +3,19 @@
 # default ddpg config
 
 import alf.algorithms.naf_algorithm
+import pybullet_envs
+
+# environment config
+NUM_PARALLEL_ENVIRONMENTS=1
+env_name='HalfCheetahBulletEnv-v0'
+
+create_environment.env_name=%env_name
+create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
+
+max_len=200
+load.max_episode_steps=%max_len
+# load.gym_env_wrappers=(@ContinuousActionNormalization, )
+
 
 # algorithm config
 observation_spec=@get_observation_spec()
@@ -20,37 +33,22 @@ NafAlgorithm.target_update_period=5
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
 
+
+
+
+
 # training config
 TrainerConfig.initial_collect_steps=1000
 TrainerConfig.mini_batch_length=2
 TrainerConfig.unroll_length=1
-TrainerConfig.mini_batch_size=64
+TrainerConfig.mini_batch_size=128
 TrainerConfig.num_updates_per_train_step=1
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@NafAlgorithm
-TrainerConfig.num_iterations=10000
-TrainerConfig.num_checkpoints=5
-TrainerConfig.evaluate=True
-TrainerConfig.debug_summaries=False
-TrainerConfig.summarize_grads_and_vars=False
-TrainerConfig.summary_interval=100
-TrainerConfig.replay_buffer_length=100000
-
-
-# environment config
-NUM_PARALLEL_ENVIRONMENTS=1
-create_environment.env_name="Pendulum-v0"
-create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
-
-max_len=200
-load.max_episode_steps=%max_len
-load.gym_env_wrappers=(@ContinuousActionNormalization, )
-
-
-TrainerConfig.num_iterations=10000
+TrainerConfig.num_iterations=200000
 TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=False
 TrainerConfig.debug_summaries=True
-TrainerConfig.summarize_grads_and_vars=True
 TrainerConfig.summary_interval=100
+TrainerConfig.replay_buffer_length=1000000
