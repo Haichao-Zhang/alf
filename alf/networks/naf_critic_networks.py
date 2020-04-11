@@ -123,13 +123,13 @@ class NafCriticNetwork(Network):
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim,
             last_activation=last_activation,
-            last_kernel_initializer=last_kernel_initializer)
+            last_kernel_initializer=None)
 
         # [hidden_dim -> 1]
         # TODO joint_fc_layer_params change to non-shared
         self._V = EncodingNetwork(
             TensorSpec((self._obs_encoder.output_spec.shape[0], )),
-            fc_layer_params=joint_fc_layer_params,
+            fc_layer_params=None,
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=1,
@@ -138,12 +138,12 @@ class NafCriticNetwork(Network):
 
         self._L = EncodingNetwork(
             TensorSpec((self._obs_encoder.output_spec.shape[0], )),
-            fc_layer_params=joint_fc_layer_params,
+            fc_layer_params=None,
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
             last_activation=last_activation,
-            last_kernel_initializer=last_kernel_initializer)
+            last_kernel_initializer=None)
 
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
