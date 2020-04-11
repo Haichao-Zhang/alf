@@ -536,3 +536,40 @@ class ContinuousActionClip(gym.ActionWrapper):
         action = alf.nest.map_structure(_clip_action, self.action_space,
                                         action)
         return action
+
+
+@gin.configurable
+class ContinuousActionNormalization(gym.ActionWrapper):
+    """Normalize continuous actions according to the action space."""
+
+    def __init__(self, env):
+        """Create an ContinuousActionNormalization gym wrapper.
+
+        Args:
+            env (gym.Env): A Gym env instance to wrap
+        """
+        super().__init__(env)
+        assert isinstance(self.action_space, gym.spaces.Box), (
+            "Normalization can only be done on bounded space!")
+
+    def action(self, action):
+        def _action_denormalization(space, action):
+            action = (action + 1) / 2
+            action *= (space.high - space.low)
+            action += space.low
+            return action
+
+        action = alf.nest.map_structure(_action_denormalization,
+                                        self.action_space, action)
+        return action
+
+    def reverse_action(self, action):
+        def _action_normalization(space, action):
+            action = (action + 1) / 2
+            action *= (space.high - space.low)
+            action += space.low
+            return action
+
+        action = alf.nest.map_structure(_action_normalization,
+                                        self.action_space, action)
+        return action

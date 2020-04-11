@@ -25,6 +25,7 @@ import alf.nest as nest
 from alf.networks import Network, EncodingNetwork, LSTMEncodingNetwork
 from alf.networks.initializers import variance_scaling_init
 from alf.tensor_specs import TensorSpec
+from alf.utils import spec_utils
 
 
 @gin.configurable
@@ -105,7 +106,7 @@ class NafCriticNetwork(Network):
             preprocessing_combiner=observation_preprocessing_combiner,
             conv_layer_params=observation_conv_layer_params,
             fc_layer_params=observation_fc_layer_params,
-            activation=activation,
+            activation=torch.tanh,
             kernel_initializer=kernel_initializer)
 
         if use_last_kernel_initializer:
@@ -118,11 +119,11 @@ class NafCriticNetwork(Network):
         # might need action squash
         self._mu = EncodingNetwork(
             TensorSpec((self._obs_encoder.output_spec.shape[0], )),
-            fc_layer_params=joint_fc_layer_params,
+            fc_layer_params=None,
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim,
-            last_activation=last_activation,
+            last_activation=torch.tanh,
             last_kernel_initializer=None)
 
         # [hidden_dim -> 1]
@@ -133,7 +134,7 @@ class NafCriticNetwork(Network):
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=1,
-            last_activation=last_activation,
+            last_activation=math_ops.identity,
             last_kernel_initializer=last_kernel_initializer)
 
         self._L = EncodingNetwork(
@@ -142,7 +143,7 @@ class NafCriticNetwork(Network):
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
-            last_activation=last_activation,
+            last_activation=math_ops.identity,
             last_kernel_initializer=None)
 
         self._tril_mask = torch.tril(
@@ -173,6 +174,7 @@ class NafCriticNetwork(Network):
 
         # 1 mu
         mu, _ = self._mu(encoded_obs)
+        #mu = spec_utils.scale_to_spec(mu.tanh(), self._single_action_spec)
 
         # 2 V
         V, _ = self._V(encoded_obs)

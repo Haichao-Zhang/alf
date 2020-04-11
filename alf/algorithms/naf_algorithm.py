@@ -168,7 +168,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                                                  state=state.critic)
 
         action = mqv[0]
-        q_value = mqv[2].view(-1)
+        q_value = mqv[1].view(-1)  # bug, not [2]
         target_q_value = mqv_target[2].view(-1)
 
         state = NafCriticState(

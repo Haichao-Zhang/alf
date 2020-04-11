@@ -10,6 +10,7 @@ env_name='Pendulum-v0'
 
 max_len=200
 load.max_episode_steps=%max_len
+load.gym_env_wrappers=(@ContinuousActionNormalization, )
 
 create_environment.env_name=%env_name
 create_environment.num_parallel_environments=%NUM_PARALLEL_ENVIRONMENTS
