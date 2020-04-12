@@ -43,7 +43,7 @@ class NafCriticNetwork(Network):
                  v_fc_layer_params=None,
                  l_fc_layer_params=None,
                  activation=torch.tanh,
-                 projection_output_init_gain=0.3,
+                 projection_output_init_gain=1.0,
                  std_bias_initializer_value=0.0,
                  kernel_initializer=None,
                  use_last_kernel_initializer=True,
@@ -103,6 +103,8 @@ class NafCriticNetwork(Network):
         self._single_action_spec = flat_action_spec[0]
         action_dim = action_spec.shape[0]
 
+        # self._bn0 = nn.BatchNorm1d(observation_spec.shape[0])
+
         # [obs_dim -> hidden_dim]
         self._obs_encoder = EncodingNetwork(
             observation_spec,
@@ -133,7 +135,7 @@ class NafCriticNetwork(Network):
         self._mu = layers.FC(
             self._obs_encoder.output_spec.shape[0],
             action_dim,
-            activation=math_ops.identity,
+            activation=torch.tanh,
             kernel_init_gain=projection_output_init_gain)
 
         self._L = layers.FC(
@@ -186,12 +188,14 @@ class NafCriticNetwork(Network):
 
         observations, actions = inputs
 
+        # observations = self._bn0(observations)
+
         # 0 encode observation
         encoded_obs, _ = self._obs_encoder(observations)
 
         # 1 mu
         mu = self._mu(encoded_obs)
-        #mu = spec_utils.scale_to_spec(mu.tanh(), self._single_action_spec)
+        mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
 
         # 2 V
         V, _ = self._V(encoded_obs)
@@ -203,10 +207,14 @@ class NafCriticNetwork(Network):
             num_outputs = mu.size(1)
             L = self._L(encoded_obs)
             L = L.view(-1, num_outputs, num_outputs)
-            L = L * \
-                self._tril_mask.expand_as(
-                    L) + math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-            P = torch.bmm(L, L.transpose(2, 1))
+            # L = L * \
+            #     self._tril_mask.expand_as(
+            #         L) + math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            # P = torch.bmm(L, L.transpose(2, 1))
+
+            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            #P = torch.bmm(L, L.transpose(2, 1))
+            P = D
 
             u_mu = (actions - mu).unsqueeze(2)
             A = -0.5 * \
