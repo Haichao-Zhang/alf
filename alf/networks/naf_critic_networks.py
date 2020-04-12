@@ -48,6 +48,7 @@ class NafCriticNetwork(Network):
                  kernel_initializer=None,
                  use_last_kernel_initializer=True,
                  last_activation=math_ops.identity,
+                 cov_mode="diag",
                  name="CriticNetwork"):
         """Creates an instance of `NafCriticNetwork` for estimating action-value of
         continuous actions. The action-value is defined as the expected return
@@ -172,6 +173,8 @@ class NafCriticNetwork(Network):
 
         self._output_spec = TensorSpec(())
 
+        self._cov_mode = cov_mode
+
     def forward(self, inputs, state=()):
         """Computes action-value given an observation.
 
@@ -207,14 +210,14 @@ class NafCriticNetwork(Network):
             num_outputs = mu.size(1)
             L = self._L(encoded_obs)
             L = L.view(-1, num_outputs, num_outputs)
-            # L = L * \
-            #     self._tril_mask.expand_as(
-            #         L) + math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-            # P = torch.bmm(L, L.transpose(2, 1))
-
             D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-            #P = torch.bmm(L, L.transpose(2, 1))
-            P = D
+            if self._cov_mode == "diag":
+                P = D
+            elif self._cov_mode == "full":
+                OD = L * \
+                    self._tril_mask.expand_as(
+                        L) + D
+                P = torch.bmm(OD, OD.transpose(2, 1))
 
             u_mu = (actions - mu).unsqueeze(2)
             A = -0.5 * \
