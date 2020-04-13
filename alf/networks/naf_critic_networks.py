@@ -225,3 +225,48 @@ class NafCriticNetwork(Network):
             Q = A + V
 
         return (mu, Q, V), state
+
+    # def get_sample(self, obs):
+    #         def forward(self, inputs, state=()):
+    #         """Computes action-value given an observation.
+
+    #     Args:
+    #         inputs:  A tuple of Tensors consistent with `input_tensor_spec`
+    #         state: empty for API consistent with CriticRNNNetwork
+
+    #     Returns:
+    #         action_value (torch.Tensor): a tensor of the size [batch_size]
+    #         state: empty
+    #     """
+
+    #     observations = obs
+
+    #     # observations = self._bn0(observations)
+
+    #     # 0 encode observation
+    #     encoded_obs, _ = self._obs_encoder(observations)
+
+    #     # 1 mu
+    #     mu = self._mu(encoded_obs)
+    #     mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
+
+    #     n = torch.randn_like(mu)
+
+    #     L = self._L(encoded_obs)
+    #     L = L.view(-1, num_outputs, num_outputs)
+    #     D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+    #     if self._cov_mode == "diag":
+    #         P = D
+    #     elif self._cov_mode == "full":
+    #         OD = L * \
+    #             self._tril_mask.expand_as(
+    #                 L) + D
+    #         P = torch.bmm(OD, OD.transpose(2, 1))
+
+    #         u_mu = (actions - mu).unsqueeze(2)
+    #         A = -0.5 * \
+    #             torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
+
+    #         Q = A + V
+
+    #     return (mu, Q, V), state

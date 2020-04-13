@@ -59,7 +59,6 @@ class NafAlgorithm(OffPolicyAlgorithm):
                  critic_loss=None,
                  target_update_tau=0.05,
                  target_update_period=1,
-                 dqda_clipping=None,
                  critic_optimizer=None,
                  gradient_clipping=None,
                  debug_summaries=False,
@@ -87,9 +86,6 @@ class NafAlgorithm(OffPolicyAlgorithm):
                 networks.
             target_update_period (int): Period for soft update of the target
                 networks.
-            dqda_clipping (float): when computing the actor loss, clips the
-                gradient dqda element-wise between [-dqda_clipping, dqda_clipping].
-                Does not perform clipping if dqda_clipping == 0.
             critic_optimizer (torch.optim.optimizer): The optimizer for critic.
             gradient_clipping (float): Norm length to clip gradients.
             debug_summaries (bool): True if debug summaries should be created.
@@ -132,8 +128,6 @@ class NafAlgorithm(OffPolicyAlgorithm):
             tau=target_update_tau,
             period=target_update_period)
 
-        self._dqda_clipping = dqda_clipping
-
     def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.):
         mqv, state = self._critic_network((time_step.observation, None),
                                           state=state.critic)
@@ -156,7 +150,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
     def rollout_step(self, time_step: TimeStep, state=None):
         if self.need_full_rollout_state():
             raise NotImplementedError("Storing RNN state to replay buffer "
-                                      "is not supported by DdpgAlgorithm")
+                                      "is not supported by NafAlgorithm")
         return self.predict_step(time_step, state, epsilon_greedy=1.0)
 
     def _critic_train_step(self, exp: Experience, state: NafCriticState):
@@ -182,7 +176,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
         mqv, critic_state = self._critic_network(inputs, state=state)
 
-        q_value = mqv[1].view(-1)  # bug, not [2]
+        q_value = mqv[1].view(-1)
 
         return q_value, critic_state
 
@@ -190,7 +184,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
         mqv, critic_state = self._critic_network(inputs, state=state)
 
-        state_value = mqv[2].view(-1)  # bug, not [2]
+        state_value = mqv[2].view(-1)
 
         return state_value, critic_state
 

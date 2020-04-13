@@ -34,8 +34,8 @@ from alf.utils import losses, common, dist_utils, tensor_utils
 from alf.utils.math_ops import add_ignore_empty
 
 from alf.algorithms.dynamics_learning_algorithm import DynamicsLearningAlgorithm
-# from alf.algorithms.reward_learning_algorithm import RewardEstimationAlgorithm
-from alf.algorithms.reward_learning_algorithm_2 import RewardEstimationAlgorithm
+from alf.algorithms.reward_learning_algorithm import RewardEstimationAlgorithm
+# from alf.algorithms.reward_learning_algorithm_2 import RewardEstimationAlgorithm
 from alf.algorithms.planning_algorithm import PlanAlgorithm
 
 MbrlState = namedtuple("MbrlState", ["dynamics", "reward", "planner"])
