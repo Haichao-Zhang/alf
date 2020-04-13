@@ -25,10 +25,12 @@ critic/NafCriticNetwork.observation_fc_layer_params=(100,100)
 # critic/NafCriticNetwork.mu_fc_layer_params=(50, 10)
 # critic/NafCriticNetwork.v_fc_layer_params=(50, 10)
 # critic/NafCriticNetwork.l_fc_layer_params=(50, 10)
-critic/Adam.lr=1e-3
+critic/NafCriticNetwork.cov_mode="diag"
+# critic/NafCriticNetwork.cov_mode="full"
+critic/AdamTF.lr=1e-3
 
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
-NafAlgorithm.critic_optimizer=@critic/Adam()
+NafAlgorithm.critic_optimizer=@critic/AdamTF()
 
 NafAlgorithm.target_update_period=5
 NafAlgorithm.target_update_tau=0.05

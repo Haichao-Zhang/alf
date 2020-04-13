@@ -42,7 +42,7 @@ class NafCriticNetwork(Network):
                  mu_fc_layer_params=None,
                  v_fc_layer_params=None,
                  l_fc_layer_params=None,
-                 activation=torch.tanh,
+                 activation=torch.relu,
                  projection_output_init_gain=1.0,
                  std_bias_initializer_value=0.0,
                  kernel_initializer=None,
@@ -124,14 +124,20 @@ class NafCriticNetwork(Network):
 
         # [hidden_dim -> action_dim]
         # might need action squash
-        # self._mu = EncodingNetwork(
-        #     TensorSpec((self._obs_encoder.output_spec.shape[0], )),
-        #     fc_layer_params=mu_fc_layer_params,
-        #     activation=activation,
-        #     kernel_initializer=None, # assumes fixed activation
-        #     last_layer_size=action_dim,
-        #     last_activation=torch.tanh,
-        #     last_kernel_initializer=None)
+        mu_kernel_initializer = functools.partial(
+            variance_scaling_init,
+            gain=1.0,
+            mode='fan_in',
+            distribution='truncated_normal',
+            nonlinearity=activation)
+        self._mu = EncodingNetwork(
+            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
+            fc_layer_params=mu_fc_layer_params,
+            activation=activation,
+            kernel_initializer=None,  # assumes fixed activation
+            last_layer_size=action_dim,
+            last_activation=torch.tanh,
+            last_kernel_initializer=mu_kernel_initializer)
 
         # self._L = EncodingNetwork(TensorSpec(
         #     (self._obs_encoder.output_spec.shape[0], )),
@@ -141,11 +147,11 @@ class NafCriticNetwork(Network):
         #                           last_layer_size=action_dim**2,
         #                           last_activation=math_ops.identity,
         #                           last_kernel_initializer=None)
-        self._mu = layers.FC(
-            self._obs_encoder.output_spec.shape[0],
-            action_dim,
-            activation=torch.tanh,
-            kernel_init_gain=projection_output_init_gain)
+        # self._mu = layers.FC(
+        #     self._obs_encoder.output_spec.shape[0],
+        #     action_dim,
+        #     activation=torch.tanh,
+        #     kernel_init_gain=projection_output_init_gain)
 
         self._L = layers.FC(
             self._obs_encoder.output_spec.shape[0],
@@ -196,7 +202,7 @@ class NafCriticNetwork(Network):
         encoded_obs, _ = self._obs_encoder(observations)
 
         # 1 mu
-        mu = self._mu(encoded_obs)
+        mu, _ = self._mu(encoded_obs)
         mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
 
         # 2 V
@@ -212,6 +218,7 @@ class NafCriticNetwork(Network):
             D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
             if self._cov_mode == "diag":
                 P = D
+                #P = torch.bmm(D, D.transpose(2, 1))
             elif self._cov_mode == "full":
                 OD = L * \
                     self._tril_mask.expand_as(
