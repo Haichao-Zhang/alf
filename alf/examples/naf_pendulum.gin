@@ -52,4 +52,5 @@ TrainerConfig.debug_summaries=1
 TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=100
 TrainerConfig.replay_buffer_length=100000
+TrainerConfig.random_seed=1586713914
 

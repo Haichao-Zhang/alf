@@ -159,24 +159,21 @@ class NafAlgorithm(OffPolicyAlgorithm):
                                       "is not supported by DdpgAlgorithm")
         return self.predict_step(time_step, state, epsilon_greedy=1.0)
 
-    def _critic_train_step(self, exp: Experience, state: NafCriticState):
+    def _get_q_value(self, inputs, state=None):
 
-        mqv_target, target_critic_state = self._target_critic_network(
-            (exp.observation, None), state=state.target_critic)
+        mqv, critic_state = self._critic_network(inputs, state=state)
 
-        mqv, critic_state = self._critic_network((exp.observation, exp.action),
-                                                 state=state.critic)
-
-        action = mqv[0]
         q_value = mqv[1].view(-1)  # bug, not [2]
-        target_q_value = mqv_target[2].view(-1)
 
-        state = NafCriticState(
-            critic=critic_state, target_critic=target_critic_state)
+        return q_value, critic_state
 
-        info = NafCriticInfo(q_value=q_value, target_q_value=target_q_value)
+    def _get_state_value(self, inputs, state=None):
 
-        return AlgStep(output=action, state=state, info=info)
+        mqv, critic_state = self._critic_network(inputs, state=state)
+
+        state_value = mqv[2].view(-1)  # bug, not [2]
+
+        return state_value, critic_state
 
     def train_step(self, exp: Experience, state: NafState):
         cirtic_step = self._critic_train_step(exp=exp, state=state.critic)
@@ -197,3 +194,6 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
     def _trainable_attributes_to_ignore(self):
         return ['_target_critic_network']
+
+    def _critic_train_step(self):
+        pass
