@@ -49,7 +49,7 @@ class NafCriticNetwork(Network):
                  use_last_kernel_initializer=True,
                  last_activation=math_ops.identity,
                  cov_mode="diag",
-                 name="CriticNetwork"):
+                 name="NafCriticNetwork"):
         """Creates an instance of `NafCriticNetwork` for estimating action-value of
         continuous actions. The action-value is defined as the expected return
         starting from the given input observation and taking the given action.
