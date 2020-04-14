@@ -610,7 +610,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         # init an empty action for returning, indicating terminate
         action = []
 
-        mqv1, critic_state1 = self._policy_module._critic_network2(
+        mqv2, critic_state2 = self._policy_module._critic_network2(
             critic_input, state=state.policy.critic)
         #mqv2, critic_state = self._critic_network2(inputs, state=state)
 

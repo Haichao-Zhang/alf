@@ -118,7 +118,7 @@ def _kl_transformed_transformed(p, q):
 class OUProcess(nn.Module):
     """A zero-mean Ornstein-Uhlenbeck process."""
 
-    def __init__(self, initial_value, damping=0.15, stddev=0.2):
+    def __init__(self, initial_value, scale=0.1, damping=0.15, stddev=0.2):
         """A Class for generating noise from a zero-mean Ornstein-Uhlenbeck process.
 
         The Ornstein-Uhlenbeck process is a process that generates temporally
@@ -142,10 +142,12 @@ class OUProcess(nn.Module):
         self._damping = damping
         self._stddev = stddev
         self._x = initial_value.clone().detach()
+        self._scale = scale
 
     def forward(self):
         noise = torch.randn_like(self._x) * self._stddev
-        return self._x.data.copy_((1 - self._damping) * self._x + noise)
+        self._x.data.copy_((1 - self._damping) * self._x + noise)
+        return self._x * self._scale
 
 
 def DiagMultivariateNormal(loc, scale_diag):

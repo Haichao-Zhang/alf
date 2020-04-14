@@ -59,6 +59,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                  critic_network: NafCriticNetwork,
                  env=None,
                  config: TrainerConfig = None,
+                 ou_scale=0.6,
                  ou_stddev=0.2,
                  ou_damping=0.15,
                  critic_loss_ctor=None,
@@ -135,8 +136,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
         self._critic_loss1 = critic_loss_ctor(name="critic_loss1")
         self._critic_loss2 = critic_loss_ctor(name="critic_loss2")
 
-        self._ou_process = common.create_ou_process(action_spec, ou_stddev,
-                                                    ou_damping)
+        self._ou_process = common.create_ou_process(action_spec, ou_scale,
+                                                    ou_stddev, ou_damping)
 
         self._update_target = common.get_target_updater(
             models=[self._critic_network1, self._critic_network2],

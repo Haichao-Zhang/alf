@@ -133,8 +133,13 @@ class OffPolicyAlgorithm(RLAlgorithm):
                     self._exp_replayer.clear()
             else:
                 experience = self._exp_replayer.replay(
-                    sample_batch_size=mini_batch_size,
+                    sample_batch_size=mini_batch_size *
+                    config.sample_batch_num,
                     mini_batch_length=config.mini_batch_length)
+            # else:
+            #     experience = self._exp_replayer.replay(
+            #         sample_batch_size=mini_batch_size,
+            #         mini_batch_length=config.mini_batch_length)
 
         with record_time("time/train"):
             return self._train_experience(
