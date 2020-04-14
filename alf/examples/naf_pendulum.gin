@@ -3,7 +3,7 @@
 # default ddpg config
 
 import alf.algorithms.naf_algorithm
-
+import alf.algorithms.rl_algorithm
 # environment config
 NUM_PARALLEL_ENVIRONMENTS=1
 create_environment.env_name="Pendulum-v0"
@@ -32,6 +32,8 @@ critic/Adam.lr=1e-3
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
 NafAlgorithm.critic_optimizer=@critic/Adam()
 
+RLAlgorithm.gradient_clipping=1.0
+RLAlgorithm.clip_by_global_norm=True
 NafAlgorithm.target_update_period=1
 NafAlgorithm.target_update_tau=0.01
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
