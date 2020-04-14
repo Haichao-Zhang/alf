@@ -614,7 +614,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             critic_input, state=state.policy.critic)
         #mqv2, critic_state = self._critic_network2(inputs, state=state)
 
-        critic = mqv1[1].view(-1)
+        critic = mqv2[1].view(-1)
 
         # if c_std.max() > 5e-4:
         #     return action, state

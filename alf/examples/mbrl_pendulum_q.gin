@@ -128,10 +128,12 @@ critic/Adam.lr=1e-3
 NafAlgorithm.observation_spec=%observation_spec
 NafAlgorithm.action_spec=%action_spec
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
-#NafAlgorithm.critic_optimizer=@critic/Adam()
+#NafAlgorithm.critic_optimizer=@critic/Adam() # no need for this optimizer
 
+RLAlgorithm.gradient_clipping=1.0
+RLAlgorithm.clip_by_global_norm=True
 NafAlgorithm.target_update_period=1
-NafAlgorithm.target_update_tau=0.01
+NafAlgorithm.target_update_tau=0.001
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
 
@@ -174,8 +176,9 @@ MbrlAlgorithm.reward_optimizer=%opt
 TrainerConfig.initial_collect_steps=%max_len
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=1
-TrainerConfig.mini_batch_size=64
-TrainerConfig.num_updates_per_train_step=5 # epoches
+TrainerConfig.mini_batch_size=128
+TrainerConfig.num_updates_per_train_step=1 # epoches
+TrainerConfig.sample_batch_num=5
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@MbrlAlgorithm
