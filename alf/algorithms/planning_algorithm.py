@@ -437,10 +437,15 @@ class QShootingAlgorithm(PlanAlgorithm):
         # action, planner_state = self._get_action_multi_step_optimization(
         #     time_step, state, self._dynamics_func,  H=1)
 
-        # option 67 NAF
+        # option 7 NAF
         opt_action = self._generate_action_sequence_random_sampling(
             time_step, state, epsilon_greedy, mode="mix")
         action = opt_action[:, 0]
+
+        # 7.1
+        # action, _ = self._get_action_from_Q(
+        #     time_step, state.planner, epsilon_greedy=1
+        # )  # always perform sampling from the action distribution
 
         # add epsilon greedy
         non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
@@ -546,6 +551,73 @@ class QShootingAlgorithm(PlanAlgorithm):
 
             # if c_std.max() > 5e-4:
             #     return action, state
+
+        # include some diversity mearsure
+        # [org_batch_size, expanded_pop]
+        critic = critic.reshape(org_batch_size, -1)
+        top_k = pop_size
+        _, sel_ind = torch.topk(critic, k=top_k)
+        #sel_ind = torch.zeros_like(sel_ind)
+
+        # reshape to org batch size*expanded_pop_size*sol_dim
+        # and select top-k
+        ac_rand_pop = ac_rand_pop.reshape(org_batch_size, -1, solution_size)
+
+        def _batched_index_select(t, dim, inds):
+            dummy = inds.unsqueeze(2).expand(
+                inds.size(0), inds.size(1), t.size(2))
+            out = t.gather(dim, dummy)  # b x e x f
+            return out
+
+        action = _batched_index_select(ac_rand_pop, 1, sel_ind).squeeze(1)
+        action = action.reshape(-1, solution_size)
+
+        return action, state
+
+    def _get_action_from_Q_sampling_Twin(self, org_batch_size,
+                                         time_step: TimeStep, state):
+        """ Twin: one for proposal and one for eval
+        Returns:
+            state: planner state
+        """
+        obs_pop = time_step.observation  # obs has already be expanded
+        mqv1, state1 = self._policy_module._critic_network1(
+            (time_step.observation, None), state=state.policy.critic)
+        action = mqv1[0]
+
+        # batch size after expansion
+        batch_size = obs_pop.shape[0]
+        pop_size = batch_size // org_batch_size
+
+        solution_size = self._num_actions  # one-step horizon
+
+        # expand
+        obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
+        ac_pop = torch.repeat_interleave(action, self._repeat_times, dim=0)
+        ac_noise = torch.randn(
+            batch_size * self._repeat_times,
+            solution_size) * (self._upper_bound - self._lower_bound) * 0.1
+        ac_rand_pop = ac_pop + ac_noise
+
+        critic_input = (obs_pop, ac_rand_pop)
+
+        # # # option 3 sac actor
+        # action0, _ = self._get_action_from_Q(
+        #     time_step._replace(observation=obs_pop), state, epsilon_greedy=1
+        # )  # always perform sampling from the action distribution
+        # critic_input0 = (obs_pop, action0)
+
+        # init an empty action for returning, indicating terminate
+        action = []
+
+        mqv1, critic_state1 = self._policy_module._critic_network2(
+            critic_input, state=state.policy.critic)
+        #mqv2, critic_state = self._critic_network2(inputs, state=state)
+
+        critic = mqv1[1].view(-1)
+
+        # if c_std.max() > 5e-4:
+        #     return action, state
 
         # include some diversity mearsure
         # [org_batch_size, expanded_pop]
@@ -881,9 +953,13 @@ class QShootingAlgorithm(PlanAlgorithm):
                         #     batch_size, time_step,
                         #     state.planner)
                         # 4
-                        action, planner_state = self._get_action_from_Q_sampling(
-                            batch_size, time_step, state.planner,
-                            mode="NAF")  # always add noise
+                        # action, planner_state = self._get_action_from_Q_sampling(
+                        #     batch_size, time_step, state.planner,
+                        #     mode="NAF")  # always add noise
+                        # 5: twin
+                        action, planner_state = self._get_action_from_Q_sampling_Twin(
+                            batch_size, time_step,
+                            state.planner)  # always add noise
                         state = state._replace(planner=planner_state)
                         if len(action) == 0:
                             action = ac_seqs[i]
