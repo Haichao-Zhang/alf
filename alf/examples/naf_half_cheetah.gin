@@ -24,13 +24,13 @@ critic/NafCriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
 critic/NafCriticNetwork.observation_fc_layer_params=(100,100)
 # critic/NafCriticNetwork.use_last_kernel_initializer=False
 critic/NafCriticNetwork.cov_mode="full"
-critic/AdamTF.lr=1e-3
+critic/Adam.lr=1e-3
 
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
-NafAlgorithm.critic_optimizer=@critic/AdamTF()
+NafAlgorithm.critic_optimizer=@critic/Adam()
 
-NafAlgorithm.target_update_period=5
-NafAlgorithm.target_update_tau=0.05
+NafAlgorithm.target_update_period=1
+NafAlgorithm.target_update_tau=0.01
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
 
@@ -42,8 +42,8 @@ OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 TrainerConfig.initial_collect_steps=1000
 TrainerConfig.mini_batch_length=2
 TrainerConfig.unroll_length=1
-TrainerConfig.mini_batch_size=128
-TrainerConfig.num_updates_per_train_step=5
+TrainerConfig.mini_batch_size=64
+TrainerConfig.num_updates_per_train_step=1
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@NafAlgorithm
