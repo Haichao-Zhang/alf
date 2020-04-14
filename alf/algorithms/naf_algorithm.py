@@ -188,11 +188,13 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
         mqv1, critic1_state = self._critic_network1(
             (exp.observation, exp.action), state=state.critic1)
-        mqv2, critic2_state = self._critic_network2(
-            (exp.observation, exp.action), state=state.critic2)
-
         action = mqv1[0]
 
+        # double Q-learning (use action instead of exp.action)
+        # mqv2, critic2_state = self._critic_network2(
+        #     (exp.observation, exp.action), state=state.critic2)
+        mqv2, critic2_state = self._critic_network2((exp.observation, action),
+                                                    state=state.critic2)
         q_value1 = mqv1[1].view(-1)
         q_value2 = mqv2[1].view(-1)
         target_q_value1 = mqv_target1[2].view(-1)
