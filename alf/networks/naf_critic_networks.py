@@ -42,7 +42,7 @@ class NafCriticNetwork(Network):
                  mu_fc_layer_params=None,
                  v_fc_layer_params=None,
                  l_fc_layer_params=None,
-                 activation=torch.relu,
+                 activation=torch.tanh,
                  projection_output_init_gain=1.0,
                  std_bias_initializer_value=0.0,
                  kernel_initializer=None,
@@ -114,7 +114,10 @@ class NafCriticNetwork(Network):
             conv_layer_params=observation_conv_layer_params,
             fc_layer_params=observation_fc_layer_params,
             activation=activation,
-            kernel_initializer=kernel_initializer)
+            kernel_initializer=kernel_initializer,
+            # last_layer_size=100,
+            # last_activation=torch.tanh,
+        )
 
         if use_last_kernel_initializer:
             last_kernel_initializer = functools.partial(
@@ -215,7 +218,8 @@ class NafCriticNetwork(Network):
             num_outputs = mu.size(1)
             L = self._L(encoded_obs)
             L = L.view(-1, num_outputs, num_outputs)
-            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            # D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            D = torch.exp(L) * self._diag_mask.expand_as(L)
             if self._cov_mode == "diag":
                 P = D
                 #P = torch.bmm(D, D.transpose(2, 1))
