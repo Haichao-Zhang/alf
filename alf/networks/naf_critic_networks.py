@@ -218,8 +218,8 @@ class NafCriticNetwork(Network):
             num_outputs = mu.size(1)
             L = self._L(encoded_obs)
             L = L.view(-1, num_outputs, num_outputs)
-            # D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-            D = torch.exp(L) * self._diag_mask.expand_as(L)
+            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            #D = torch.exp(L) * self._diag_mask.expand_as(L)
             if self._cov_mode == "diag":
                 P = D
                 #P = torch.bmm(D, D.transpose(2, 1))
