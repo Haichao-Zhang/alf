@@ -183,7 +183,7 @@ class NafCriticNetwork(Network):
 
         self._cov_mode = cov_mode
 
-    def forward(self, inputs, state=()):
+    def forward(self, inputs, state=(), mode="all"):
         """Computes action-value given an observation.
 
         Args:
@@ -207,6 +207,8 @@ class NafCriticNetwork(Network):
         # 1 mu
         mu, _ = self._mu(encoded_obs)
         mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
+        if mode == "action":
+            return mu, state
 
         # 2 V
         V, _ = self._V(encoded_obs)

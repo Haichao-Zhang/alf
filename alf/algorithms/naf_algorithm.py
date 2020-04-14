@@ -191,23 +191,24 @@ class NafAlgorithm(OffPolicyAlgorithm):
         mqv2, critic2_state = self._critic_network2(
             (exp.observation, exp.action), state=state.critic2)
 
-        mqv_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, None), state=state.target_critic1)
-        mqv_target2, target_critic2_state = self._target_critic_network2(
-            (exp.observation, None), state=state.target_critic2)
+        action_target1, target_critic1_state = self._target_critic_network1(
+            (exp.observation, None), state=state.target_critic1, mode="action")
+
+        # action_target2, target_critic2_state = self._target_critic_network2(
+        #     (exp.observation, None), state=state.target_critic2, mode="action")
 
         def _sample(a, scale=1.0):
             return a + torch.randn_like(a) * (
                 self._action_spec.maximum -
                 self._action_spec.minimum) / 2. * scale
 
-        noisy_action1 = nest.map_structure(_sample, mqv_target1[0], 0.01)
+        noisy_action1 = nest.map_structure(_sample, action_target1, 0.01)
         noisy_action1 = nest.map_structure(spec_utils.clip_to_spec,
                                            noisy_action1, self._action_spec)
 
-        noisy_action2 = nest.map_structure(_sample, mqv_target2[0], 0.01)
-        noisy_action2 = nest.map_structure(spec_utils.clip_to_spec,
-                                           noisy_action2, self._action_spec)
+        # noisy_action2 = nest.map_structure(_sample, action_target2, 0.01)
+        # noisy_action2 = nest.map_structure(spec_utils.clip_to_spec,
+        #                                    noisy_action2, self._action_spec)
 
         action = noisy_action1
 
@@ -217,7 +218,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
         # swap action
         mqv_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, noisy_action2), state=state.target_critic1)
+            (exp.observation, noisy_action1), state=state.target_critic1)
         mqv_target2, target_critic2_state = self._target_critic_network2(
             (exp.observation, noisy_action1), state=state.target_critic2)
 
