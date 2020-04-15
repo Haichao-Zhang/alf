@@ -36,12 +36,13 @@ from alf.utils import losses, common, dist_utils, spec_utils
 NafCriticState = namedtuple(
     "NafCriticState",
     ['critic1', 'critic2', 'target_critic1', 'target_critic2'])
-NafCriticInfo = namedtuple(
-    "NafCriticInfo",
-    ["q_value1", "q_value2", "target_q_value1", "target_q_value2"])
+NafCriticInfo = namedtuple("NafCriticInfo", [
+    "detach_q_value1", "detach_q_value2", "q_value1", "q_value2",
+    "target_q_value1", "target_q_value2"
+])
 NafState = namedtuple("NafState", ['critic'])
 NafInfo = namedtuple("NafInfo", ["critic"], default_value=())
-NafLossInfo = namedtuple('NafLossInfo', ('critic1', 'critic2'))
+NafLossInfo = namedtuple('NafLossInfo', ('critic1', 'critic2', 'dis1', 'dis2'))
 
 
 @gin.configurable
@@ -235,6 +236,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
         target_q_value = torch.min(target_q_value1, target_q_value2)
 
+        # constructing the dual loss
+
         state = NafCriticState(
             critic1=critic1_state,
             critic2=critic2_state,
@@ -242,6 +245,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
             target_critic2=target_critic2_state)
 
         info = NafCriticInfo(
+            detach_q_value1=mqv1[3],
+            detach_q_value2=mqv2[3],
             q_value1=q_value1,
             q_value2=q_value2,
             target_q_value1=target_q_value,
@@ -281,10 +286,17 @@ class NafAlgorithm(OffPolicyAlgorithm):
             training_info=training_info,
             value=training_info.info.critic.q_value2,
             target_value=training_info.info.critic.target_q_value2)
+
+        # maximization
+        dis_loss1 = -training_info.info.critic.detach_q_value1.squeeze(-1)
+        dis_loss2 = -training_info.info.critic.detach_q_value2.squeeze(-1)
         return LossInfo(
-            loss=critic_loss1.loss + critic_loss2.loss,
+            loss=critic_loss1.loss + critic_loss2.loss + dis_loss1 + dis_loss2,
             extra=NafLossInfo(
-                critic1=critic_loss1.extra, critic2=critic_loss2.extra))
+                critic1=critic_loss1.extra,
+                critic2=critic_loss2.extra,
+                dis1=dis_loss1,
+                dis2=dis_loss2))
 
     def after_update(self, training_info):
         self._update_target()
