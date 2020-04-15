@@ -41,9 +41,9 @@ NafAlgorithm.actor_optimizer=@actor/Adam()
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
 NafAlgorithm.critic_optimizer=@critic/Adam()
 
-RLAlgorithm.gradient_clipping=1.0
-RLAlgorithm.clip_by_global_norm=True
-NafAlgorithm.target_update_period=1
+#RLAlgorithm.gradient_clipping=1.0
+#RLAlgorithm.clip_by_global_norm=True
+NafAlgorithm.target_update_period=5
 NafAlgorithm.target_update_tau=0.05
 NafAlgorithm.ou_scale=1
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
@@ -73,3 +73,4 @@ TrainerConfig.summary_interval=100
 TrainerConfig.replay_buffer_length=1000000
 TrainerConfig.algorithm_ctor=@Agent
 Agent.rl_algorithm_cls=@NafAlgorithm
+TrainerConfig.random_seed=1586987476
