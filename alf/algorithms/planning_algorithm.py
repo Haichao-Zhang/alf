@@ -599,6 +599,9 @@ class QShootingAlgorithm(PlanAlgorithm):
             solution_size) * (self._upper_bound - self._lower_bound) * 0.1
         ac_rand_pop = ac_pop + ac_noise
 
+        obs_pop = torch.cat((time_step.observation, obs_pop), 0)
+        ac_rand_pop = torch.cat((action, ac_rand_pop), 0)
+
         critic_input = (obs_pop, ac_rand_pop)
 
         # # # option 3 sac actor
