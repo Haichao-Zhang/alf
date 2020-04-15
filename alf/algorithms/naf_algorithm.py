@@ -197,6 +197,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
         # action_target2, target_critic2_state = self._target_critic_network2(
         #     (exp.observation, None), state=state.target_critic2, mode="action")
 
+        # action_target1 = mqv1[0]  # SAC style
+
         def _sample(a, scale=1.0):
             return a + torch.randn_like(a) * (
                 self._action_spec.maximum -

@@ -132,7 +132,7 @@ class NafCriticNetwork(Network):
             gain=1.0,
             mode='fan_in',
             distribution='truncated_normal',
-            nonlinearity=activation)
+            nonlinearity=torch.tanh)
         self._mu = EncodingNetwork(
             TensorSpec((self._obs_encoder.output_spec.shape[0], )),
             fc_layer_params=mu_fc_layer_params,
