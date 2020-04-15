@@ -194,3 +194,4 @@ TrainerConfig.use_rollout_state=True
 #TrainerConfig.random_seed=102
 TrainerConfig.summarize_action_distributions=True
 TrainerConfig.replay_buffer_length=100000
+TrainerConfig.random_seed=1586987476
