@@ -204,7 +204,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                 self._action_spec.maximum -
                 self._action_spec.minimum) / 2. * scale
 
-        noisy_action1 = nest.map_structure(_sample, action_target1, 0.01)
+        noisy_action1 = nest.map_structure(_sample, action_target1, 0.1)
         noisy_action1 = nest.map_structure(spec_utils.clip_to_spec,
                                            noisy_action1, self._action_spec)
 
@@ -229,8 +229,9 @@ class NafAlgorithm(OffPolicyAlgorithm):
         # target_q_value1 = mqv_target1[2].view(-1)
         # target_q_value2 = mqv_target2[2].view(-1)
 
-        target_q_value1 = mqv_target1[2].view(-1)
-        target_q_value2 = mqv_target2[2].view(-1)
+        # BUG, should use [1] which is the Q value
+        target_q_value1 = mqv_target1[1].view(-1)
+        target_q_value2 = mqv_target2[1].view(-1)
 
         target_q_value = torch.min(target_q_value1, target_q_value2)
 

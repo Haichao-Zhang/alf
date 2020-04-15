@@ -184,6 +184,15 @@ class NafCriticNetwork(Network):
             last_activation=last_activation,
             last_kernel_initializer=last_kernel_initializer)
 
+        self.dis = nn.Sequential(
+            nn.Linear(int(np.prod(img_shape)), 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256, 1),
+            nn.Sigmoid(),
+        )
+
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
         self._diag_mask = torch.diag(

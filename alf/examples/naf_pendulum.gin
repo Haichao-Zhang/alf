@@ -1,7 +1,7 @@
 # naf for pendulum
 
 # default ddpg config
-
+import alf.algorithms.agent
 import alf.algorithms.naf_algorithm
 import alf.algorithms.rl_algorithm
 # environment config
@@ -25,8 +25,8 @@ critic/NafCriticNetwork.use_last_kernel_initializer=True
 # critic/NafCriticNetwork.mu_fc_layer_params=(50, 10)
 # critic/NafCriticNetwork.v_fc_layer_params=(50, 10)
 # critic/NafCriticNetwork.l_fc_layer_params=(50, 10)
-#critic/NafCriticNetwork.cov_mode="diag"
-critic/NafCriticNetwork.cov_mode="full"
+critic/NafCriticNetwork.cov_mode="diag"
+#critic/NafCriticNetwork.cov_mode="full"
 critic/Adam.lr=1e-3
 
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
@@ -47,11 +47,11 @@ TrainerConfig.initial_collect_steps=1000
 TrainerConfig.mini_batch_length=2
 TrainerConfig.unroll_length=1
 TrainerConfig.mini_batch_size=128
-TrainerConfig.sample_batch_num=5
+TrainerConfig.sample_batch_num=1
 TrainerConfig.num_updates_per_train_step=1
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
-TrainerConfig.algorithm_ctor=@NafAlgorithm
+# TrainerConfig.algorithm_ctor=@NafAlgorithm
 TrainerConfig.num_iterations=10000
 TrainerConfig.num_checkpoints=5
 TrainerConfig.evaluate=0
@@ -61,4 +61,6 @@ TrainerConfig.summarize_grads_and_vars=1
 TrainerConfig.summary_interval=100
 TrainerConfig.replay_buffer_length=10000
 #TrainerConfig.random_seed=1586846504
+TrainerConfig.algorithm_ctor=@Agent
+Agent.rl_algorithm_cls=@NafAlgorithm
 

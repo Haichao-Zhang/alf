@@ -1,7 +1,7 @@
 # ddpg for pendulum
 
 # include default ddpg config from file `ddpg.gin`
-include 'ddpg.gin'
+include './ddpg.gin'
 
 # environment config
 NUM_PARALLEL_ENVIRONMENTS=1
