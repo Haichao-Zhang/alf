@@ -42,7 +42,7 @@ class NafCriticNetwork(Network):
                  mu_fc_layer_params=None,
                  v_fc_layer_params=None,
                  l_fc_layer_params=None,
-                 activation=torch.relu,
+                 activation=torch.tanh,
                  projection_output_init_gain=1.0,
                  std_bias_initializer_value=0.0,
                  kernel_initializer=None,
@@ -176,13 +176,22 @@ class NafCriticNetwork(Network):
 
         self._joint_encoder = EncodingNetwork(
             TensorSpec(
-                (self._obs_encoder.output_spec.shape[0] + action_dim * 1, )),
+                (self._obs_encoder.output_spec.shape[0] + action_dim, )),
             fc_layer_params=(100, 100),
             activation=activation,
             kernel_initializer=kernel_initializer,
             last_layer_size=1,
             last_activation=last_activation,
             last_kernel_initializer=last_kernel_initializer)
+
+        self.dis = nn.Sequential(
+            nn.Linear(int(np.prod(img_shape)), 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256, 1),
+            nn.Sigmoid(),
+        )
 
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
@@ -225,44 +234,31 @@ class NafCriticNetwork(Network):
 
         # 3 Q
         Q = None
-        dQ = None
-
         if actions is not None:
             actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
-            # L = self._L(encoded_obs)
-            # L = L.view(-1, num_outputs, num_outputs)
-            # D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            L = self._L(encoded_obs)
+            L = L.view(-1, num_outputs, num_outputs)
+            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
             #D = torch.exp(L) * self._diag_mask.expand_as(L)
             joint = torch.cat([encoded_obs, actions], -1)
-            # stop grad on joint encoder
-            #with torch.no_grad():
             action_value, _ = self._joint_encoder(joint)
-            # if self._cov_mode == "diag":
-            #     P = D
-            #     #P = torch.bmm(D, D.transpose(2, 1))
-            # elif self._cov_mode == "full":
-            #     OD = L * \
-            #         self._tril_mask.expand_as(
-            #             L) + D
-            #     P = torch.bmm(OD, OD.transpose(2, 1))
+            if self._cov_mode == "diag":
+                P = D
+                #P = torch.bmm(D, D.transpose(2, 1))
+            elif self._cov_mode == "full":
+                OD = L * \
+                    self._tril_mask.expand_as(
+                        L) + D
+                P = torch.bmm(OD, OD.transpose(2, 1))
 
-            # u_mu = (actions - mu).unsqueeze(2)
-            # A = -0.5 * \
-            #     torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
+            u_mu = (actions - mu).unsqueeze(2)
+            A = -0.5 * \
+                torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
 
-            # Q = A + V + action_value
-            Q = V + action_value
-
-            joint_dQ = torch.cat([encoded_obs.detach(), mu.detach()], -1)
-            # joint_dQ_neg = torch.cat([encoded_obs.detach(), spec_utils.scale_to_spec(torch.rand_like(mu) * 2 - 1, self._single_action_spec)], -1)
-            # joint_dQ_neg = torch.cat(
-            #     [encoded_obs.detach(),
-            #      mu.detach() + torch.randn_like(mu) * 0.1], -1)
-            dQ, _ = self._joint_encoder(joint_dQ)
-            # dQ_neg, _ = self._joint_encoder(joint_dQ_neg)
-            dQ = dQ - action_value.detach()
-        return (mu, Q, V, dQ), state
+            Q = A + V + action_value
+            #Q = V + action_value
+        return (mu, Q, V), state
         #return Q.squeeze(-1), state
 
     # def get_sample(self, obs):
