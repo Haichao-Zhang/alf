@@ -1,5 +1,5 @@
 # naf for half cheetah
-
+import alf.algorithms.agent
 import alf.algorithms.naf_algorithm
 import pybullet_envs
 

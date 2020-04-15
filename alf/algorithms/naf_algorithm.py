@@ -37,12 +37,11 @@ NafCriticState = namedtuple(
     "NafCriticState",
     ['critic1', 'critic2', 'target_critic1', 'target_critic2'])
 NafCriticInfo = namedtuple("NafCriticInfo", [
-    "detach_q_value1", "detach_q_value2", "q_value1", "q_value2",
-    "target_q_value1", "target_q_value2"
+    "actor_loss", "q_value1", "q_value2", "target_q_value1", "target_q_value2"
 ])
 NafState = namedtuple("NafState", ['critic'])
 NafInfo = namedtuple("NafInfo", ["critic"], default_value=())
-NafLossInfo = namedtuple('NafLossInfo', ('critic1', 'critic2', 'dis1', 'dis2'))
+NafLossInfo = namedtuple('NafLossInfo', ('critic1', 'critic2', 'actor'))
 
 
 @gin.configurable
@@ -66,6 +65,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                  critic_loss_ctor=None,
                  target_update_tau=0.05,
                  target_update_period=1,
+                 dqda_clipping=None,
                  critic_optimizer=None,
                  gradient_clipping=None,
                  debug_summaries=False,
@@ -147,6 +147,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
             ],
             tau=target_update_tau,
             period=target_update_period)
+
+        self._dqda_clipping = dqda_clipping
 
     def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.):
         # how to handle multi-network
@@ -237,6 +239,24 @@ class NafAlgorithm(OffPolicyAlgorithm):
         target_q_value = torch.min(target_q_value1, target_q_value2)
 
         # constructing the dual loss
+        #-----------
+        action = mqv1[0]
+        q_for_mu = self._critic_network1.get_Q(exp.observation, action)
+        dqda = nest.pack_sequence_as(
+            action,
+            list(torch.autograd.grad(q_for_mu.sum(), nest.flatten(action))))
+
+        def actor_loss_fn(dqda, action):
+            if self._dqda_clipping:
+                dqda = torch.clamp(dqda, -self._dqda_clipping,
+                                   self._dqda_clipping)
+            loss = 0.5 * losses.element_wise_squared_loss(
+                (dqda + action).detach(), action)
+            loss = loss.sum(list(range(1, loss.ndim)))
+            return loss
+
+        actor_loss = nest.map_structure(actor_loss_fn, dqda, action)
+        #-----------
 
         state = NafCriticState(
             critic1=critic1_state,
@@ -245,8 +265,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
             target_critic2=target_critic2_state)
 
         info = NafCriticInfo(
-            detach_q_value1=mqv1[3],
-            detach_q_value2=mqv2[3],
+            actor_loss=actor_loss,
             q_value1=q_value1,
             q_value2=q_value2,
             target_q_value1=target_q_value,
@@ -278,6 +297,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
             info=NafInfo(critic=cirtic_step.info))
 
     def calc_loss(self, training_info: TrainingInfo):
+
+        actor_loss = training_info.info.critic.actor_loss
         critic_loss1 = self._critic_loss1(
             training_info=training_info,
             value=training_info.info.critic.q_value1,
@@ -287,16 +308,12 @@ class NafAlgorithm(OffPolicyAlgorithm):
             value=training_info.info.critic.q_value2,
             target_value=training_info.info.critic.target_q_value2)
 
-        # maximization
-        dis_loss1 = -training_info.info.critic.detach_q_value1.squeeze(-1)
-        dis_loss2 = -training_info.info.critic.detach_q_value2.squeeze(-1)
         return LossInfo(
-            loss=critic_loss1.loss + critic_loss2.loss + dis_loss1 + dis_loss2,
+            loss=critic_loss1.loss + critic_loss2.loss + actor_loss,
             extra=NafLossInfo(
                 critic1=critic_loss1.extra,
                 critic2=critic_loss2.extra,
-                dis1=dis_loss1,
-                dis2=dis_loss2))
+                actor=actor_loss))
 
     def after_update(self, training_info):
         self._update_target()

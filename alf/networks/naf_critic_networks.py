@@ -166,7 +166,7 @@ class NafCriticNetwork(Network):
         # [hidden_dim -> 1]
         # TODO joint_fc_layer_params change to non-shared
         self._V = EncodingNetwork(
-            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
+            TensorSpec((observation_spec.shape[0] + action_dim, )),
             fc_layer_params=v_fc_layer_params,
             activation=activation,
             kernel_initializer=kernel_initializer,
@@ -174,24 +174,14 @@ class NafCriticNetwork(Network):
             last_activation=math_ops.identity,
             last_kernel_initializer=last_kernel_initializer)
 
-        self._joint_encoder = EncodingNetwork(
-            TensorSpec(
-                (self._obs_encoder.output_spec.shape[0] + action_dim, )),
-            fc_layer_params=(100, 100),
-            activation=activation,
-            kernel_initializer=kernel_initializer,
-            last_layer_size=1,
-            last_activation=last_activation,
-            last_kernel_initializer=last_kernel_initializer)
-
-        self.dis = nn.Sequential(
-            nn.Linear(int(np.prod(img_shape)), 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(256, 1),
-            nn.Sigmoid(),
-        )
+        # self._joint_encoder = EncodingNetwork(
+        #     TensorSpec((observation_spec.shape[0] + action_dim, )),
+        #     fc_layer_params=(100, 100),
+        #     activation=torch.relu,
+        #     kernel_initializer=kernel_initializer,
+        #     last_layer_size=1,
+        #     last_activation=last_activation,
+        #     last_kernel_initializer=last_kernel_initializer)
 
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
@@ -229,11 +219,9 @@ class NafCriticNetwork(Network):
         if mode == "action":
             return mu, state
 
-        # 2 V
-        V, _ = self._V(encoded_obs)
-
         # 3 Q
         Q = None
+        V = None
         if actions is not None:
             actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
@@ -241,8 +229,8 @@ class NafCriticNetwork(Network):
             L = L.view(-1, num_outputs, num_outputs)
             D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
             #D = torch.exp(L) * self._diag_mask.expand_as(L)
-            joint = torch.cat([encoded_obs, actions], -1)
-            action_value, _ = self._joint_encoder(joint)
+            # joint = torch.cat([encoded_obs, actions], -1)
+            # action_value, _ = self._joint_encoder(joint)
             if self._cov_mode == "diag":
                 P = D
                 #P = torch.bmm(D, D.transpose(2, 1))
@@ -256,9 +244,20 @@ class NafCriticNetwork(Network):
             A = -0.5 * \
                 torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
 
-            Q = A + V + action_value
+            # 2 V
+            joint = torch.cat([observations, actions], -1)
+            V, _ = self._V(joint)
+
+            Q = A + V
+            #Q = V
             #Q = V + action_value
         return (mu, Q, V), state
+
+    def get_Q(self, obs, actions):
+        # encoded_obs, _ = self._obs_encoder(obs)
+        joint = torch.cat([obs.detach(), actions], -1)
+        V, _ = self._V(joint)
+        return V
         #return Q.squeeze(-1), state
 
     # def get_sample(self, obs):
