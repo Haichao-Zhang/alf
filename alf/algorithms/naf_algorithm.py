@@ -29,19 +29,22 @@ from alf.algorithms.rl_algorithm import RLAlgorithm
 from alf.data_structures import TimeStep, Experience, LossInfo, namedtuple
 from alf.data_structures import AlgStep, TrainingInfo
 from alf.nest import nest
-from alf.networks import NafCriticNetwork
+from alf.networks import NafCriticNetwork, ActorNetwork
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
 from alf.utils import losses, common, dist_utils, spec_utils
 
 NafCriticState = namedtuple(
     "NafCriticState",
-    ['critic1', 'critic2', 'target_critic1', 'target_critic2'])
-NafCriticInfo = namedtuple("NafCriticInfo", [
-    "actor_loss", "q_value1", "q_value2", "target_q_value1", "target_q_value2"
-])
-NafState = namedtuple("NafState", ['critic'])
-NafInfo = namedtuple("NafInfo", ["critic"], default_value=())
-NafLossInfo = namedtuple('NafLossInfo', ('critic1', 'critic2', 'actor'))
+    ['critic1', 'critic2', 'target_actor', 'target_critic1', 'target_critic2'])
+NafCriticInfo = namedtuple(
+    "NafCriticInfo",
+    ["q_value1", "q_value2", "target_q_value1", "target_q_value2"])
+NafActorState = namedtuple("NafActorState", ['actor', 'critic1', 'critic2'])
+NafState = namedtuple("NafState", ['actor', 'critic'])
+NafInfo = namedtuple(
+    "NafInfo", ["action_distribution", "actor_loss", "critic"],
+    default_value=())
+NafLossInfo = namedtuple('NafLossInfo', ('actor', 'critic1', 'critic2'))
 
 
 @gin.configurable
@@ -56,6 +59,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
     def __init__(self,
                  observation_spec,
                  action_spec: BoundedTensorSpec,
+                 actor_network: ActorNetwork,
                  critic_network: NafCriticNetwork,
                  env=None,
                  config: TrainerConfig = None,
@@ -66,6 +70,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                  target_update_tau=0.05,
                  target_update_period=1,
                  dqda_clipping=None,
+                 actor_optimizer=None,
                  critic_optimizer=None,
                  gradient_clipping=None,
                  debug_summaries=False,
@@ -102,9 +107,14 @@ class NafAlgorithm(OffPolicyAlgorithm):
         critic_network2 = critic_network.copy()
 
         train_state_spec = NafState(
+            actor=NafActorState(
+                actor=actor_network.state_spec,
+                critic1=critic_network.state_spec,
+                critic2=critic_network.state_spec),
             critic=NafCriticState(
                 critic1=critic_network.state_spec,
                 critic2=critic_network.state_spec,
+                target_actor=actor_network.state_spec,
                 target_critic1=critic_network.state_spec,
                 target_critic2=critic_network.state_spec))
 
@@ -119,14 +129,19 @@ class NafAlgorithm(OffPolicyAlgorithm):
             name=name)
 
         if critic_optimizer is not None:
+            self.add_optimizer(actor_optimizer, [actor_network])
+
+        if critic_optimizer is not None:
             self.add_optimizer(critic_optimizer,
                                [critic_network1, critic_network2])
 
         self._critic_network1 = critic_network1
         self._critic_network2 = critic_network2
+        self._actor_network = actor_network
 
         self._target_critic_network1 = critic_network.copy()
         self._target_critic_network2 = critic_network.copy()
+        self._target_actor_network = actor_network.copy()
 
         self._ou_stddev = ou_stddev
         self._ou_damping = ou_damping
@@ -141,9 +156,13 @@ class NafAlgorithm(OffPolicyAlgorithm):
                                                     ou_stddev, ou_damping)
 
         self._update_target = common.get_target_updater(
-            models=[self._critic_network1, self._critic_network2],
+            models=[
+                self._actor_network, self._critic_network1,
+                self._critic_network2
+            ],
             target_models=[
-                self._target_critic_network1, self._target_critic_network2
+                self._target_actor_network, self._target_critic_network1,
+                self._target_critic_network2
             ],
             tau=target_update_tau,
             period=target_update_period)
@@ -151,20 +170,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
         self._dqda_clipping = dqda_clipping
 
     def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.):
-        # how to handle multi-network
-        mqv1, state1 = self._critic_network1((time_step.observation, None),
-                                             state=state.critic)
-        # mqv2, state2 = self._critic_network2((time_step.observation, None),
-        #                                      state=state.critic)
-        # if mqv1[2] < mqv2[2]:
-        #     action = mqv1[0]
-        #     state = state1
-        # else:
-        #     action = mqv2[0]
-        #     state = state2
-
-        action = mqv1[0]
-        state = state1
+        action, state = self._actor_network(
+            time_step.observation, state=state.actor.actor)
 
         empty_state = nest.map_structure(lambda x: (), self.train_state_spec)
 
@@ -177,8 +184,13 @@ class NafAlgorithm(OffPolicyAlgorithm):
         noisy_action = nest.map_structure(_sample, action, self._ou_process)
         noisy_action = nest.map_structure(spec_utils.clip_to_spec,
                                           noisy_action, self._action_spec)
-        state = empty_state._replace(critic=state)
-        return AlgStep(output=noisy_action, state=state, info=NafInfo())
+
+        state = empty_state._replace(
+            actor=NafActorState(actor=state, critic1=(), critic2=()))
+        return AlgStep(
+            output=noisy_action,
+            state=state,
+            info=NafInfo(action_distribution=action))
 
     def rollout_step(self, time_step: TimeStep, state=None):
         if self.need_full_rollout_state():
@@ -187,65 +199,86 @@ class NafAlgorithm(OffPolicyAlgorithm):
         return self.predict_step(time_step, state, epsilon_greedy=1.0)
 
     def _critic_train_step(self, exp: Experience, state: NafCriticState):
-
-        action_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, None), state=state.target_critic1, mode="action")
-
-        action_target2, target_critic2_state = self._target_critic_network2(
-            (exp.observation, None), state=state.target_critic2, mode="action")
+        target_action, target_actor_state = self._target_actor_network(
+            exp.observation, state=state.target_actor)
 
         # swap action
-        mqv_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, action_target1), state=state.target_critic1)
-        mqv_target2, target_critic2_state = self._target_critic_network2(
-            (exp.observation, action_target2), state=state.target_critic2)
+        target_q_value1, target_critic1_state = self._target_critic_network1(
+            (exp.observation, target_action), state=state.target_critic1)
+        target_q_value2, target_critic2_state = self._target_critic_network2(
+            (exp.observation, target_action), state=state.target_critic2)
 
         # target_q_value1 = mqv_target1[2].view(-1)
         # target_q_value2 = mqv_target2[2].view(-1)
 
-        # BUG, should use [1] which is the Q value
-        target_q_value1 = mqv_target1[1].view(-1)
-        target_q_value2 = mqv_target2[1].view(-1)
+        # # BUG, should use [1] which is the Q value
+        # target_q_value1 = mqv_target1[1].view(-1)
+        # target_q_value2 = mqv_target2[1].view(-1)
 
-        target_q_value = torch.min(target_q_value1, target_q_value2)
+        #target_q_value = torch.min(target_q_value1, target_q_value2)
 
-        mqv1, critic1_state = self._critic_network1(
+        q_value1, critic1_state = self._critic_network1(
             (exp.observation, exp.action), state=state.critic1)
 
-        mqv2, critic2_state = self._critic_network2(
+        q_value2, critic2_state = self._critic_network2(
             (exp.observation, exp.action), state=state.critic2)
 
-        q_value1 = mqv1[1].view(-1)
-        q_value2 = mqv2[1].view(-1)
+        # q_value1 = mqv1[1].view(-1)
+        # q_value2 = mqv2[1].view(-1)
 
         # action_target1 = mqv1[0]  # SAC style
 
-        def _sample(a, scale=1.0):
-            return a + torch.randn_like(a) * (
-                self._action_spec.maximum -
-                self._action_spec.minimum) / 2. * scale
+        # def _sample(a, scale=1.0):
+        #     return a + torch.randn_like(a) * (
+        #         self._action_spec.maximum -
+        #         self._action_spec.minimum) / 2. * scale
 
-        noisy_action1 = nest.map_structure(_sample, action_target1, 0.1)
-        noisy_action1 = nest.map_structure(spec_utils.clip_to_spec,
-                                           noisy_action1, self._action_spec)
+        # noisy_action1 = nest.map_structure(_sample, action_target1, 0.1)
+        # noisy_action1 = nest.map_structure(spec_utils.clip_to_spec,
+        #                                    noisy_action1, self._action_spec)
 
         # noisy_action2 = nest.map_structure(_sample, action_target2, 0.01)
         # noisy_action2 = nest.map_structure(spec_utils.clip_to_spec,
         #                                    noisy_action2, self._action_spec)
 
-        action = action_target1
+        # action = action_target1
 
         # double Q-learning (use action instead of exp.action)
         # mqv2, critic2_state = self._critic_network2(
         #     (exp.observation, exp.action), state=state.critic2)
 
         # constructing the dual loss
-        #-----------
-        action = mqv1[0]
-        q_for_mu = self._critic_network1.get_Q(exp.observation, action)
+
+        state = NafCriticState(
+            critic1=critic1_state,
+            critic2=critic2_state,
+            target_actor=target_actor_state,
+            target_critic1=target_critic1_state,
+            target_critic2=target_critic2_state)
+
+        info = NafCriticInfo(
+            q_value1=q_value1,
+            q_value2=q_value2,
+            target_q_value1=target_q_value1,
+            target_q_value2=target_q_value2)
+
+        return state, info
+
+    def _actor_train_step(self, exp: Experience, state: NafActorState):
+
+        action, actor_state = self._actor_network(
+            exp.observation, state=state.actor)
+
+        q_value1, critic_state1 = self._critic_network1(
+            (exp.observation, action), state=state.critic1)
+
+        q_value2, critic_state2 = self._critic_network2(
+            (exp.observation, action), state=state.critic2)
+        q_value = torch.min(q_value1, q_value2)
+
         dqda = nest.pack_sequence_as(
             action,
-            list(torch.autograd.grad(q_for_mu.sum(), nest.flatten(action))))
+            list(torch.autograd.grad(q_value.sum(), nest.flatten(action))))
 
         def actor_loss_fn(dqda, action):
             if self._dqda_clipping:
@@ -257,21 +290,9 @@ class NafAlgorithm(OffPolicyAlgorithm):
             return loss
 
         actor_loss = nest.map_structure(actor_loss_fn, dqda, action)
-        #-----------
-
-        state = NafCriticState(
-            critic1=critic1_state,
-            critic2=critic2_state,
-            target_critic1=target_critic1_state,
-            target_critic2=target_critic2_state)
-
-        info = NafCriticInfo(
-            actor_loss=actor_loss,
-            q_value1=q_value1,
-            q_value2=q_value2,
-            target_q_value1=target_q_value1,
-            target_q_value2=target_q_value2)
-
+        state = NafActorState(
+            actor=actor_state, critic1=critic_state1, critic2=critic_state2)
+        info = LossInfo(loss=sum(nest.flatten(actor_loss)), extra=actor_loss)
         return AlgStep(output=action, state=state, info=info)
 
     def _get_q_value(self, inputs, state=None):
@@ -292,14 +313,19 @@ class NafAlgorithm(OffPolicyAlgorithm):
         return state_value, critic_state1
 
     def train_step(self, exp: Experience, state: NafState):
-        cirtic_step = self._critic_train_step(exp=exp, state=state.critic)
-        return cirtic_step._replace(
-            state=NafState(critic=cirtic_step.state),
-            info=NafInfo(critic=cirtic_step.info))
+        critic_state, critic_info = self._critic_train_step(
+            exp=exp, state=state.critic)
+        policy_step = self._actor_train_step(exp=exp, state=state.actor)
+
+        return policy_step._replace(
+            state=NafState(actor=policy_step.state, critic=critic_state),
+            info=NafInfo(
+                action_distribution=policy_step.output,
+                critic=critic_info,
+                actor_loss=policy_step.info))
 
     def calc_loss(self, training_info: TrainingInfo):
 
-        actor_loss = training_info.info.critic.actor_loss
         critic_loss1 = self._critic_loss1(
             training_info=training_info,
             value=training_info.info.critic.q_value1,
@@ -309,8 +335,10 @@ class NafAlgorithm(OffPolicyAlgorithm):
             value=training_info.info.critic.q_value2,
             target_value=training_info.info.critic.target_q_value2)
 
+        actor_loss = training_info.info.actor_loss
+
         return LossInfo(
-            loss=critic_loss1.loss + critic_loss2.loss + actor_loss,
+            loss=critic_loss1.loss + critic_loss2.loss + actor_loss.loss,
             extra=NafLossInfo(
                 critic1=critic_loss1.extra,
                 critic2=critic_loss2.extra,
@@ -320,4 +348,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
         self._update_target()
 
     def _trainable_attributes_to_ignore(self):
-        return ['_target_critic_network1', '_target_critic_network2']
+        return [
+            '_target_actor_network', '_target_critic_network1',
+            '_target_critic_network2'
+        ]

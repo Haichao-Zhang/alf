@@ -30,8 +30,8 @@ import alf.utils.math_ops as math_ops
 
 
 @gin.configurable
-class NafCriticNetwork(Network):
-    """Create an instance of NafCriticNetwork."""
+class NafActorNetwork(Network):
+    """Create an instance of NafActorNetwork."""
 
     def __init__(self,
                  input_tensor_spec,
@@ -40,17 +40,14 @@ class NafCriticNetwork(Network):
                  observation_conv_layer_params=None,
                  observation_fc_layer_params=None,
                  mu_fc_layer_params=None,
-                 v_fc_layer_params=None,
-                 l_fc_layer_params=None,
                  activation=torch.relu,
                  projection_output_init_gain=1.0,
                  std_bias_initializer_value=0.0,
                  kernel_initializer=None,
                  use_last_kernel_initializer=True,
                  last_activation=math_ops.identity,
-                 cov_mode="diag",
-                 name="NafCriticNetwork"):
-        """Creates an instance of `NafCriticNetwork` for estimating action-value of
+                 name="NafActorNetwork"):
+        """Creates an instance of `NafActorNetwork` for estimating action-value of
         continuous actions. The action-value is defined as the expected return
         starting from the given input observation and taking the given action.
         This module takes observation as input and action as input and outputs
@@ -130,72 +127,11 @@ class NafCriticNetwork(Network):
         else:
             last_kernel_initializer = None
 
-        # [hidden_dim -> action_dim]
-        # might need action squash
-        # mu_kernel_initializer = functools.partial(
-        #     variance_scaling_init,
-        #     gain=1.0,
-        #     mode='fan_in',
-        #     distribution='truncated_normal',
-        #     nonlinearity=torch.tanh)
-        # self._mu = EncodingNetwork(
-        #     TensorSpec((self._obs_encoder.output_spec.shape[0], )),
-        #     fc_layer_params=mu_fc_layer_params,
-        #     activation=activation,
-        #     kernel_initializer=kernel_initializer,  # assumes fixed activation
-        #     last_layer_size=action_dim,
-        #     last_activation=torch.tanh,
-        #     last_kernel_initializer=last_kernel_initializer)
-
-        # self._L = EncodingNetwork(TensorSpec(
-        #     (self._obs_encoder.output_spec.shape[0], )),
-        #                           fc_layer_params=l_fc_layer_params,
-        #                           activation=activation,
-        #                           kernel_initializer=None,
-        #                           last_layer_size=action_dim**2,
-        #                           last_activation=math_ops.identity,
-        #                           last_kernel_initializer=None)
         self._mu = layers.FC(
             self._obs_encoder.output_spec.shape[0],
             action_dim,
             activation=torch.tanh,
             kernel_initializer=last_kernel_initializer)
-
-        self._L = layers.FC(
-            self._obs_encoder.output_spec.shape[0],
-            action_dim**2,
-            activation=math_ops.identity,
-            kernel_init_gain=projection_output_init_gain,
-            bias_init_value=std_bias_initializer_value)
-
-        # [hidden_dim -> 1]
-        # TODO joint_fc_layer_params change to non-shared
-        self._V = EncodingNetwork(
-            TensorSpec((observation_spec.shape[0] + action_dim, )),
-            fc_layer_params=v_fc_layer_params,
-            activation=activation,
-            kernel_initializer=kernel_initializer,
-            last_layer_size=1,
-            last_activation=math_ops.identity,
-            last_kernel_initializer=last_kernel_initializer)
-
-        # self._joint_encoder = EncodingNetwork(
-        #     TensorSpec((observation_spec.shape[0] + action_dim, )),
-        #     fc_layer_params=(100, 100),
-        #     activation=torch.relu,
-        #     kernel_initializer=kernel_initializer,
-        #     last_layer_size=1,
-        #     last_activation=last_activation,
-        #     last_kernel_initializer=last_kernel_initializer)
-
-        self._tril_mask = torch.tril(
-            torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
-        self._diag_mask = torch.diag(
-            torch.diag(torch.ones(action_dim, action_dim))).unsqueeze(0)
-
-        self._output_spec = TensorSpec(())
-
-        self._cov_mode = cov_mode
 
     def forward(self, inputs, state=(), mode="all"):
         """Computes action-value given an observation.
@@ -221,91 +157,5 @@ class NafCriticNetwork(Network):
         # 1 mu
         mu = self._mu(encoded_obs)
         mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
-        if mode == "action":
-            return mu, state
 
-        # 3 Q
-        Q = None
-        V = None
-        if actions is not None:
-            actions = actions.to(torch.float32)
-            num_outputs = mu.size(1)
-            L = self._L(encoded_obs)
-            L = L.view(-1, num_outputs, num_outputs)
-            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-            #D = torch.exp(L) * self._diag_mask.expand_as(L)
-            # joint = torch.cat([encoded_obs, actions], -1)
-            # action_value, _ = self._joint_encoder(joint)
-            if self._cov_mode == "diag":
-                P = D
-                #P = torch.bmm(D, D.transpose(2, 1))
-            elif self._cov_mode == "full":
-                OD = L * \
-                    self._tril_mask.expand_as(
-                        L) + D
-                P = torch.bmm(OD, OD.transpose(2, 1))
-
-            u_mu = (actions - mu).unsqueeze(2)
-            A = -0.5 * \
-                torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
-
-            # 2 V
-            joint = torch.cat([observations, actions], -1)
-            V, _ = self._V(joint)
-
-            #Q = A + V
-            Q = V
-            #Q = V + action_value
-        #return (mu, Q, V), state
-        return Q.squeeze(-1), state
-
-    def get_Q(self, obs, actions):
-        # encoded_obs, _ = self._obs_encoder(obs)
-        joint = torch.cat([obs.detach(), actions], -1)
-        V, _ = self._V(joint)
-        return V
-
-    # def get_sample(self, obs):
-    #         def forward(self, inputs, state=()):
-    #         """Computes action-value given an observation.
-
-    #     Args:
-    #         inputs:  A tuple of Tensors consistent with `input_tensor_spec`
-    #         state: empty for API consistent with CriticRNNNetwork
-
-    #     Returns:
-    #         action_value (torch.Tensor): a tensor of the size [batch_size]
-    #         state: empty
-    #     """
-
-    #     observations = obs
-
-    #     # observations = self._bn0(observations)
-
-    #     # 0 encode observation
-    #     encoded_obs, _ = self._obs_encoder(observations)
-
-    #     # 1 mu
-    #     mu = self._mu(encoded_obs)
-    #     mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
-
-    #     n = torch.randn_like(mu)
-
-    #     L = self._L(encoded_obs)
-    #     L = L.view(-1, num_outputs, num_outputs)
-    #     D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-    #     if self._cov_mode == "diag":
-    #         P = D
-    #     elif self._cov_mode == "full":
-    #         OD = L * \
-    #             self._tril_mask.expand_as(
-    #                 L) + D
-    #         P = torch.bmm(OD, OD.transpose(2, 1))
-
-    #         u_mu = (actions - mu).unsqueeze(2)
-    #         A = -0.5 * \
-    #             torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
-
-    #         Q = A + V
-
-    #     return (mu, Q, V), state
+        return mu, state
