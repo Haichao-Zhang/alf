@@ -59,7 +59,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                  critic_network: NafCriticNetwork,
                  env=None,
                  config: TrainerConfig = None,
-                 ou_scale=0.6,
+                 ou_scale=1.0,
                  ou_stddev=0.2,
                  ou_damping=0.15,
                  critic_loss_ctor=None,
