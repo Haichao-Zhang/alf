@@ -138,23 +138,23 @@ class NafCriticNetwork(Network):
         #     mode='fan_in',
         #     distribution='truncated_normal',
         #     nonlinearity=torch.tanh)
-        # self._mu = EncodingNetwork(
-        #     observation_spec,
-        #     fc_layer_params=mu_fc_layer_params,
-        #     activation=torch.relu,
-        #     kernel_initializer=kernel_initializer,  # assumes fixed activation
-        #     last_layer_size=action_dim,
-        #     last_activation=torch.tanh,
-        #     last_kernel_initializer=last_kernel_initializer)
+        self._mu = EncodingNetwork(
+            observation_spec,
+            fc_layer_params=mu_fc_layer_params,
+            activation=torch.relu,
+            kernel_initializer=kernel_initializer,  # assumes fixed activation
+            last_layer_size=action_dim,
+            last_activation=torch.tanh,
+            last_kernel_initializer=last_kernel_initializer)
 
-        # self._L = EncodingNetwork(
-        #     observation_spec,
-        #     fc_layer_params=l_fc_layer_params,
-        #     activation=torch.tanh,
-        #     kernel_initializer=kernel_initializer,
-        #     last_layer_size=action_dim**2,
-        #     last_activation=math_ops.identity,
-        #     last_kernel_initializer=last_kernel_initializer)
+        self._L = EncodingNetwork(
+            observation_spec,
+            fc_layer_params=l_fc_layer_params,
+            activation=torch.tanh,
+            kernel_initializer=kernel_initializer,
+            last_layer_size=action_dim**2,
+            last_activation=math_ops.identity,
+            last_kernel_initializer=last_kernel_initializer)
         # self._mu = layers.FC(
         #     self._obs_encoder.output_spec.shape[0],
         #     action_dim,
@@ -180,13 +180,21 @@ class NafCriticNetwork(Network):
         # [hidden_dim -> 1]
         # TODO joint_fc_layer_params change to non-shared
         self._V = EncodingNetwork(
-            TensorSpec((observation_spec.shape[0] + action_dim, )),
+            TensorSpec((observation_spec.shape[0], )),
             fc_layer_params=v_fc_layer_params,
             activation=torch.relu,
             kernel_initializer=kernel_initializer,
             last_layer_size=1,
             last_activation=math_ops.identity,
             last_kernel_initializer=last_kernel_initializer)
+        # self._V = EncodingNetwork(
+        #     TensorSpec((observation_spec.shape[0] + action_dim, )),
+        #     fc_layer_params=v_fc_layer_params,
+        #     activation=torch.relu,
+        #     kernel_initializer=kernel_initializer,
+        #     last_layer_size=1,
+        #     last_activation=math_ops.identity,
+        #     last_kernel_initializer=last_kernel_initializer)
 
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
@@ -218,9 +226,9 @@ class NafCriticNetwork(Network):
         # # 0 encode observation
         # encoded_obs, _ = self._obs_encoder(observations)
 
-        # # 1 mu
-        # mu, _ = self._mu(observations)
-        # mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
+        # 1 mu
+        mu, _ = self._mu(observations)
+        mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
         # if mode == "action":
         #     return mu, state
 
@@ -228,37 +236,37 @@ class NafCriticNetwork(Network):
         # Q = None
         # V = None
         if actions is not None:
-            #     actions = actions.to(torch.float32)
-            #     num_outputs = mu.size(1)
-            #     L, _ = self._L(observations)
-            #     L = L.view(-1, num_outputs, num_outputs)
-            #     D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
-            #     # D = L * self._diag_mask.expand_as(L)
-            #     # D = D * D
-            #     #D = torch.exp(L) * self._diag_mask.expand_as(L)
-            #     # joint = torch.cat([encoded_obs, actions], -1)
-            #     # action_value, _ = self._joint_encoder(joint)
-            #     if self._cov_mode == "diag":
-            #         P = D
-            #         #P = torch.bmm(D, D.transpose(2, 1))
-            #     elif self._cov_mode == "full":
-            #         OD = L * \
-            #             self._tril_mask.expand_as(
-            #                 L) + D
-            #         P = torch.bmm(OD, OD.transpose(2, 1))
+            actions = actions.to(torch.float32)
+            num_outputs = mu.size(1)
+            L, _ = self._L(observations)
+            L = L.view(-1, num_outputs, num_outputs)
+            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            # D = L * self._diag_mask.expand_as(L)
+            # D = D * D
+            #D = torch.exp(L) * self._diag_mask.expand_as(L)
+            # joint = torch.cat([encoded_obs, actions], -1)
+            # action_value, _ = self._joint_encoder(joint)
+            if self._cov_mode == "diag":
+                P = D
+                #P = torch.bmm(D, D.transpose(2, 1))
+            elif self._cov_mode == "full":
+                OD = L * \
+                    self._tril_mask.expand_as(
+                        L) + D
+                P = torch.bmm(OD, OD.transpose(2, 1))
 
-            #     u_mu = (actions - mu).unsqueeze(2)
-            #     A = -0.5 * \
-            #         torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
+            u_mu = (actions - mu).unsqueeze(2)
+            A = -0.5 * \
+                torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
 
-            # # 2 V joint
-            joint = torch.cat([observations, actions], -1)
-            V, _ = self._V(joint)
+            # # # 2 V joint
+            # joint = torch.cat([observations, actions], -1)
+            # V, _ = self._V(joint)
             # # 2 V separate
-            # V, _ = self._V(encoded_obs)
+            V, _ = self._V(observations)
 
-            #Q = A + V
-            Q = V
+            Q = A + V
+            #Q = V
             #Q = V + action_value
         #return (mu, Q, V), state
         return Q.squeeze(-1), state
