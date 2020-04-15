@@ -139,8 +139,8 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
             critic_loss = OneStepTDLoss(debug_summaries=debug_summaries)
         self._critic_loss = critic_loss
 
-        self._ou_process = common.create_ou_process(action_spec, ou_stddev,
-                                                    ou_damping)
+        self._ou_process = common.create_ou_process(action_spec, 1.0,
+                                                    ou_stddev, ou_damping)
 
         self._update_target = common.get_target_updater(
             models=[self._actor_network, self._critic_network],
