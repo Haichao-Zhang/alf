@@ -31,7 +31,7 @@ critic/NafCriticNetwork.use_last_kernel_initializer=True
 # critic/NafCriticNetwork.mu_fc_layer_params=(50, 10)
 # joint encoding for critic
 critic/NafCriticNetwork.v_fc_layer_params=(100, 100)
-# critic/NafCriticNetwork.l_fc_layer_params=(50, 10)
+critic/NafCriticNetwork.l_fc_layer_params=(100, 100)
 critic/NafCriticNetwork.cov_mode="diag"
 #critic/NafCriticNetwork.cov_mode="full"
 critic/Adam.lr=1e-3

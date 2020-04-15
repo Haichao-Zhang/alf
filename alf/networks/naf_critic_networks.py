@@ -147,46 +147,46 @@ class NafCriticNetwork(Network):
         #     last_activation=torch.tanh,
         #     last_kernel_initializer=last_kernel_initializer)
 
-        # self._L = EncodingNetwork(TensorSpec(
-        #     (self._obs_encoder.output_spec.shape[0], )),
-        #                           fc_layer_params=l_fc_layer_params,
-        #                           activation=activation,
-        #                           kernel_initializer=None,
-        #                           last_layer_size=action_dim**2,
-        #                           last_activation=math_ops.identity,
-        #                           last_kernel_initializer=None)
+        self._L = EncodingNetwork(
+            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
+            fc_layer_params=l_fc_layer_params,
+            activation=torch.tanh,
+            kernel_initializer=kernel_initializer,
+            last_layer_size=action_dim**2,
+            last_activation=math_ops.identity,
+            last_kernel_initializer=last_kernel_initializer)
         self._mu = layers.FC(
             self._obs_encoder.output_spec.shape[0],
             action_dim,
             activation=torch.tanh,
             kernel_initializer=last_kernel_initializer)
 
-        self._L = layers.FC(
-            self._obs_encoder.output_spec.shape[0],
-            action_dim**2,
-            activation=math_ops.identity,
-            kernel_init_gain=projection_output_init_gain,
-            bias_init_value=std_bias_initializer_value)
+        # self._L = layers.FC(
+        #     self._obs_encoder.output_spec.shape[0],
+        #     action_dim**2,
+        #     activation=math_ops.identity,
+        #     kernel_init_gain=projection_output_init_gain,
+        #     bias_init_value=std_bias_initializer_value)
+
+        # self._V = EncodingNetwork(
+        #     TensorSpec((self._obs_encoder.output_spec.shape[0], )),
+        #     fc_layer_params=v_fc_layer_params,
+        #     activation=activation,
+        #     kernel_initializer=kernel_initializer,
+        #     last_layer_size=1,
+        #     last_activation=math_ops.identity,
+        #     last_kernel_initializer=last_kernel_initializer)
 
         # [hidden_dim -> 1]
         # TODO joint_fc_layer_params change to non-shared
         self._V = EncodingNetwork(
             TensorSpec((observation_spec.shape[0] + action_dim, )),
             fc_layer_params=v_fc_layer_params,
-            activation=activation,
+            activation=torch.relu,
             kernel_initializer=kernel_initializer,
             last_layer_size=1,
             last_activation=math_ops.identity,
             last_kernel_initializer=last_kernel_initializer)
-
-        # self._joint_encoder = EncodingNetwork(
-        #     TensorSpec((observation_spec.shape[0] + action_dim, )),
-        #     fc_layer_params=(100, 100),
-        #     activation=torch.relu,
-        #     kernel_initializer=kernel_initializer,
-        #     last_layer_size=1,
-        #     last_activation=last_activation,
-        #     last_kernel_initializer=last_kernel_initializer)
 
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
@@ -230,7 +230,7 @@ class NafCriticNetwork(Network):
         if actions is not None:
             actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
-            L = self._L(encoded_obs)
+            L, _ = self._L(encoded_obs)
             L = L.view(-1, num_outputs, num_outputs)
             D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
             #D = torch.exp(L) * self._diag_mask.expand_as(L)
@@ -249,12 +249,14 @@ class NafCriticNetwork(Network):
             A = -0.5 * \
                 torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
 
-            # 2 V
+            # # 2 V joint
             joint = torch.cat([observations, actions], -1)
             V, _ = self._V(joint)
+            # # 2 V separate
+            # V, _ = self._V(encoded_obs)
 
-            #Q = A + V
-            Q = V
+            Q = A + V
+            #Q = V
             #Q = V + action_value
         #return (mu, Q, V), state
         return Q.squeeze(-1), state
