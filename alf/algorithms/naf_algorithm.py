@@ -215,8 +215,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
         target_q_value1 = mqv_target1[2].view(-1)
         target_q_value2 = mqv_target2[2].view(-1)
 
-        # TODO
-        target_q_value = torch.min(target_q_value1, target_q_value2)
+        # # TODO
+        # target_q_value = torch.min(target_q_value1, target_q_value2)
 
         state = NafCriticState(
             critic1=critic1_state,
@@ -235,17 +235,18 @@ class NafAlgorithm(OffPolicyAlgorithm):
     def _get_q_value(self, inputs, state=None):
 
         mqv1, critic_state1 = self._critic_network1(inputs, state=state)
-        #mqv2, critic_state = self._critic_network2(inputs, state=state)
+        mqv2, critic_state = self._critic_network2(inputs, state=state)
 
-        q_value = mqv1[1].view(-1)
+        q_value = torch.min(mqv1[1], mqv2[1]).view(-1)
 
         return q_value, critic_state1
 
     def _get_state_value(self, inputs, state=None):
 
         mqv1, critic_state1 = self._critic_network1(inputs, state=state)
+        mqv2, critic_state = self._critic_network2(inputs, state=state)
 
-        state_value = mqv1[2].view(-1)
+        state_value = torch.min(mqv1[2], mqv2[2]).view(-1)
 
         return state_value, critic_state1
 
