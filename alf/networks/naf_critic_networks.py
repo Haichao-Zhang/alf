@@ -138,28 +138,28 @@ class NafCriticNetwork(Network):
         #     mode='fan_in',
         #     distribution='truncated_normal',
         #     nonlinearity=torch.tanh)
-        # self._mu = EncodingNetwork(
-        #     TensorSpec((self._obs_encoder.output_spec.shape[0], )),
-        #     fc_layer_params=mu_fc_layer_params,
-        #     activation=activation,
-        #     kernel_initializer=kernel_initializer,  # assumes fixed activation
-        #     last_layer_size=action_dim,
-        #     last_activation=torch.tanh,
-        #     last_kernel_initializer=last_kernel_initializer)
+        self._mu = EncodingNetwork(
+            observation_spec,
+            fc_layer_params=mu_fc_layer_params,
+            activation=torch.relu,
+            kernel_initializer=kernel_initializer,  # assumes fixed activation
+            last_layer_size=action_dim,
+            last_activation=torch.tanh,
+            last_kernel_initializer=last_kernel_initializer)
 
         self._L = EncodingNetwork(
-            TensorSpec((self._obs_encoder.output_spec.shape[0], )),
+            observation_spec,
             fc_layer_params=l_fc_layer_params,
             activation=torch.tanh,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
             last_activation=math_ops.identity,
             last_kernel_initializer=last_kernel_initializer)
-        self._mu = layers.FC(
-            self._obs_encoder.output_spec.shape[0],
-            action_dim,
-            activation=torch.tanh,
-            kernel_initializer=last_kernel_initializer)
+        # self._mu = layers.FC(
+        #     self._obs_encoder.output_spec.shape[0],
+        #     action_dim,
+        #     activation=torch.tanh,
+        #     kernel_initializer=last_kernel_initializer)
 
         # self._L = layers.FC(
         #     self._obs_encoder.output_spec.shape[0],
@@ -215,11 +215,11 @@ class NafCriticNetwork(Network):
 
         # observations = self._bn0(observations)
 
-        # 0 encode observation
-        encoded_obs, _ = self._obs_encoder(observations)
+        # # 0 encode observation
+        # encoded_obs, _ = self._obs_encoder(observations)
 
         # 1 mu
-        mu = self._mu(encoded_obs)
+        mu, _ = self._mu(observations)
         mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
         if mode == "action":
             return mu, state
@@ -230,9 +230,11 @@ class NafCriticNetwork(Network):
         if actions is not None:
             actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
-            L, _ = self._L(encoded_obs)
+            L, _ = self._L(observations)
             L = L.view(-1, num_outputs, num_outputs)
-            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            # D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            D = L * self._diag_mask.expand_as(L)
+            D = D * D
             #D = torch.exp(L) * self._diag_mask.expand_as(L)
             # joint = torch.cat([encoded_obs, actions], -1)
             # action_value, _ = self._joint_encoder(joint)
@@ -255,8 +257,8 @@ class NafCriticNetwork(Network):
             # # 2 V separate
             # V, _ = self._V(encoded_obs)
 
-            Q = A + V
-            #Q = V
+            #Q = A + V
+            Q = V
             #Q = V + action_value
         #return (mu, Q, V), state
         return Q.squeeze(-1), state
