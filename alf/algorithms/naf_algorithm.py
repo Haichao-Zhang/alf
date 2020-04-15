@@ -151,17 +151,17 @@ class NafAlgorithm(OffPolicyAlgorithm):
         # how to handle multi-network
         mqv1, state1 = self._critic_network1((time_step.observation, None),
                                              state=state.critic)
-        # mqv2, state2 = self._critic_network2((time_step.observation, None),
-        #                                      state=state.critic)
-        # if mqv1[2] < mqv2[2]:
-        #     action = mqv1[0]
-        #     state = state1
-        # else:
-        #     action = mqv2[0]
-        #     state = state2
+        mqv2, state2 = self._critic_network2((time_step.observation, None),
+                                             state=state.critic)
+        if mqv1[2] < mqv2[2]:
+            action = mqv1[0]
+            state = state1
+        else:
+            action = mqv2[0]
+            state = state2
 
-        action = mqv1[0]
-        state = state1
+        # action = mqv1[0]
+        # state = state1
 
         empty_state = nest.map_structure(lambda x: (), self.train_state_spec)
 
@@ -194,23 +194,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
         action_target1, target_critic1_state = self._target_critic_network1(
             (exp.observation, None), state=state.target_critic1, mode="action")
 
-        # action_target2, target_critic2_state = self._target_critic_network2(
-        #     (exp.observation, None), state=state.target_critic2, mode="action")
-
-        def _sample(a, scale=1.0):
-            return a + torch.randn_like(a) * (
-                self._action_spec.maximum -
-                self._action_spec.minimum) / 2. * scale
-
-        noisy_action1 = nest.map_structure(_sample, action_target1, 0.01)
-        noisy_action1 = nest.map_structure(spec_utils.clip_to_spec,
-                                           noisy_action1, self._action_spec)
-
-        # noisy_action2 = nest.map_structure(_sample, action_target2, 0.01)
-        # noisy_action2 = nest.map_structure(spec_utils.clip_to_spec,
-        #                                    noisy_action2, self._action_spec)
-
-        action = noisy_action1
+        action_target2, target_critic2_state = self._target_critic_network2(
+            (exp.observation, None), state=state.target_critic2, mode="action")
 
         # double Q-learning (use action instead of exp.action)
         # mqv2, critic2_state = self._critic_network2(
@@ -218,9 +203,9 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
         # swap action
         mqv_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, noisy_action1), state=state.target_critic1)
+            (exp.observation, action_target1), state=state.target_critic1)
         mqv_target2, target_critic2_state = self._target_critic_network2(
-            (exp.observation, noisy_action1), state=state.target_critic2)
+            (exp.observation, action_target2), state=state.target_critic2)
 
         q_value1 = mqv1[1].view(-1)
         q_value2 = mqv2[1].view(-1)
@@ -230,6 +215,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
         target_q_value1 = mqv_target1[2].view(-1)
         target_q_value2 = mqv_target2[2].view(-1)
 
+        # TODO
         target_q_value = torch.min(target_q_value1, target_q_value2)
 
         state = NafCriticState(
@@ -241,10 +227,10 @@ class NafAlgorithm(OffPolicyAlgorithm):
         info = NafCriticInfo(
             q_value1=q_value1,
             q_value2=q_value2,
-            target_q_value1=target_q_value,
-            target_q_value2=target_q_value)
+            target_q_value1=target_q_value1,
+            target_q_value2=target_q_value2)
 
-        return AlgStep(output=action, state=state, info=info)
+        return AlgStep(output=None, state=state, info=info)
 
     def _get_q_value(self, inputs, state=None):
 

@@ -229,12 +229,18 @@ class NafCriticNetwork(Network):
         # 1 mu
         mu, _ = self._mu(observations)
         mu = spec_utils.scale_to_spec(mu, self._single_action_spec)
-        # if mode == "action":
-        #     return mu, state
+        if mode == "action":
+            return mu, state
 
-        # # 3 Q
-        # Q = None
-        # V = None
+        # # # 2 V joint
+        # joint = torch.cat([observations, actions], -1)
+        # V, _ = self._V(joint)
+        # # 2 V separate
+        V, _ = self._V(observations)
+
+        # 3 Q
+        Q = None
+
         if actions is not None:
             actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
@@ -259,17 +265,11 @@ class NafCriticNetwork(Network):
             A = -0.5 * \
                 torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
 
-            # # # 2 V joint
-            # joint = torch.cat([observations, actions], -1)
-            # V, _ = self._V(joint)
-            # # 2 V separate
-            V, _ = self._V(observations)
-
             Q = A + V
-            #Q = V
-            #Q = V + action_value
-        #return (mu, Q, V), state
-        return Q.squeeze(-1), state
+        #Q = V
+        #Q = V + action_value
+        return (mu, Q, V), state
+        #return Q.squeeze(-1), state
 
     def get_Q(self, obs, actions):
         # encoded_obs, _ = self._obs_encoder(obs)

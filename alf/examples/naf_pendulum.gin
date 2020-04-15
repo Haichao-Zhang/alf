@@ -37,8 +37,8 @@ critic/NafCriticNetwork.cov_mode="diag"
 critic/Adam.lr=1e-3
 
 
-NafAlgorithm.actor_network=@actor/ActorNetwork()
-NafAlgorithm.actor_optimizer=@actor/Adam()
+# NafAlgorithm.actor_network=@actor/ActorNetwork()
+# NafAlgorithm.actor_optimizer=@actor/Adam()
 
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
 NafAlgorithm.critic_optimizer=@critic/Adam()
