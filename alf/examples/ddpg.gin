@@ -24,8 +24,8 @@ critic/NafCriticNetwork.use_last_kernel_initializer=True
 critic/NafCriticNetwork.cov_mode="diag"
 
 DdpgAlgorithm.actor_network=@actor/ActorNetwork()
-DdpgAlgorithm.critic_network=@critic/CriticNetwork()
-#DdpgAlgorithm.critic_network=@critic/NafCriticNetwork()
+#DdpgAlgorithm.critic_network=@critic/CriticNetwork()
+DdpgAlgorithm.critic_network=@critic/NafCriticNetwork()
 DdpgAlgorithm.actor_optimizer=@actor/Adam()
 DdpgAlgorithm.critic_optimizer=@critic/Adam()
 
