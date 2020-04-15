@@ -150,7 +150,16 @@ class NafCriticNetwork(Network):
         self._L = EncodingNetwork(
             observation_spec,
             fc_layer_params=l_fc_layer_params,
-            activation=torch.tanh,
+            activation=torch.relu,
+            kernel_initializer=kernel_initializer,
+            last_layer_size=action_dim**2,
+            last_activation=math_ops.identity,
+            last_kernel_initializer=last_kernel_initializer)
+
+        self._D = EncodingNetwork(
+            observation_spec,
+            fc_layer_params=l_fc_layer_params,  # shared
+            activation=torch.relu,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
             last_activation=math_ops.identity,
@@ -244,18 +253,22 @@ class NafCriticNetwork(Network):
         if actions is not None:
             actions = actions.to(torch.float32)
             num_outputs = mu.size(1)
-            L, _ = self._L(observations)
-            L = L.view(-1, num_outputs, num_outputs)
-            D = math_ops.clipped_exp(L) * self._diag_mask.expand_as(L)
+            D, _ = self._D(observations)
+            D = D.view(-1, num_outputs, num_outputs)
+            # D = math_ops.clipped_exp(D) * self._diag_mask.expand_as(D)
+            D = D * self._diag_mask.expand_as(D)
             # D = L * self._diag_mask.expand_as(L)
             # D = D * D
             #D = torch.exp(L) * self._diag_mask.expand_as(L)
             # joint = torch.cat([encoded_obs, actions], -1)
             # action_value, _ = self._joint_encoder(joint)
             if self._cov_mode == "diag":
-                P = D
+                #P = D
+                P = D * D
                 #P = torch.bmm(D, D.transpose(2, 1))
             elif self._cov_mode == "full":
+                L, _ = self._L(observations)
+                L = L.view(-1, num_outputs, num_outputs)
                 OD = L * \
                     self._tril_mask.expand_as(
                         L) + D
