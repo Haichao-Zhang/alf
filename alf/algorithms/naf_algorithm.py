@@ -59,7 +59,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
                  critic_network: NafCriticNetwork,
                  env=None,
                  config: TrainerConfig = None,
-                 ou_scale=0.6,
+                 ou_scale=1.0,
                  ou_stddev=0.2,
                  ou_damping=0.15,
                  critic_loss_ctor=None,
@@ -188,17 +188,35 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
     def _critic_train_step(self, exp: Experience, state: NafCriticState):
 
+        action_target1, target_critic1_state = self._target_critic_network1(
+            (exp.observation, None), state=state.target_critic1, mode="action")
+
+        action_target2, target_critic2_state = self._target_critic_network2(
+            (exp.observation, None), state=state.target_critic2, mode="action")
+
+        # swap action
+        mqv_target1, target_critic1_state = self._target_critic_network1(
+            (exp.observation, action_target1), state=state.target_critic1)
+        mqv_target2, target_critic2_state = self._target_critic_network2(
+            (exp.observation, action_target2), state=state.target_critic2)
+
+        # target_q_value1 = mqv_target1[2].view(-1)
+        # target_q_value2 = mqv_target2[2].view(-1)
+
+        # BUG, should use [1] which is the Q value
+        target_q_value1 = mqv_target1[1].view(-1)
+        target_q_value2 = mqv_target2[1].view(-1)
+
+        target_q_value = torch.min(target_q_value1, target_q_value2)
+
         mqv1, critic1_state = self._critic_network1(
             (exp.observation, exp.action), state=state.critic1)
 
         mqv2, critic2_state = self._critic_network2(
             (exp.observation, exp.action), state=state.critic2)
 
-        action_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, None), state=state.target_critic1, mode="action")
-
-        # action_target2, target_critic2_state = self._target_critic_network2(
-        #     (exp.observation, None), state=state.target_critic2, mode="action")
+        q_value1 = mqv1[1].view(-1)
+        q_value2 = mqv2[1].view(-1)
 
         # action_target1 = mqv1[0]  # SAC style
 
@@ -215,28 +233,11 @@ class NafAlgorithm(OffPolicyAlgorithm):
         # noisy_action2 = nest.map_structure(spec_utils.clip_to_spec,
         #                                    noisy_action2, self._action_spec)
 
-        action = noisy_action1
+        action = action_target1
 
         # double Q-learning (use action instead of exp.action)
         # mqv2, critic2_state = self._critic_network2(
         #     (exp.observation, exp.action), state=state.critic2)
-
-        # swap action
-        mqv_target1, target_critic1_state = self._target_critic_network1(
-            (exp.observation, noisy_action1), state=state.target_critic1)
-        mqv_target2, target_critic2_state = self._target_critic_network2(
-            (exp.observation, noisy_action1), state=state.target_critic2)
-
-        q_value1 = mqv1[1].view(-1)
-        q_value2 = mqv2[1].view(-1)
-        # target_q_value1 = mqv_target1[2].view(-1)
-        # target_q_value2 = mqv_target2[2].view(-1)
-
-        # BUG, should use [1] which is the Q value
-        target_q_value1 = mqv_target1[1].view(-1)
-        target_q_value2 = mqv_target2[1].view(-1)
-
-        target_q_value = torch.min(target_q_value1, target_q_value2)
 
         # constructing the dual loss
         #-----------
@@ -268,8 +269,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
             actor_loss=actor_loss,
             q_value1=q_value1,
             q_value2=q_value2,
-            target_q_value1=target_q_value,
-            target_q_value2=target_q_value)
+            target_q_value1=target_q_value1,
+            target_q_value2=target_q_value2)
 
         return AlgStep(output=action, state=state, info=info)
 
