@@ -26,7 +26,7 @@ actor/Adam.lr=1e-4
 
 
 critic/NafCriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
-critic/NafCriticNetwork.observation_fc_layer_params=(100,100)
+# critic/NafCriticNetwork.observation_fc_layer_params=(100,100)
 critic/NafCriticNetwork.use_last_kernel_initializer=True
 critic/NafCriticNetwork.mu_fc_layer_params=(100, 100)
 critic/NafCriticNetwork.v_fc_layer_params=(100, 100)
@@ -40,8 +40,8 @@ critic/Adam.lr=1e-3
 NafAlgorithm.critic_network=@critic/NafCriticNetwork()
 NafAlgorithm.critic_optimizer=@critic/Adam()
 
-RLAlgorithm.gradient_clipping=1.0
-RLAlgorithm.clip_by_global_norm=True
+# RLAlgorithm.gradient_clipping=1.0
+# RLAlgorithm.clip_by_global_norm=True
 NafAlgorithm.target_update_period=5
 NafAlgorithm.target_update_tau=0.05
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
