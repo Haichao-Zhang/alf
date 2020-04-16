@@ -298,3 +298,159 @@ class NafCriticNetwork(Network):
     #         Q = A + V
 
     #     return (mu, Q, V), state
+
+
+# @gin.configurable
+# class NafCriticNetwork(Network):
+#     """Create an instance of NafCriticNetwork."""
+
+#     def __init__(self,
+#                  input_tensor_spec,
+#                  observation_input_processors=None,
+#                  observation_preprocessing_combiner=None,
+#                  observation_conv_layer_params=None,
+#                  observation_fc_layer_params=None,
+#                  mu_fc_layer_params=None,
+#                  v_fc_layer_params=None,
+#                  l_fc_layer_params=None,
+#                  activation=torch.relu,
+#                  projection_output_init_gain=1.0,
+#                  std_bias_initializer_value=0.0,
+#                  kernel_initializer=None,
+#                  use_last_kernel_initializer=True,
+#                  last_activation=math_ops.identity,
+#                  cov_mode="diag",
+#                  name="NafCriticNetwork"):
+#         """Creates an instance of `NafCriticNetwork` for estimating action-value of
+#         continuous actions. The action-value is defined as the expected return
+#         starting from the given input observation and taking the given action.
+#         This module takes observation as input and action as input and outputs
+#         an action-value tensor with the shape of [batch_size].
+
+#         Currently there seems no need for this class to handle nested inputs;
+#         If necessary, extend the argument list to support it in the future.
+
+#         Args:
+#             input_tensor_spec: A tuple of TensorSpecs (observation_spec, action_spec)
+#                 representing the inputs.
+#             observation_input_preprocessors (nested InputPreprocessor): a nest of
+#                 `InputPreprocessor`, each of which will be applied to the
+#                 corresponding observation input.
+#             observation_preprocessing_combiner (NestCombiner): preprocessing called
+#                 on complex observation inputs.
+#             observation_conv_layer_params (tuple[tuple]): a tuple of tuples where each
+#                 tuple takes a format `(filters, kernel_size, strides, padding)`,
+#                 where `padding` is optional.
+#             observation_fc_layer_params (tuple[int]): a tuple of integers representing
+#                 hidden FC layer sizes for observations.
+#             action_fc_layer_params (tuple[int]): a tuple of integers representing
+#                 hidden FC layer sizes for actions.
+#             joint_fc_layer_params (tuple[int]): a tuple of integers representing
+#                 hidden FC layer sizes FC layers after merging observations and
+#                 actions.
+#             activation (nn.functional): activation used for hidden layers. The
+#                 last layer will not be activated.
+#             kernel_initializer (Callable): initializer for all the layers but
+#                 the last layer. If none is provided a variance_scaling_initializer
+#                 with uniform distribution will be used.
+#             name (str):
+#         """
+#         super().__init__(
+#             input_tensor_spec, skip_input_preprocessing=True, name=name)
+
+#         observation_spec, action_spec = input_tensor_spec
+
+#         flat_action_spec = nest.flatten(action_spec)
+#         if len(flat_action_spec) > 1:
+#             raise ValueError(
+#                 'Only a single action is supported by this network')
+
+#         self._single_action_spec = flat_action_spec[0]
+#         action_dim = action_spec.shape[0]
+#         num_inputs = observation_spec.shape[0]
+#         num_outputs = action_dim
+
+#         hidden_size = 100
+#         self.bn0 = nn.BatchNorm1d(num_inputs)
+#         self.bn0.weight.data.fill_(1)
+#         self.bn0.bias.data.fill_(0)
+
+#         self.linear1 = nn.Linear(num_inputs, hidden_size)
+#         self.bn1 = nn.BatchNorm1d(hidden_size)
+#         self.bn1.weight.data.fill_(1)
+#         self.bn1.bias.data.fill_(0)
+
+#         self.linear2 = nn.Linear(hidden_size, hidden_size)
+#         self.bn2 = nn.BatchNorm1d(hidden_size)
+#         self.bn2.weight.data.fill_(1)
+#         self.bn2.bias.data.fill_(0)
+
+#         self.V = nn.Linear(hidden_size, 1)
+#         self.V.weight.data.mul_(0.1)
+#         self.V.bias.data.mul_(0.1)
+
+#         self.mu = nn.Linear(hidden_size, num_outputs)
+#         self.mu.weight.data.mul_(0.1)
+#         self.mu.bias.data.mul_(0.1)
+
+#         self.L = nn.Linear(hidden_size, num_outputs**2)
+#         self.L.weight.data.mul_(0.1)
+#         self.L.bias.data.mul_(0.1)
+
+#         self.tril_mask = torch.tril(torch.ones(num_outputs, num_outputs), diagonal=-1).unsqueeze(0)
+#         self.diag_mask = torch.diag(torch.diag(torch.ones(num_outputs,
+#                                              num_outputs))).unsqueeze(0)
+
+#     def forward(self, inputs, state=(), mode="all"):
+#         """Computes action-value given an observation.
+
+#         Args:
+#             inputs:  A tuple of Tensors consistent with `input_tensor_spec`
+#             state: empty for API consistent with CriticRNNNetwork
+
+#         Returns:
+#             action_value (torch.Tensor): a tensor of the size [batch_size]
+#             state: empty
+#         """
+#         # this line is just a placeholder doing nothing
+#         inputs, state = Network.forward(self, inputs, state)
+
+#         observations, actions = inputs
+#         x = observations
+#         u = actions
+
+#         x = self.bn0(x)
+#         x = torch.tanh(self.linear1(x))
+#         x = torch.tanh(self.linear2(x))
+
+#         V = self.V(x)
+#         mu = torch.tanh(self.mu(x))
+
+#         if mode == "action":
+#             return mu, state
+
+#         Q = None
+#         if u is not None:
+#             num_outputs = mu.size(1)
+#             L = self.L(x).view(-1, num_outputs, num_outputs)
+#             L = L * \
+#                 self.tril_mask.expand_as(
+#                     L) + torch.exp(L) * self.diag_mask.expand_as(L)
+#             P = torch.bmm(L, L.transpose(2, 1))
+
+#             u_mu = (u - mu).unsqueeze(2)
+#             A = -0.5 * \
+#                 torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
+
+#             Q = A + V
+
+#         # return mu, Q, V
+#         return (mu, Q, V), state
+#         #return Q.squeeze(-1), state
+
+#     def get_Q(self, obs, actions):
+#         # encoded_obs, _ = self._obs_encoder(obs)
+#         joint = torch.cat([obs.detach(), actions], -1)
+#         mqv, _ = self.forward(self, joint)
+#         action_value = mqv[1]
+#         return action_value
