@@ -134,8 +134,15 @@ class NafCriticNetwork(Network):
             last_activation=math_ops.identity,
             last_kernel_initializer=None)
 
-        # [hidden_dim -> 1]
-        # TODO joint_fc_layer_params change to non-shared
+        # self._V = EncodingNetwork(
+        #     TensorSpec((observation_spec.shape[0] + action_dim, )),
+        #     fc_layer_params=v_fc_layer_params,
+        #     activation=torch.relu,
+        #     kernel_initializer=kernel_initializer,
+        #     last_layer_size=1,
+        #     last_activation=math_ops.identity,
+        #     last_kernel_initializer=last_kernel_initializer)
+
         self._V = EncodingNetwork(
             TensorSpec((observation_spec.shape[0], )),
             fc_layer_params=v_fc_layer_params,
@@ -181,14 +188,9 @@ class NafCriticNetwork(Network):
         if mode == "action":
             return mu, state
 
-        # # # 2 V joint
-        # joint = torch.cat([observations, actions], -1)
-        # V, _ = self._V(joint)
-        # # 2 V separate
-        V, _ = self._V(observations)
-
         # 3 Q
         Q = None
+        V = None
 
         if actions is not None:
             actions = actions.to(torch.float32)
@@ -223,6 +225,12 @@ class NafCriticNetwork(Network):
             u_mu = (actions - mu).unsqueeze(2)
             A = -0.5 * \
                 torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
+
+            # # # 2 V joint
+            # joint = torch.cat([observations, actions], -1)
+            # V, _ = self._V(joint)
+            # # 2 V separate
+            V, _ = self._V(observations)
 
             Q = A + V
         #Q = V

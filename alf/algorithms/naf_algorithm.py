@@ -153,17 +153,17 @@ class NafAlgorithm(OffPolicyAlgorithm):
         # how to handle multi-network
         mqv1, state1 = self._critic_network1((time_step.observation, None),
                                              state=state.critic)
-        mqv2, state2 = self._critic_network2((time_step.observation, None),
-                                             state=state.critic)
-        if mqv1[2] < mqv2[2]:
-            action = mqv1[0]
-            state = state1
-        else:
-            action = mqv2[0]
-            state = state2
+        # mqv2, state2 = self._critic_network2((time_step.observation, None),
+        #                                      state=state.critic)
+        # if mqv1[2] < mqv2[2]:
+        #     action = mqv1[0]
+        #     state = state1
+        # else:
+        #     action = mqv2[0]
+        #     state = state2
 
-        # action = mqv1[0]
-        # state = state1
+        action = mqv1[0]
+        state = state1
 
         empty_state = nest.map_structure(lambda x: (), self.train_state_spec)
 
@@ -221,7 +221,7 @@ class NafAlgorithm(OffPolicyAlgorithm):
         target_q_value2 = mqv_target2[1].view(-1)
 
         # # TODO
-        # target_q_value = torch.min(target_q_value1, target_q_value2)
+        target_q_value = torch.min(target_q_value1, target_q_value2)
 
         state = NafCriticState(
             critic1=critic1_state,
@@ -232,8 +232,8 @@ class NafAlgorithm(OffPolicyAlgorithm):
         info = NafCriticInfo(
             q_value1=q_value1,
             q_value2=q_value2,
-            target_q_value1=target_q_value1,
-            target_q_value2=target_q_value2)
+            target_q_value1=target_q_value,
+            target_q_value2=target_q_value)
 
         return AlgStep(output=None, state=state, info=info)
 
