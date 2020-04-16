@@ -593,6 +593,9 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # expand
         obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
+        # obs_std = torch.mean(torch.std(obs_pop, 1))
+        # obs_noise = torch.randn_like(obs_pop) * 0.1 * obs_std
+
         ac_pop = torch.repeat_interleave(action, self._repeat_times, dim=0)
         ac_noise = torch.randn(
             batch_size * self._repeat_times,
