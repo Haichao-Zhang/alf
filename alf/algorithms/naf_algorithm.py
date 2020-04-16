@@ -130,11 +130,13 @@ class NafAlgorithm(OffPolicyAlgorithm):
         self._ou_stddev = ou_stddev
         self._ou_damping = ou_damping
 
-        if critic_loss_ctor is None:
-            critic_loss_ctor = functools.partial(
-                OneStepTDLoss, debug_summaries=debug_summaries)
-        self._critic_loss1 = critic_loss_ctor(name="critic_loss1")
-        self._critic_loss2 = critic_loss_ctor(name="critic_loss2")
+        # if critic_loss_ctor is None:
+        #     critic_loss_ctor = functools.partial(
+        #         OneStepTDLoss, debug_summaries=debug_summaries)
+        self._critic_loss1 = OneStepTDLoss(
+            debug_summaries=debug_summaries, name="critic_loss1")
+        self._critic_loss2 = OneStepTDLoss(
+            debug_summaries=debug_summaries, name="critic_loss2")
 
         self._ou_process = common.create_ou_process(action_spec, ou_scale,
                                                     ou_stddev, ou_damping)

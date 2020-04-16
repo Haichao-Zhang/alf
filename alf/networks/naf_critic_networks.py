@@ -150,7 +150,7 @@ class NafCriticNetwork(Network):
         self._L = EncodingNetwork(
             observation_spec,
             fc_layer_params=l_fc_layer_params,
-            activation=torch.tanh,
+            activation=torch.relu,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
             last_activation=math_ops.identity,
@@ -162,7 +162,7 @@ class NafCriticNetwork(Network):
             activation=torch.tanh,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
-            last_activation=math_ops.identity,
+            last_activation=torch.tanh,
             last_kernel_initializer=last_kernel_initializer)
         # self._mu = layers.FC(
         #     self._obs_encoder.output_spec.shape[0],
@@ -255,8 +255,10 @@ class NafCriticNetwork(Network):
             num_outputs = mu.size(1)
             D, _ = self._D(observations)
             D = D.view(-1, num_outputs, num_outputs)
-            # D = math_ops.clipped_exp(D) * self._diag_mask.expand_as(D)
-            D = D * self._diag_mask.expand_as(D)
+            #D = torch.sqrt(math_ops.clipped_exp(D) * self._diag_mask.expand_as(D))
+
+            #D = torch.clamp(D, -10, 10)
+            #D = D * self._diag_mask.expand_as(D)
             # D = L * self._diag_mask.expand_as(L)
             # D = D * D
             #D = torch.exp(L) * self._diag_mask.expand_as(L)
@@ -264,7 +266,9 @@ class NafCriticNetwork(Network):
             # action_value, _ = self._joint_encoder(joint)
             if self._cov_mode == "diag":
                 #P = D
-                P = D * D
+                P = D * D * self._diag_mask.expand_as(D)
+            elif self._cov_mode == "proj":
+                P = torch.bmm(D, D.transpose(2, 1))
                 #P = torch.bmm(D, D.transpose(2, 1))
             elif self._cov_mode == "full":
                 L, _ = self._L(observations)
@@ -287,8 +291,9 @@ class NafCriticNetwork(Network):
     def get_Q(self, obs, actions):
         # encoded_obs, _ = self._obs_encoder(obs)
         joint = torch.cat([obs.detach(), actions], -1)
-        V, _ = self._V(joint)
-        return V
+        mqv, _ = self.forward(self, joint)
+        action_value = mqv[1]
+        return action_value
 
     # def get_sample(self, obs):
     #         def forward(self, inputs, state=()):
