@@ -18,6 +18,7 @@ import functools
 import math
 
 import torch
+import torch.nn.functional as f
 import torch.nn as nn
 
 import alf.layers as layers
@@ -255,6 +256,8 @@ class NafCriticNetwork(Network):
             num_outputs = mu.size(1)
             D, _ = self._D(observations)
             D = D.view(-1, num_outputs, num_outputs)
+            # normalization
+            D = f.normalize(D, p=2, dim=1)
             #D = torch.sqrt(math_ops.clipped_exp(D) * self._diag_mask.expand_as(D))
 
             #D = torch.clamp(D, -10, 10)
