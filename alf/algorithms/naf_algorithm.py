@@ -151,8 +151,10 @@ class NafAlgorithm(OffPolicyAlgorithm):
 
     def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.):
         # how to handle multi-network
+        self._critic_network1.eval()
         mqv1, state1 = self._critic_network1((time_step.observation, None),
                                              state=state.critic)
+        self._critic_network1.train()
         # mqv2, state2 = self._critic_network2((time_step.observation, None),
         #                                      state=state.critic)
         # if mqv1[2] < mqv2[2]:

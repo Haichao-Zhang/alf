@@ -116,10 +116,14 @@ class NafCriticNetwork(Network):
         else:
             last_kernel_initializer = None
 
+        self._bn0 = nn.BatchNorm1d(observation_spec.shape[0])
+        self._bn0.weight.data.fill_(1)
+        self._bn0.bias.data.fill_(0)
+
         self._mu = EncodingNetwork(
             observation_spec,
             fc_layer_params=mu_fc_layer_params,
-            activation=torch.relu,
+            activation=torch.tanh,
             kernel_initializer=None,
             last_layer_size=action_dim,
             last_activation=torch.tanh,
@@ -134,31 +138,23 @@ class NafCriticNetwork(Network):
             last_activation=math_ops.identity,
             last_kernel_initializer=None)
 
-        self._V = EncodingNetwork(
-            TensorSpec((observation_spec.shape[0] + action_dim, )),
-            fc_layer_params=v_fc_layer_params,
-            activation=torch.relu,
-            kernel_initializer=kernel_initializer,
-            last_layer_size=1,
-            last_activation=math_ops.identity,
-            last_kernel_initializer=last_kernel_initializer)
-
-        self._factor = EncodingNetwork(
-            TensorSpec((observation_spec.shape[0] + action_dim, )),
-            fc_layer_params=v_fc_layer_params,
-            activation=torch.relu,
-            kernel_initializer=kernel_initializer,
-            last_layer_size=1,
-            last_activation=math_ops.identity,
-            last_kernel_initializer=last_kernel_initializer)
         # self._V = EncodingNetwork(
-        #     TensorSpec((observation_spec.shape[0], )),
+        #     TensorSpec((observation_spec.shape[0] + action_dim, )),
         #     fc_layer_params=v_fc_layer_params,
         #     activation=torch.relu,
         #     kernel_initializer=kernel_initializer,
         #     last_layer_size=1,
         #     last_activation=math_ops.identity,
         #     last_kernel_initializer=last_kernel_initializer)
+
+        self._V = EncodingNetwork(
+            TensorSpec((observation_spec.shape[0], )),
+            fc_layer_params=v_fc_layer_params,
+            activation=torch.tanh,
+            kernel_initializer=kernel_initializer,
+            last_layer_size=1,
+            last_activation=math_ops.identity,
+            last_kernel_initializer=last_kernel_initializer)
 
         self._tril_mask = torch.tril(
             torch.ones(action_dim, action_dim), diagonal=-1).unsqueeze(0)
@@ -184,6 +180,8 @@ class NafCriticNetwork(Network):
         inputs, state = Network.forward(self, inputs, state)
 
         observations, actions = inputs
+
+        observations = self._bn0(observations)
 
         # observations = self._bn0(observations)
 
@@ -230,18 +228,20 @@ class NafCriticNetwork(Network):
                         L) + D
                 P = torch.bmm(OD, OD.transpose(2, 1))
 
+            # P = P * (1 - self._diag_mask.expand_as(P)) + torch.exp(P) * self._diag_mask.expand_as(P)
+
             u_mu = (actions - mu).unsqueeze(2)
             A = -0.5 * \
                 torch.bmm(torch.bmm(u_mu.transpose(2, 1), P), u_mu)[:, :, 0]
 
             # # # 2 V joint
-            joint = torch.cat([observations, mu.detach()], -1)
-            V, _ = self._V(joint)
-            factor, _ = self._factor(joint)
-            # # # 2 V separate
-            # V, _ = self._V(observations)
+            # joint = torch.cat([observations, mu], -1)
+            # V, _ = self._V(joint)
 
-            Q = A * factor + V
+            # # 2 V separate
+            V, _ = self._V(observations)
+
+            Q = A + V
         #Q = V
         #Q = V + action_value
         return (mu, Q, V), state
