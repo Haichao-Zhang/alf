@@ -212,8 +212,11 @@ class NafAlgorithm(OffPolicyAlgorithm):
         # target_q_value1 = mqv_target1[2].view(-1)
         # target_q_value2 = mqv_target2[2].view(-1)
 
-        target_q_value1 = mqv_target1[2].view(-1)
-        target_q_value2 = mqv_target2[2].view(-1)
+        # target_q_value1 = mqv_target1[2].view(-1)
+        # target_q_value2 = mqv_target2[2].view(-1)
+        # BUG: should be 1
+        target_q_value1 = mqv_target1[1].view(-1)
+        target_q_value2 = mqv_target2[1].view(-1)
 
         # # TODO
         # target_q_value = torch.min(target_q_value1, target_q_value2)

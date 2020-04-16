@@ -150,7 +150,7 @@ class NafCriticNetwork(Network):
         self._L = EncodingNetwork(
             observation_spec,
             fc_layer_params=l_fc_layer_params,
-            activation=torch.relu,
+            activation=torch.tanh,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
             last_activation=math_ops.identity,
@@ -159,7 +159,7 @@ class NafCriticNetwork(Network):
         self._D = EncodingNetwork(
             observation_spec,
             fc_layer_params=l_fc_layer_params,  # shared
-            activation=torch.relu,
+            activation=torch.tanh,
             kernel_initializer=kernel_initializer,
             last_layer_size=action_dim**2,
             last_activation=math_ops.identity,
