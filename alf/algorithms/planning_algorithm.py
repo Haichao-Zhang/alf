@@ -459,14 +459,14 @@ class QShootingAlgorithm(PlanAlgorithm):
         #                                                 state.planner,
         #                                                 epsilon_greedy=1)
 
-        # add epsilon greedy
-        non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
+        # # add epsilon greedy
+        # non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
 
-        # random action
-        action_rand = torch.rand(action.shape) * (
-            self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
+        # # random action
+        # action_rand = torch.rand(action.shape) * (
+        #     self._upper_bound - self._lower_bound) + self._lower_bound * 1.0
 
-        action[non_greedy_mask] = action_rand[non_greedy_mask]
+        # action[non_greedy_mask] = action_rand[non_greedy_mask]
 
         # # option 3
         # action, state = self._get_action_from_Q(time_step, state,
@@ -667,6 +667,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                                                        org_batch_size,
                                                        time_step: TimeStep,
                                                        state,
+                                                       epsilon_greedy,
                                                        mode="DDPG"):
         """ Action Sampling-based approach for select next action
         Returns:
@@ -685,7 +686,9 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         # # option 3 sac actor
         ac_rand_pop, _ = self._get_action_from_Q(
-            time_step._replace(observation=obs_pop), state, epsilon_greedy=1
+            time_step._replace(observation=obs_pop),
+            state,
+            epsilon_greedy=epsilon_greedy
         )  # always perform sampling from the action distribution
 
         critic_input = (obs_pop, ac_rand_pop)
@@ -988,7 +991,11 @@ class QShootingAlgorithm(PlanAlgorithm):
                         #     state.planner)  # always add noise
                         # 6 use sampler
                         action, planner_state = self._get_action_from_A_sampling_with_Q_beam_search(
-                            batch_size, time_step, state.planner, mode="DDPG")
+                            batch_size,
+                            time_step,
+                            state.planner,
+                            epsilon_greedy,
+                            mode="DDPG")
                         if len(action) == 0:
                             action = ac_seqs[i]
                             terminated = True
