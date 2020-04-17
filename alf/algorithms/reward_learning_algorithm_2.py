@@ -82,7 +82,8 @@ class RewardEstimationAlgorithm(Algorithm):
                                              dtype=torch.float32)
             dynamics_network = EncodingNetwork(
                 name="dynamics_net",
-                input_tensor_spec=(feature_spec, encoded_action_spec),
+                input_tensor_spec=(feature_spec, encoded_action_spec,
+                                   feature_spec),
                 preprocessing_combiner=NestConcat(),
                 fc_layer_params=hidden_size,
                 last_layer_size=1,
@@ -183,10 +184,11 @@ class RewardAlgorithm(RewardEstimationAlgorithm):
                 The next step is predicted using the prev_action from time_step
                 and the feature from state.
         """
-        action = self._encode_action(time_step.prev_action)
-        obs = state.feature
+        prev_action = self._encode_action(time_step.prev_action)
+        prev_obs = state.feature
+        current_obs = time_step.observation
         forward_pred, network_state = self._dynamics_network(
-            inputs=(obs, action), state=state.network)
+            inputs=(prev_obs, prev_action, current_obs), state=state.network)
 
         # forward_pred = spec_utils.scale_to_spec(forward_pred.tanh(),
         #                                         self._feature_spec)
@@ -237,12 +239,12 @@ class RewardAlgorithm(RewardEstimationAlgorithm):
 
         return AlgStep(output=(), state=state, info=info)
 
-    def compute_reward(self, obs, action, state=None):
+    def compute_reward(self, obs, action, obs_current, state=None):
         """Predict the next observation given the current time_step.
                 The next step is predicted using the prev_action from time_step
                 and the feature from state.
         """
         action = self._encode_action(action)
         forward_pred, _ = self._dynamics_network(
-            inputs=(obs, action), state=())
+            inputs=(obs, action, obs_current), state=())
         return forward_pred

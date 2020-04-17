@@ -167,8 +167,8 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             next_state = state._replace(dynamics=dynamics_step.state)
         return next_time_step, next_state
 
-    def _calc_step_reward(self, obs, action):
-        reward = self._reward_module.compute_reward(obs, action)
+    def _calc_step_reward(self, obs, action, obs_current=None):
+        reward = self._reward_module.compute_reward(obs, action, obs_current)
         return reward
 
     def _calc_step_eval(self, obs, action):
