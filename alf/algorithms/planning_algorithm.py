@@ -688,7 +688,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         # obs_noise = torch.randn_like(obs_pop) * 0.1 * obs_std
         # obs_pop = obs_pop + obs_noise
 
-        # obs_pop = torch.cat((time_step.observation, obs_pop), 0)
+        # obs_pop = torch.cat((obs_pop, time_step.observation), 0)
 
         # # option 3 sac actor
         ac_rand_pop, _ = self._get_action_from_Q(
@@ -1003,6 +1003,8 @@ class QShootingAlgorithm(PlanAlgorithm):
                             state.planner,
                             epsilon_greedy,
                             mode="DDPG")
+                        if i == 0 and action.shape[0] > 1:
+                            action[1:] = ac_seqs[i, 1:]
                         # debug
                         # action, planner_state = self._get_action_from_Q(
                         #     time_step,
