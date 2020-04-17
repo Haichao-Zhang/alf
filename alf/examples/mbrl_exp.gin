@@ -171,12 +171,17 @@ OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 MbrlAlgorithm.feature_spec=%observation_spec
 MbrlAlgorithm.action_spec=%action_spec
 MbrlAlgorithm.dynamics_module=@DeterministicDynamicsAlgorithm()
-MbrlAlgorithm.reward_module=@FixedRewardFunction()
-#MbrlAlgorithm.reward_module=@RewardAlgorithm()
+
+
 #MbrlAlgorithm.planner_module=@RandomShootingAlgorithm()
+#MbrlAlgorithm.planning_method="random"
+
 MbrlAlgorithm.planner_module=@QShootingAlgorithm()
-MbrlAlgorithm.planning_method="q_planning"
-#MbrlAlgorithm.planning_method="reward_learning"
+#MbrlAlgorithm.reward_module=@FixedRewardFunction()
+# MbrlAlgorithm.planning_method="q_planning"
+MbrlAlgorithm.reward_module=@RewardAlgorithm()
+MbrlAlgorithm.planning_method="reward_learning"
+
 
 
 MbrlAlgorithm.dynamics_optimizer=%opt
