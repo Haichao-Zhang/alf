@@ -684,6 +684,12 @@ class QShootingAlgorithm(PlanAlgorithm):
         # expand
         obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
 
+        # obs_std = torch.mean(torch.std(obs_pop, 1))
+        # obs_noise = torch.randn_like(obs_pop) * 0.1 * obs_std
+        # obs_pop = obs_pop + obs_noise
+
+        # obs_pop = torch.cat((time_step.observation, obs_pop), 0)
+
         # # option 3 sac actor
         ac_rand_pop, _ = self._get_action_from_Q(
             time_step._replace(observation=obs_pop),
@@ -985,6 +991,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                         # action, planner_state = self._get_action_from_Q_sampling(
                         #     batch_size, time_step, state.planner,
                         #     mode="DDPG")  # always add noise
+
                         # # 5: twin
                         # action, planner_state = self._get_action_from_Q_sampling_Twin(
                         #     batch_size, time_step,
@@ -996,6 +1003,11 @@ class QShootingAlgorithm(PlanAlgorithm):
                             state.planner,
                             epsilon_greedy,
                             mode="DDPG")
+                        # debug
+                        # action, planner_state = self._get_action_from_Q(
+                        #     time_step,
+                        #     state.planner,
+                        #     epsilon_greedy)
                         if len(action) == 0:
                             action = ac_seqs[i]
                             terminated = True
