@@ -930,15 +930,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         #print(obs[0, 3:8])
         batch_size = obs.shape[0]
 
-        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
-        init_obs = self._expand_to_population(obs)
-        init_action = self._expand_to_population(time_step.prev_action)
-        state = nest.map_structure(self._expand_to_population, state)
-
-        obs = init_obs
-        time_step = time_step._replace(
-            observation=obs, prev_action=init_action)  # for Q
-
+        # some initialization
         # [b, p, h, a]
         ac_seqs = torch.rand([
             batch_size, self._population_size, self._planning_horizon,
@@ -961,6 +953,21 @@ class QShootingAlgorithm(PlanAlgorithm):
         obs_seqs = obs_seqs.permute(2, 0, 1, 3)
         obs_seqs = torch.reshape(obs_seqs,
                                  (self._planning_horizon, -1, obs.shape[1]))
+        #----------------------
+
+        state = state._replace(dynamics=state.dynamics._replace(feature=obs))
+        init_obs = self._expand_to_population(obs)
+        init_action = self._expand_to_population(time_step.prev_action)
+        # # randomize first action
+        # init_action[1:] = ac_seqs[0, 1:]
+        state = nest.map_structure(self._expand_to_population, state)
+
+        obs = init_obs
+        time_step = time_step._replace(
+            observation=obs, prev_action=init_action)  # for Q
+
+        action_noise = torch.randn_like(init_action) * (
+            self._upper_bound - self._lower_bound) / 2.0 * 0.1
 
         cost = 0
         discount = 0.9
@@ -1005,7 +1012,9 @@ class QShootingAlgorithm(PlanAlgorithm):
                             epsilon_greedy,
                             mode="DDPG")
                         if i == 0 and action.shape[0] > 1:
-                            action[1:] = ac_seqs[i, 1:]
+                            # action[1:] = ac_seqs[i, 1:]
+                            action[1:] = action[1:] + action_noise[1:]
+
                         # debug
                         # action, planner_state = self._get_action_from_Q(
                         #     time_step,

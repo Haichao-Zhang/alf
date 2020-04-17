@@ -894,7 +894,7 @@ def log_metrics(metrics, prefix=''):
     logging.info('%s \n\t\t %s', prefix, '\n\t\t '.join(log))
 
 
-def create_ou_process(action_spec, scale, ou_stddev, ou_damping):
+def create_ou_process(batch_size, action_spec, scale, ou_stddev, ou_damping):
     """Create nested zero-mean Ornstein-Uhlenbeck processes.
 
     The temporal update equation is:
@@ -913,8 +913,9 @@ def create_ou_process(action_spec, scale, ou_stddev, ou_damping):
     """
 
     def _create_ou_process(action_spec):
-        return dist_utils.OUProcess(action_spec.zeros(), scale, ou_damping,
-                                    ou_stddev)
+        return dist_utils.OUProcess(
+            torch.zeros([batch_size, *action_spec.shape]), scale, ou_damping,
+            ou_stddev)
 
     ou_process = alf.nest.map_structure(_create_ou_process, action_spec)
     return ou_process

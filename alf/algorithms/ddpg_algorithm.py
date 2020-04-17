@@ -136,13 +136,13 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
 
         self._ou_stddev = ou_stddev
         self._ou_damping = ou_damping
+        self._action_spec = action_spec
 
         if critic_loss is None:
             critic_loss = OneStepTDLoss(debug_summaries=debug_summaries)
         self._critic_loss = critic_loss
 
-        self._ou_process = common.create_ou_process(action_spec, 1.0,
-                                                    ou_stddev, ou_damping)
+        self._ou_process = None
 
         self._update_target = common.get_target_updater(
             models=[self._actor_network, self._critic_network],
@@ -159,10 +159,19 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
             time_step.observation, state=state.actor.actor)
         empty_state = nest.map_structure(lambda x: (), self.train_state_spec)
 
+        if self._ou_process is None:
+            self._ou_process = common.create_ou_process(
+                action.shape[0], self._action_spec, 1.0, self._ou_stddev,
+                self._ou_damping)
+
         def _sample(a, ou):
-            if torch.rand(1) < epsilon_greedy:
+            if epsilon_greedy > 1.0:
                 return a + ou()
             else:
+                ind = torch.where(torch.rand(*a.shape[:1]) < epsilon_greedy)
+                noisy_a = a + ou()
+                a[ind[0], :] = noisy_a[ind[0], :]
+                # return torch.where(torch.rand(*a.shape[:1]) < epsilon_greedy, a + ou(), a)
                 return a
 
         noisy_action = nest.map_structure(_sample, action, self._ou_process)
