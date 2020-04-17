@@ -5,6 +5,7 @@ import alf.algorithms.reward_learning_algorithm
 #import alf.algorithms.reward_learning_algorithm_2
 import alf.algorithms.sac_algorithm
 import alf.algorithms.naf_algorithm
+import alf.algorithms.ddpg_algorithm
 import alf.examples.mbrl_pendulum
 import alf.utils.math_ops # swish
 import pybullet_envs
@@ -138,6 +139,23 @@ NafAlgorithm.target_update_period=5
 NafAlgorithm.target_update_tau=0.05
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
+#=============DDPG=====================
+actor/ActorNetwork.input_tensor_spec=%observation_spec
+actor/ActorNetwork.action_spec=%action_spec
+actor/ActorNetwork.fc_layer_params=(100,100)
+actor/Adam.lr=1e-4
+
+critic/CriticNetwork.input_tensor_spec=(%observation_spec, %action_spec)
+critic/CriticNetwork.joint_fc_layer_params=(100,100)
+critic/Adam.lr=1e-3
+DdpgAlgorithm.observation_spec=%observation_spec
+DdpgAlgorithm.action_spec=%action_spec
+DdpgAlgorithm.actor_network=@actor/ActorNetwork()
+DdpgAlgorithm.critic_network=@critic/CriticNetwork()
+DdpgAlgorithm.actor_optimizer=@actor/Adam()
+DdpgAlgorithm.critic_optimizer=@critic/Adam()
+DdpgAlgorithm.target_update_period=5
+OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
 
 # planner config
@@ -153,7 +171,8 @@ QShootingAlgorithm.population_size=200
 QShootingAlgorithm.planning_horizon=5
 QShootingAlgorithm.repeat_times=10
 #QShootingAlgorithm.policy_module=@SacAlgorithm()
-QShootingAlgorithm.policy_module=@NafAlgorithm()
+#QShootingAlgorithm.policy_module=@NafAlgorithm()
+QShootingAlgorithm.policy_module=@DdpgAlgorithm()
 OneStepTDLoss.td_error_loss_fn=@losses.element_wise_huber_loss
 
 

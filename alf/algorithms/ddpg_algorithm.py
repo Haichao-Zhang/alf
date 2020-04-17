@@ -123,8 +123,10 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
             debug_summaries=debug_summaries,
             name=name)
 
-        self.add_optimizer(actor_optimizer, [actor_network])
-        self.add_optimizer(critic_optimizer, [critic_network])
+        if actor_optimizer is not None:
+            self.add_optimizer(actor_optimizer, [actor_network])
+        if critic_optimizer is not None:
+            self.add_optimizer(critic_optimizer, [critic_network])
 
         self._actor_network = actor_network
         self._critic_network = critic_network
@@ -251,3 +253,13 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
 
     def _trainable_attributes_to_ignore(self):
         return ['_target_actor_network', '_target_critic_network']
+
+    def _get_q_value(self, inputs, state=None):
+
+        q_value, critic_state = self._critic_network(inputs, state=state)
+        return q_value, critic_state
+
+    def _get_state_value(self, obs, state=None):
+        action, state = self._actor_network(obs, state=None)
+        q_value, critic_state = self._critic_network((obs, action), state=None)
+        return q_value, critic_state

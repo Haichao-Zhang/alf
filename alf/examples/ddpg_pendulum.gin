@@ -14,3 +14,4 @@ TrainerConfig.evaluate=False
 TrainerConfig.debug_summaries=True
 TrainerConfig.summarize_grads_and_vars=True
 TrainerConfig.summary_interval=100
+TrainerConfig.random_seed=1586987476

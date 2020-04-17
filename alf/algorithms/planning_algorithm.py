@@ -349,6 +349,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             lower_bound=action_spec.minimum)
 
         self._policy_module = policy_module
+        # # setup optimizers
+        # self._policy_module._setup_optimizers()
         self._discount = 1.0
         self._repeat_times = repeat_times
 
@@ -384,8 +386,8 @@ class QShootingAlgorithm(PlanAlgorithm):
     # def _trainable_attributes_to_ignore(self):
     #     return ['_policy_module']
 
-    def _trainable_attributes_to_ignore(self):
-        return ['']
+    # def _trainable_attributes_to_ignore(self):
+    #     return ['']
 
     def generate_plan(self, time_step: TimeStep, state, epsilon_greedy):
         assert self._reward_func is not None, ("specify reward function "
@@ -438,14 +440,24 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state, self._dynamics_func,  H=1)
 
         # option 7 NAF
-        opt_action = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy, mode="mix")
-        action = opt_action[:, 0]
+        # opt_action = self._generate_action_sequence_random_sampling(
+        #     time_step, state, epsilon_greedy, mode="mix")
+        # action = opt_action[:, 0]
 
         # 7.1
         # action, _ = self._get_action_from_Q(
         #     time_step, state.planner, epsilon_greedy=1
         # )  # always perform sampling from the action distribution
+
+        # option 8 DDPG
+        opt_action = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy, mode="mix")
+        action = opt_action[:, 0]
+
+        # option 9
+        # action, planner_state = self._get_action_from_Q(time_step,
+        #                                                 state.planner,
+        #                                                 epsilon_greedy=1)
 
         # add epsilon greedy
         non_greedy_mask = torch.rand(action.shape[0]) < epsilon_greedy
@@ -495,6 +507,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                                     state,
                                     mode="SAC"):
         """ Sampling-based approach for select next action
+            mode: SAC, NAF, DDPG
         Returns:
             state: planner state
         """
@@ -545,6 +558,9 @@ class QShootingAlgorithm(PlanAlgorithm):
             critic = c_mean
             # if c_std.max() > 5e-4:
             #     return action, state
+        elif mode == "DDPG":
+            critic, critic_state0 = self._policy_module._get_q_value(
+                critic_input)
         elif mode == "NAF":
             critic, critic_state0 = self._policy_module._get_q_value(
                 critic_input)
@@ -647,8 +663,11 @@ class QShootingAlgorithm(PlanAlgorithm):
 
         return action, state
 
-    def _get_action_from_A_sampling_with_Q_beam_search(
-            self, org_batch_size, time_step: TimeStep, state):
+    def _get_action_from_A_sampling_with_Q_beam_search(self,
+                                                       org_batch_size,
+                                                       time_step: TimeStep,
+                                                       state,
+                                                       mode="DDPG"):
         """ Action Sampling-based approach for select next action
         Returns:
             state: planner state
@@ -674,7 +693,10 @@ class QShootingAlgorithm(PlanAlgorithm):
         # init an empty action for returning, indicating terminate
         action = []
 
-        if self._step_eval_func is not None:
+        if mode == "DDPG":
+            critic, critic_state = self._policy_module._get_q_value(
+                critic_input)
+        elif self._step_eval_func is not None:
             disagreement = self._step_eval_func(*critic_input)
 
             critic1, critic_state = self._policy_module._critic_networks.get_preds_mean(
@@ -693,8 +715,6 @@ class QShootingAlgorithm(PlanAlgorithm):
             c_mean = tensor_utils.list_mean(critics)
             c_std = tensor_utils.list_std(critics)
             critic = c_mean
-            # if c_std.max() > 5e-4:
-            #     return action, state
 
         # include some diversity mearsure
         # [org_batch_size, expanded_pop]
@@ -958,15 +978,17 @@ class QShootingAlgorithm(PlanAlgorithm):
                         # action, planner_state = self._get_action_from_A_optimization(
                         #     batch_size, time_step,
                         #     state.planner)
-                        # 4
+                        # 4, NAF, DDPG
                         # action, planner_state = self._get_action_from_Q_sampling(
                         #     batch_size, time_step, state.planner,
-                        #     mode="NAF")  # always add noise
-                        # 5: twin
-                        action, planner_state = self._get_action_from_Q_sampling_Twin(
-                            batch_size, time_step,
-                            state.planner)  # always add noise
-                        state = state._replace(planner=planner_state)
+                        #     mode="DDPG")  # always add noise
+                        # # 5: twin
+                        # action, planner_state = self._get_action_from_Q_sampling_Twin(
+                        #     batch_size, time_step,
+                        #     state.planner)  # always add noise
+                        # 6 use sampler
+                        action, planner_state = self._get_action_from_A_sampling_with_Q_beam_search(
+                            batch_size, time_step, state.planner, mode="DDPG")
                         if len(action) == 0:
                             action = ac_seqs[i]
                             terminated = True
@@ -1003,8 +1025,12 @@ class QShootingAlgorithm(PlanAlgorithm):
             # critic = critic_mean + critic_std * 10.0
             # critic = self._policy_module.cal_value(
             #     time_step, state.planner.policy, flag="softmax")
+            # NAF
+            # critic, _ = self._policy_module._get_state_value(
+            #     (time_step.observation, None), state.planner.policy)
+            # DDPG
             critic, _ = self._policy_module._get_state_value(
-                (time_step.observation, None), state.planner.policy)
+                time_step.observation, state.planner.policy)
             critic = critic.reshape(-1, 1)
             cost = cost - discount * critic
 
