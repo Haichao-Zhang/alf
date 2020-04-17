@@ -673,16 +673,24 @@ class QShootingAlgorithm(PlanAlgorithm):
         Returns:
             state: planner state
         """
-        obs_pop = time_step.observation  # obs has already be expanded
+        obs_pop_org = time_step.observation  # obs has already be expanded
+
+        # 1) greedy version
+        ac_greedy, _ = self._get_action_from_Q(
+            time_step._replace(observation=obs_pop_org),
+            state,
+            epsilon_greedy=0.0
+        )  # always perform sampling from the action distribution
 
         # batch size after expansion
-        batch_size = obs_pop.shape[0]
+        batch_size = obs_pop_org.shape[0]
         pop_size = batch_size // org_batch_size
 
         solution_size = self._num_actions  # one-step horizon
 
         # expand
-        obs_pop = torch.repeat_interleave(obs_pop, self._repeat_times, dim=0)
+        obs_pop = torch.repeat_interleave(
+            obs_pop_org, self._repeat_times, dim=0)
 
         # obs_std = torch.mean(torch.std(obs_pop, 1))
         # obs_noise = torch.randn_like(obs_pop) * 0.1 * obs_std
@@ -697,7 +705,10 @@ class QShootingAlgorithm(PlanAlgorithm):
             epsilon_greedy=epsilon_greedy
         )  # always perform sampling from the action distribution
 
-        critic_input = (obs_pop, ac_rand_pop)
+        #critic_input = (obs_pop, ac_rand_pop)
+
+        ac_rand_pop = torch.cat((ac_greedy, ac_rand_pop), 0)
+        critic_input = (torch.cat((obs_pop_org, obs_pop), 0), ac_rand_pop)
 
         # init an empty action for returning, indicating terminate
         action = []
@@ -1011,9 +1022,9 @@ class QShootingAlgorithm(PlanAlgorithm):
                             state.planner,
                             epsilon_greedy,
                             mode="DDPG")
-                        if i == 0 and action.shape[0] > 1:
-                            # action[1:] = ac_seqs[i, 1:]
-                            action[1:] = action[1:] + action_noise[1:]
+                        # if i == 0 and action.shape[0] > 1:
+                        #     # action[1:] = ac_seqs[i, 1:]
+                        #     action[1:] = action[1:] + action_noise[1:]
 
                         # debug
                         # action, planner_state = self._get_action_from_Q(

@@ -159,13 +159,15 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
             time_step.observation, state=state.actor.actor)
         empty_state = nest.map_structure(lambda x: (), self.train_state_spec)
 
-        if self._ou_process is None:
+        if self._ou_process is None and epsilon_greedy > 0:
             self._ou_process = common.create_ou_process(
                 action.shape[0], self._action_spec, 1.0, self._ou_stddev,
                 self._ou_damping)
 
         def _sample(a, ou):
-            if epsilon_greedy > 1.0:
+            if epsilon_greedy == 0:
+                return a
+            elif epsilon_greedy > 1.0:
                 return a + ou()
             else:
                 ind = torch.where(torch.rand(*a.shape[:1]) < epsilon_greedy)
