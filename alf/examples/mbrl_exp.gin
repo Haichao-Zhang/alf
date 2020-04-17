@@ -1,5 +1,6 @@
 import alf.algorithms.mbrl_algorithm
 import alf.algorithms.dynamics_learning_algorithm
+import alf.algorithms.reward_learning_algorithm
 import alf.algorithms.reward_learning_algorithm_2
 import alf.algorithms.planning_algorithm
 import alf.algorithms.sac_algorithm
