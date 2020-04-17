@@ -85,6 +85,7 @@ class RewardEstimationAlgorithm(Algorithm):
                 input_tensor_spec=(feature_spec, encoded_action_spec,
                                    feature_spec),
                 preprocessing_combiner=NestConcat(),
+                activation=torch.relu,
                 fc_layer_params=hidden_size,
                 last_layer_size=1,
                 last_activation=math_ops.identity)
@@ -228,7 +229,8 @@ class RewardAlgorithm(RewardEstimationAlgorithm):
         dynamics_step = self.predict_step(time_step, state)
         forward_pred = dynamics_step.output
         # forward_loss = losses.element_wise_squared_loss(feature, forward_pred)
-        forward_loss = (feature - forward_pred)**2
+        # BUG: here fea should be [B, 1], not [B]
+        forward_loss = (feature.view(-1, 1) - forward_pred)**2
         forward_loss = 0.5 * forward_loss.mean(
             list(range(1, forward_loss.ndim)))
         info = RewardInfo(

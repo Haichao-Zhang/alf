@@ -61,7 +61,7 @@ FixedRewardFunction.reward_func=@reward_function_for_cheetah
 # learned -----
 RewardAlgorithm.action_spec=%action_spec
 RewardAlgorithm.feature_spec=%observation_spec
-RewardAlgorithm.hidden_size=(500, 500, 500)
+RewardAlgorithm.hidden_size=(100, 100)
 
 #----------------------
 actor/ActorDistributionNetwork.input_tensor_spec=%observation_spec
@@ -158,9 +158,9 @@ RandomShootingAlgorithm.planning_horizon=10
 
 QShootingAlgorithm.feature_spec=%observation_spec
 QShootingAlgorithm.action_spec=%action_spec
-QShootingAlgorithm.population_size=100
-QShootingAlgorithm.planning_horizon=5
-QShootingAlgorithm.repeat_times=3
+QShootingAlgorithm.population_size=1
+QShootingAlgorithm.planning_horizon=1
+QShootingAlgorithm.repeat_times=1
 #QShootingAlgorithm.policy_module=@SacAlgorithm()
 #QShootingAlgorithm.policy_module=@NafAlgorithm()
 QShootingAlgorithm.policy_module=@DdpgAlgorithm()
@@ -186,7 +186,11 @@ MbrlAlgorithm.planning_method="reward_learning"
 
 MbrlAlgorithm.dynamics_optimizer=%opt
 MbrlAlgorithm.planner_optimizer=%opt
-MbrlAlgorithm.reward_optimizer=%opt
+
+
+
+reward/AdamTF.lr=1e-4
+MbrlAlgorithm.reward_optimizer=@eward/AdamTF()
 
 # training config
 TrainerConfig.initial_collect_steps=1000

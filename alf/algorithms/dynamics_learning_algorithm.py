@@ -251,7 +251,8 @@ class DeterministicDynamicsAlgorithm(DynamicsLearningAlgorithm):
         if not isinstance(forward_preds, list):
             forward_preds = [forward_preds]
         for i in range(len(forward_preds)):
-            forward_loss = (feature - forward_preds[i])**2
+            forward_loss = (
+                feature.reshape(forward_preds[i].shape) - forward_preds[i])**2
             forward_loss_acc += 0.5 * forward_loss.mean(
                 list(range(1, forward_loss.ndim)))
         forward_loss = forward_loss_acc / len(forward_preds)
