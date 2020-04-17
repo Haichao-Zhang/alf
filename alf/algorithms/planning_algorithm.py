@@ -927,6 +927,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         """
 
         obs = time_step.observation
+        #print(obs[0, 3:8])
         batch_size = obs.shape[0]
 
         state = state._replace(dynamics=state.dynamics._replace(feature=obs))
@@ -962,7 +963,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                                  (self._planning_horizon, -1, obs.shape[1]))
 
         cost = 0
-        discount = 1.0
+        discount = 0.9
         # TODO: this is related to target value
         terminated = False
         with torch.no_grad():
