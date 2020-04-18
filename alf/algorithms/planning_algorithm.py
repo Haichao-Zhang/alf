@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.distributions as td
 from typing import Callable
 
+import alf
 from alf.algorithms.off_policy_algorithm import OffPolicyAlgorithm
 from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
                                  TimeStep, TrainingInfo)
@@ -27,6 +28,8 @@ from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer, QOptimizer
 
 from alf.utils import vis_utils, beam_search, sampling_utils, tensor_utils
+
+from alf.utils.summary_utils import safe_mean_hist_summary
 
 PlannerState = namedtuple("PlannerState", ["policy"], default_value=())
 # PlannerInfo = namedtuple("PlannerInfo", ["policy", "loss"])  # can add loss
@@ -1081,6 +1084,9 @@ class QShootingAlgorithm(PlanAlgorithm):
 
                     ac_seqs[i] = action
 
+                with alf.summary.scope("prop_actions"):
+                    safe_mean_hist_summary("prop_actions", action, None)
+
                 time_step = time_step._replace(prev_action=action)
                 time_step, state = self._dynamics_func(time_step, state)
 
@@ -1118,8 +1124,9 @@ class QShootingAlgorithm(PlanAlgorithm):
                 time_step.observation, state.planner.policy)
             critic = critic.reshape(-1, 1)
             cost = cost - discount * critic
-            with alf.summary.scope("terminal critic"):
-                alf.summary.scalar(critic)
+            with alf.summary.scope("terminal_critic"):
+                safe_mean_hist_summary("terminal_critic", critic.view(-1),
+                                       None)
 
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])
