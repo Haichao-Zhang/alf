@@ -26,7 +26,7 @@ from alf.data_structures import (AlgStep, Experience, LossInfo, namedtuple,
 from alf.nest import nest
 from alf.optimizers.random import RandomOptimizer, QOptimizer
 
-from alf.utils import vis_utils, beam_search, tensor_utils
+from alf.utils import vis_utils, beam_search, sampling_utils, tensor_utils
 
 PlannerState = namedtuple("PlannerState", ["policy"], default_value=())
 # PlannerInfo = namedtuple("PlannerInfo", ["policy", "loss"])  # can add loss
@@ -668,8 +668,11 @@ class QShootingAlgorithm(PlanAlgorithm):
                                                        time_step: TimeStep,
                                                        state,
                                                        epsilon_greedy,
+                                                       planning_ind,
                                                        mode="DDPG"):
         """ Action Sampling-based approach for select next action
+        Args:
+            planning_ind: current planning step index
         Returns:
             state: planner state
         """
@@ -681,6 +684,14 @@ class QShootingAlgorithm(PlanAlgorithm):
             state,
             epsilon_greedy=0.0
         )  # always perform sampling from the action distribution
+        if planning_ind == 0:
+            # action_noise = torch.randn_like(ac_greedy) * (
+            #     self._upper_bound - self._lower_bound) / 2.0 * 0.1
+            # ac_greedy[1:] = ac_greedy[1:] + action_noise[1:]
+            ac_rand = torch.rand_like(ac_greedy) * (
+                self._upper_bound -
+                self._lower_bound) + self._lower_bound * 1.0
+            ac_greedy[1:] = ac_rand[1:]
 
         # batch size after expansion
         batch_size = obs_pop_org.shape[0]
@@ -741,6 +752,36 @@ class QShootingAlgorithm(PlanAlgorithm):
         critic = critic.reshape(org_batch_size, -1)
         top_k = pop_size
         _, sel_ind = torch.topk(critic, k=top_k)
+
+        # #diversity-based selection
+        # # construct K
+        # def _construct_K(X, Y, EK, sigma):
+        #     # Args:
+        #     # X: [B, d]
+        #     n = X.size(0)
+        #     m = Y.size(0)
+        #     d = X.size(1)
+
+        #     X = X.unsqueeze(1).expand(n, m, d)
+        #     Y = Y.unsqueeze(0).expand(n, m, d)
+
+        #     dist = torch.pow(X - Y, 2).sum(2)
+        #     K = torch.exp(-0.5 * dist / sigma**2)
+        #     K = (EK / torch.trace(K)) * K
+        #     return K
+
+        # _X = torch.cat(critic_input, 1)
+
+        # K = _construct_K(_X, _X, 1, 0.1)
+        # print(K)
+        # #q = sampling_utils.sequential_thinning_dpp_init(K)
+        # q = torch.ones(_X.shape[0])
+        # q = critic.view(-1)
+        # q = q / q.sum()
+        # A = sampling_utils.sequential_thinning_dpp_simulation(K, sel_ind.view(-1))
+        # print(A.shape)
+        # sel_ind = A
+
         #sel_ind = torch.zeros_like(sel_ind)
 
         # reshape to org batch size*expanded_pop_size*sol_dim
@@ -1021,6 +1062,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                             time_step,
                             state.planner,
                             epsilon_greedy,
+                            i,
                             mode="DDPG")
                         # if i == 0 and action.shape[0] > 1:
                         #     # action[1:] = ac_seqs[i, 1:]
