@@ -274,3 +274,40 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
         action, state = self._actor_network(obs, state=None)
         q_value, critic_state = self._critic_network((obs, action), state=None)
         return q_value, critic_state
+
+    def action_optimization(self, exp: Experience, state, iter_num=5):
+        ddpg_state = state.policy
+        action, actor_state = self._actor_network(
+            exp.observation, state=ddpg_state.actor)
+
+        # log_pi = dist_utils.compute_log_probability(action_distribution,
+        #                                             action)
+
+        # print("====================")
+        for iter in range(iter_num):
+            action.requires_grad = True
+            with torch.enable_grad():
+                critic_input = (exp.observation, action)
+
+                q_value, critic_state = self._critic_network(
+                    critic_input, state=ddpg_state.critic)
+
+                dqda = nest.pack_sequence_as(
+                    action,
+                    list(
+                        torch.autograd.grad(q_value.sum(),
+                                            nest.flatten(action))))
+
+                # print(dqda)
+                # print("----")
+                def action_update(dqda, action, action_spec, step_size=1e-1):
+                    # maximization
+                    action_new = action + step_size * torch.sign(dqda)
+                    return spec_utils.clip_to_spec(action_new, action_spec)
+
+            # note action is outside of with block
+            # therefore action.requires_grad is False
+            action = nest.map_structure(action_update, dqda, action,
+                                        self._action_spec)
+
+        return action

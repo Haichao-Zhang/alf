@@ -434,9 +434,9 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state, epsilon_greedy, mode="mix")
         # action = opt_action[:, 0]
 
-        # # option 5 do action optimization
-        # action, planner_state = self._get_action_from_A_optimization(
-        #     time_step, state)
+        # option 5 do action optimization
+        action, planner_state = self._get_action_from_A_optimization(
+            time_step, state.planner)
 
         # # option 6:
         # action, planner_state = self._get_action_multi_step_optimization(
@@ -452,10 +452,10 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state.planner, epsilon_greedy=1
         # )  # always perform sampling from the action distribution
 
-        # option 8 DDPG
-        opt_action = self._generate_action_sequence_random_sampling(
-            time_step, state, epsilon_greedy, mode="mix")
-        action = opt_action[:, 0]
+        # # option 8 DDPG
+        # opt_action = self._generate_action_sequence_random_sampling(
+        #     time_step, state, epsilon_greedy, mode="mix")
+        # action = opt_action[:, 0]
 
         # option 9
         # action, planner_state = self._get_action_from_Q(time_step,
@@ -832,7 +832,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             state: mbrl state
         """
 
-        action = self._policy_module.action_optimization(time_step, state)
+        action = self._policy_module.action_optimization(
+            time_step, state, iter_num=1)
         return action, state
 
     def _get_action_multi_step_optimization(self, time_step: TimeStep, state):
@@ -1046,9 +1047,9 @@ class QShootingAlgorithm(PlanAlgorithm):
                         #     batch_size, time_step,
                         #     state.planner)  # always add noise
                         # update policy state part
-                        # 3
+                        # # 3
                         # action, planner_state = self._get_action_from_A_optimization(
-                        #     batch_size, time_step,
+                        #     time_step,
                         #     state.planner)
                         # 4, NAF, DDPG
                         # action, planner_state = self._get_action_from_Q_sampling(

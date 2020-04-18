@@ -200,12 +200,12 @@ MbrlAlgorithm.reward_optimizer=@reward/AdamTF()
 
 
 # training config
-TrainerConfig.initial_collect_steps=200
+TrainerConfig.initial_collect_steps=1000
 TrainerConfig.mini_batch_length=2 # at least 2 for td computation
 TrainerConfig.unroll_length=1
 TrainerConfig.mini_batch_size=64
 TrainerConfig.num_updates_per_train_step=1 # epoches
-TrainerConfig.sample_batch_num=5
+TrainerConfig.sample_batch_num=1
 TrainerConfig.whole_replay_buffer_training=False
 TrainerConfig.clear_replay_buffer=False
 TrainerConfig.algorithm_ctor=@MbrlAlgorithm
