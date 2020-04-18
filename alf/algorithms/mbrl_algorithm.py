@@ -184,13 +184,20 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
             time_step, state, epsilon_greedy)
         dynamics_state = self._dynamics_module.update_state(
             time_step, state.dynamics)
-        reward_state = self._reward_module.update_state(
-            time_step, state.reward)
+
+        if self._planning_method == "reward_learning":
+            reward_state = self._reward_module.update_state(
+                time_step, state.reward)
+
+            return AlgStep(
+                output=action,
+                state=mbrl_state._replace(
+                    dynamics=dynamics_state, reward=reward_state),
+                info=MbrlInfo())
 
         return AlgStep(
             output=action,
-            state=mbrl_state._replace(
-                dynamics=dynamics_state, reward=reward_state),
+            state=mbrl_state._replace(dynamics=dynamics_state),
             info=MbrlInfo())
 
     def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.0):

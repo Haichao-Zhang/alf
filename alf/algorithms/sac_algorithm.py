@@ -227,7 +227,7 @@ class SacAlgorithm(OffPolicyAlgorithm):
         return self._predict(time_step, state, epsilon_greedy=1.0)
 
     def action_optimization(self, exp: Experience, state, iter_num=5):
-        sac_state = state.planner.policy
+        sac_state = state.policy
         action_distribution, share_actor_state = self._actor_network(
             exp.observation, state=sac_state.share.actor)
         if self._is_continuous:
