@@ -351,7 +351,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         self._policy_module = policy_module
         # # setup optimizers
         # self._policy_module._setup_optimizers()
-        self._discount = 1.0
+        self._discount = 0.9
         self._repeat_times = repeat_times
 
     def train_step(self, exp: Experience, state):
@@ -1022,7 +1022,7 @@ class QShootingAlgorithm(PlanAlgorithm):
             self._upper_bound - self._lower_bound) / 2.0 * 0.1
 
         cost = 0
-        discount = 0.9
+        discount = self._discount
         # TODO: this is related to target value
         terminated = False
         with torch.no_grad():
@@ -1091,7 +1091,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                 obs = next_obs
                 reward_step = reward_step.reshape(-1, 1)
                 cost = cost - discount * reward_step
-                discount *= self._discount
+                discount *= discount
         # further add terminal values to the cost with the learned value func
         with torch.no_grad():
             # q_action, planner_state = self._get_action_from_Q(
@@ -1118,6 +1118,8 @@ class QShootingAlgorithm(PlanAlgorithm):
                 time_step.observation, state.planner.policy)
             critic = critic.reshape(-1, 1)
             cost = cost - discount * critic
+            with alf.summary.scope("terminal critic"):
+                alf.summary.scalar(critic)
 
         # reshape cost back to [batch size, population_size]
         cost = torch.reshape(cost, [batch_size, -1])
