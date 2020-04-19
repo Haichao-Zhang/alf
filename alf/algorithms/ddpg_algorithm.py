@@ -32,6 +32,9 @@ from alf.networks import ActorNetwork, CriticNetwork
 from alf.tensor_specs import TensorSpec, BoundedTensorSpec
 from alf.utils import losses, common, dist_utils, spec_utils
 
+from alf.algorithms.mbrl_algorithm import MbrlState
+from alf.algorithms.dynamics_learning_algorithm import DynamicsState
+
 DdpgCriticState = namedtuple("DdpgCriticState",
                              ['critic', 'target_actor', 'target_critic'])
 DdpgCriticInfo = namedtuple("DdpgCriticInfo", ["q_value", "target_q_value"])
@@ -154,6 +157,12 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
 
         self._dqda_clipping = dqda_clipping
 
+    def set_dynamics_func(self, dynamics_func):
+        self._dynamics_func = dynamics_func
+
+    def set_reward_func(self, reward_func):
+        self._reward_func = reward_func
+
     def predict_step(self, time_step: TimeStep, state, epsilon_greedy=1.):
         action, state = self._actor_network(
             time_step.observation, state=state.actor.actor)
@@ -193,10 +202,14 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
         return self.predict_step(time_step, state, epsilon_greedy=1.0)
 
     def _critic_train_step(self, exp: Experience, state: DdpgCriticState):
-        target_action, target_actor_state = self._target_actor_network(
-            exp.observation, state=state.target_actor)
-        target_q_value, target_critic_state = self._target_critic_network(
-            (exp.observation, target_action), state=state.target_critic)
+        # target_action, target_actor_state = self._target_actor_network(
+        #     exp.observation, state=state.target_actor)
+        # target_q_value0, target_critic_state = self._target_critic_network(
+        #     (exp.observation, target_action), state=state.target_critic)
+
+        # H step target
+        target_q_value, target_actor_state, target_critic_state = self._H_step_target(
+            exp, state, self._planning_horizon, 0.99)
 
         q_value, critic_state = self._critic_network(
             (exp.observation, exp.action), state=state.critic)
@@ -209,6 +222,58 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
         info = DdpgCriticInfo(q_value=q_value, target_q_value=target_q_value)
 
         return state, info
+
+    def _H_step_target(self,
+                       exp: Experience,
+                       state: DdpgCriticState,
+                       planning_horizon,
+                       discount=0.99):
+
+        time_step = exp
+        obs = time_step.observation
+        rewards_acc = 0
+        discount_acc = 1
+
+        # constructmbrl state
+        mbrl_state = MbrlState(
+            dynamics=DynamicsState(feature=None, network=[None]),
+            reward=(),
+            planner=())
+
+        # init target action
+        target_action, target_actor_state = self._target_actor_network(
+            obs, state=state.target_actor)
+
+        with torch.no_grad():
+            # current step first [already in train.info]
+            mbrl_state = mbrl_state._replace(
+                dynamics=mbrl_state.dynamics._replace(feature=obs))
+            for i in range(planning_horizon):
+                time_step = time_step._replace(prev_action=target_action)
+                # terminal step, skip to calc terminal value
+                if i == planning_horizon - 1:
+                    break
+                time_step, mbrl_state = self._dynamics_func(
+                    time_step, mbrl_state)
+                next_obs = time_step.observation
+                target_action, target_actor_state = self._target_actor_network(
+                    next_obs, state=state.target_actor)
+                rewards_step = self._reward_func(next_obs, target_action)
+                rewards_step = rewards_step.reshape(-1, 1)
+                rewards_acc = rewards_acc + discount_acc * rewards_step
+                discount_acc = discount * discount_acc
+                obs = next_obs
+
+            # further add terminal values to the cost with the learned value func
+            target_q_value, target_critic_state = self._target_critic_network(
+                (time_step.observation, target_action),
+                state=state.target_critic)
+            # this is required for all
+            target_q_value = target_q_value.reshape(-1, 1)
+            rewards_acc = rewards_acc + discount_acc * target_q_value
+
+            rewards_acc = rewards_acc.view(-1)
+        return rewards_acc, target_actor_state, target_critic_state
 
     def _actor_train_step(self, exp: Experience, state: DdpgActorState):
         action, actor_state = self._actor_network(

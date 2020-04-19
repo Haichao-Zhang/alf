@@ -38,6 +38,8 @@ from alf.algorithms.reward_learning_algorithm import RewardEstimationAlgorithm
 # from alf.algorithms.reward_learning_algorithm_2 import RewardEstimationAlgorithm
 from alf.algorithms.planning_algorithm import PlanAlgorithm
 
+from alf.algorithms.dynamics_learning_algorithm import DynamicsState
+
 MbrlState = namedtuple("MbrlState", ["dynamics", "reward", "planner"])
 MbrlInfo = namedtuple(
     "MbrlInfo", ["dynamics", "reward", "planner"], default_value=())
@@ -146,7 +148,7 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
 
         self._planning_method = planning_method
 
-    def _predict_next_step(self, time_step, state, detach=True):
+    def _predict_next_step(self, time_step, state=None, detach=True):
         """Predict the next step (observation and state) based on the current
             time step and state
         Args:
@@ -157,6 +159,10 @@ class MbrlAlgorithm(OffPolicyAlgorithm):
                 predicted from the dynamics module
             next_state (MbrlState): updated state from the dynamics module
         """
+        if state is None:
+            state = MbrlState(
+                dynamics=DynamicsState(feature=None), reward=(), planner=())
+
         with torch.no_grad():
             dynamics_step = self._dynamics_module.predict_step(
                 time_step, state.dynamics)

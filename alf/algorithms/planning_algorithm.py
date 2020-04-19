@@ -354,7 +354,7 @@ class QShootingAlgorithm(PlanAlgorithm):
         self._policy_module = policy_module
         # # setup optimizers
         # self._policy_module._setup_optimizers()
-        self._discount = 1.0
+        self._discount = 0.9
         self._repeat_times = repeat_times
 
         self._has_been_trained = False
@@ -370,6 +370,11 @@ class QShootingAlgorithm(PlanAlgorithm):
                 state (DynamicsState): state for training
                 info (DynamicsInfo):
         """
+        # set dynamics and reward func before training
+        self._policy_module.set_dynamics_func(self._dynamics_func)
+        self._policy_module.set_reward_func(self._reward_func)
+        self._policy_module._planning_horizon = self._planning_horizon
+
         policy_step = self._policy_module.train_step(exp, state.policy)
 
         self._has_been_trained = True
