@@ -434,9 +434,9 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state, epsilon_greedy, mode="mix")
         # action = opt_action[:, 0]
 
-        # option 5 do action optimization
-        action, planner_state = self._get_action_from_A_optimization(
-            time_step, state.planner)
+        # # option 5 do action optimization
+        # action, planner_state = self._get_action_from_A_optimization(
+        #     time_step, state.planner)
 
         # # option 6:
         # action, planner_state = self._get_action_multi_step_optimization(
@@ -452,10 +452,10 @@ class QShootingAlgorithm(PlanAlgorithm):
         #     time_step, state.planner, epsilon_greedy=1
         # )  # always perform sampling from the action distribution
 
-        # # option 8 DDPG
-        # opt_action = self._generate_action_sequence_random_sampling(
-        #     time_step, state, epsilon_greedy, mode="mix")
-        # action = opt_action[:, 0]
+        # option 8 DDPG
+        opt_action = self._generate_action_sequence_random_sampling(
+            time_step, state, epsilon_greedy, mode="mix")
+        action = opt_action[:, 0]
 
         # option 9
         # action, planner_state = self._get_action_from_Q(time_step,
@@ -1067,7 +1067,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                             state.planner,
                             epsilon_greedy,
                             i,
-                            mode="DDPG")
+                            mode="SAC")
                         # if i == 0 and action.shape[0] > 1:
                         #     # action[1:] = ac_seqs[i, 1:]
                         #     action[1:] = action[1:] + action_noise[1:]
@@ -1109,8 +1109,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             # critic_compare, critic_state = self._policy_module._critic_networks.get_preds_max(
             #     critic_input)
 
-            # critic_mean = self._policy_module.cal_value(
-            #     time_step, state.planner.policy, flag="mean")
+            critic = self._policy_module.cal_value(
+                time_step, state.planner.policy, flag="mean")
 
             # critic_std = self._policy_module.cal_value(
             #     time_step, state.planner.policy, flag="std")
@@ -1121,9 +1121,12 @@ class QShootingAlgorithm(PlanAlgorithm):
             # critic, _ = self._policy_module._get_state_value(
             #     (time_step.observation, None), state.planner.policy)
             # DDPG
-            critic, _ = self._policy_module._get_state_value(
-                time_step.observation, state.planner.policy)
+            # critic, _ = self._policy_module._get_state_value(
+            #     time_step.observation, state.planner.policy)
+
+            # this is required for all
             critic = critic.reshape(-1, 1)
+
             cost = cost - discount * critic
             with alf.summary.scope("terminal_critic"):
                 safe_mean_hist_summary("terminal_critic", critic.view(-1),
