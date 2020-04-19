@@ -354,8 +354,10 @@ class QShootingAlgorithm(PlanAlgorithm):
         self._policy_module = policy_module
         # # setup optimizers
         # self._policy_module._setup_optimizers()
-        self._discount = 0.9
+        self._discount = 1.0
         self._repeat_times = repeat_times
+
+        self._has_been_trained = False
 
     def train_step(self, exp: Experience, state):
         """ Performing Q (actor and critic) training
@@ -369,6 +371,8 @@ class QShootingAlgorithm(PlanAlgorithm):
                 info (DynamicsInfo):
         """
         policy_step = self._policy_module.train_step(exp, state.policy)
+
+        self._has_been_trained = True
 
         return policy_step._replace(
             state=PlannerState(policy=policy_step.state),
@@ -399,6 +403,12 @@ class QShootingAlgorithm(PlanAlgorithm):
         assert self._dynamics_func is not None, ("specify dynamics function "
                                                  "before planning")
 
+        if not self._has_been_trained:
+            action = torch.rand([
+                time_step.observation.shape[0], self._num_actions
+            ]) * (self._upper_bound -
+                  self._lower_bound) + self._lower_bound * 1.0
+            return action, state
         # Q-based action sequence population generation
         # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
         # ac_q_pop = self._generate_action_sequence(time_step, state,
@@ -1067,7 +1077,7 @@ class QShootingAlgorithm(PlanAlgorithm):
                             state.planner,
                             epsilon_greedy,
                             i,
-                            mode="SAC")
+                            mode="DDPG")
                         # if i == 0 and action.shape[0] > 1:
                         #     # action[1:] = ac_seqs[i, 1:]
                         #     action[1:] = action[1:] + action_noise[1:]
@@ -1094,7 +1104,8 @@ class QShootingAlgorithm(PlanAlgorithm):
                 # immediate evaluation using reward function
                 next_obs = time_step.observation
                 #cur_obs = obs_seqs[i]
-                reward_step = self._reward_func(obs, action, next_obs)
+                #reward_step = self._reward_func(obs, action, next_obs)
+                reward_step = self._reward_func(next_obs, action)
                 obs = next_obs
                 reward_step = reward_step.reshape(-1, 1)
                 cost = cost - discount * reward_step
@@ -1109,8 +1120,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             # critic_compare, critic_state = self._policy_module._critic_networks.get_preds_max(
             #     critic_input)
 
-            critic = self._policy_module.cal_value(
-                time_step, state.planner.policy, flag="mean")
+            # critic = self._policy_module.cal_value(
+            #     time_step, state.planner.policy, flag="mean")
 
             # critic_std = self._policy_module.cal_value(
             #     time_step, state.planner.policy, flag="std")
@@ -1121,8 +1132,8 @@ class QShootingAlgorithm(PlanAlgorithm):
             # critic, _ = self._policy_module._get_state_value(
             #     (time_step.observation, None), state.planner.policy)
             # DDPG
-            # critic, _ = self._policy_module._get_state_value(
-            #     time_step.observation, state.planner.policy)
+            critic, _ = self._policy_module._get_state_value(
+                time_step.observation, state.planner.policy)
 
             # this is required for all
             critic = critic.reshape(-1, 1)
