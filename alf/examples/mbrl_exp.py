@@ -30,9 +30,7 @@ def reward_function_for_cheetah(obs, action):
     def _observation_cost(obs):
         # s_theta, c_theta = obs[:, 1:2], obs[:, 2:3]
         # theta = torch.atan2(s_theta, c_theta)
-        cost = -torch.sqrt(obs[:, 3:4]**2 + obs[:, 4:5]**2)
-        cost = torch.sum(cost, dim=1)
-        return cost
+        return -obs[:, 0]
 
     def _action_cost(action):
         return 0.1 * torch.sum(action**2, dim=1)

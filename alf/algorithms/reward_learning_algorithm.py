@@ -96,7 +96,7 @@ class FixedRewardFunction(RewardEstimationAlgorithm):
         """
         return AlgStep(output=(), state=(), info=())
 
-    def compute_reward(self, obs, action):
+    def compute_reward(self, obs, action, obs_current=None):
         """Compute reward based on current observation and action
         """
         return self._reward_func(obs, action)
