@@ -208,10 +208,10 @@ class DdpgAlgorithm(OffPolicyAlgorithm):
         #     (exp.observation, target_action), state=state.target_critic)
 
         # H step target
-        # target_q_value, target_actor_state, target_critic_state = self._H_step_target(
-        #     exp, state, self._planning_horizon, 0.99)
         target_q_value, target_actor_state, target_critic_state = self._H_step_target(
-            exp, state, 3, 0.99)
+            exp, state, self._planning_horizon, 0.99)
+        # target_q_value, target_actor_state, target_critic_state = self._H_step_target(
+        #     exp, state, 3, 0.99)
 
         q_value, critic_state = self._critic_network(
             (exp.observation, exp.action), state=state.critic)
