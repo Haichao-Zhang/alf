@@ -408,12 +408,12 @@ class QShootingAlgorithm(PlanAlgorithm):
         assert self._dynamics_func is not None, ("specify dynamics function "
                                                  "before planning")
 
-        if not self._has_been_trained:
-            action = torch.rand([
-                time_step.observation.shape[0], self._num_actions
-            ]) * (self._upper_bound -
-                  self._lower_bound) + self._lower_bound * 1.0
-            return action, state
+        # if not self._has_been_trained:
+        #     action = torch.rand([
+        #         time_step.observation.shape[0], self._num_actions
+        #     ]) * (self._upper_bound -
+        #           self._lower_bound) + self._lower_bound * 1.0
+        #     return action, state
         # Q-based action sequence population generation
         # tf.random.uniform([batch_size, self._population_size, self._solution_dim]
         # ac_q_pop = self._generate_action_sequence(time_step, state,
