@@ -58,7 +58,7 @@ class TestValueNetworks(parameterized.TestCase, alf.test.TestCase):
 
         value_net = network_ctor(
             input_tensor_spec=[input_spec1, input_spec2],
-            input_preprocessors=[
+            input_preprocessor_ctors=[
                 EmbeddingPreprocessor(
                     input_spec1,
                     embedding_dim=embedding_dim,
