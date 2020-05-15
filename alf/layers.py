@@ -375,37 +375,82 @@ class ParallelConv2D(nn.Module):
         super(ParallelConv2D, self).__init__()
         self._activation = activation
         self._n = n
+        self._in_channels = in_channels
+        self._out_channels = out_channels
+        self._kernel_size = kernel_size
         self._conv2d = nn.Conv2d(
             in_channels * n,
             out_channels * n,
             kernel_size,
+            groups=n,
             stride=strides,
             padding=padding,
             bias=use_bias)
 
         for i in range(n):
             if kernel_initializer is None:
-                # TODO: check the shape
                 variance_scaling_init(
-                    self._conv2d.weight.data[i],
+                    self._conv2d.weight.data[i * out_channels:(i + 1) *
+                                             out_channels],
                     gain=kernel_init_gain,
                     nonlinearity=self._activation)
-        else:
-            kernel_initializer(self._conv2d.weight.data)
+            else:
+                kernel_initializer(
+                    self._conv2d.weight.data[i * out_channels:(i + 1) *
+                                             out_channels])
 
         if use_bias:
             nn.init.constant_(self._conv2d.bias.data, bias_init_value)
 
     def forward(self, img):
-        return self._activation(self._conv2d(img))
+        """Forward
+
+        Args:
+            img (torch.Tensor): with shape ``[B, C, H, W]``
+                                        or ``[B, n, C, H, W]``
+        Returns:
+            torch.Tensor with shape ``[B, n, C', H', W']``
+        """
+        if img.ndim == 4:
+            # the shared input case
+            assert img.shape[1] == self._in_channels, (
+                "Input img has wrong shape %s. Expecting (B, %d, H, W)" %
+                (img.shape, self._in_channels))
+
+            img = img.unsqueeze(1).expand(img.shape[0], self._n,
+                                          *img.shape[1:])
+        elif img.ndim == 5:
+            # the non-shared case
+            assert (
+                img.shape[1] == self._n
+                and img.shape[2] == self._in_channels), (
+                    "Input img has wrong shape %s. Expecting (B, %d, %d, H, W)"
+                    % (img.shape, self._n, self._in_channels))
+        else:
+            raise ValueError("Wrong img.ndim=%d" % img.ndim)
+
+        # merge replica and channels
+        img = img.reshape(img.shape[0], img.shape[1] * img.shape[2],
+                          *img.shape[3:])
+
+        res = self._activation(self._conv2d(img))
+
+        # reshape back: [B, n*C', H', W'] -> [B, n, C', H', W']
+        res = res.reshape(res.shape[0], self._n, self._out_channels,
+                          res.shape[2], res.shape[3])
+        return res
 
     @property
     def weight(self):
-        return self._conv2d.weight
+        # [n*C', C, kernel_size, kernel_size]->[n, C', C, kernel_size, kernel_size]
+        return self._conv2d.weight.view(self._n, self._out_channels,
+                                        self._in_channels, self._kernel_size,
+                                        self._kernel_size)
 
     @property
     def bias(self):
-        return self._conv2d.bias
+        # [n*C']->[n, C']
+        return self._conv2d.bias.view(self._n, self._out_channels)
 
 
 @gin.configurable
