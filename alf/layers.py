@@ -337,6 +337,11 @@ class Conv2D(nn.Module):
 
 
 @gin.configurable
+class ParallelConv2D(nn.Module):
+    pass
+
+
+@gin.configurable
 class ConvTranspose2D(nn.Module):
     def __init__(self,
                  in_channels,
