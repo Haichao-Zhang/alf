@@ -211,10 +211,11 @@ class EncodingNetworkTest(parameterized.TestCase, alf.test.TestCase):
 
     def test_make_parallel(self):
         batch_size = 128
-        input_spec = TensorSpec((100, ), torch.float32)
+        input_spec = TensorSpec((1, 100, 100), torch.float32)
 
         network = EncodingNetwork(
             input_tensor_spec=input_spec,
+            conv_layer_params=((5, 3, 1), ),
             fc_layer_params=(256, 256),
             activation=torch.relu_,
             last_layer_size=1,

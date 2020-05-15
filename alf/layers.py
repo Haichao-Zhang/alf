@@ -338,7 +338,74 @@ class Conv2D(nn.Module):
 
 @gin.configurable
 class ParallelConv2D(nn.Module):
-    pass
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 n,
+                 activation=torch.relu_,
+                 strides=1,
+                 padding=0,
+                 use_bias=True,
+                 kernel_initializer=None,
+                 kernel_init_gain=1.0,
+                 bias_init_value=0.0):
+        """A parallel 2D Conv layer that's also responsible for activation and customized
+        weights initialization. An auto gain calculation might depend on the
+        activation following the conv layer. Suggest using this wrapper module
+        instead of ``nn.Conv2d`` if you really care about weight std after init.
+
+        Args:
+            in_channels (int): channels of the input image
+            out_channels (int): channels of the output image
+            kernel_size (int or tuple):
+            n (int): n indepedent ``Conv2D`` layer
+            activation (torch.nn.functional):
+            strides (int or tuple):
+            padding (int or tuple):
+            use_bias (bool):
+            kernel_initializer (Callable): initializer for the conv layer kernel.
+                If None is provided a variance_scaling_initializer with gain as
+                ``kernel_init_gain`` will be used.
+            kernel_init_gain (float): a scaling factor (gain) applied to the
+                std of kernel init distribution. It will be ignored if
+                ``kernel_initializer`` is not None.
+            bias_init_value (float): a constant
+        """
+        super(ParallelConv2D, self).__init__()
+        self._activation = activation
+        self._n = n
+        self._conv2d = nn.Conv2d(
+            in_channels * n,
+            out_channels * n,
+            kernel_size,
+            stride=strides,
+            padding=padding,
+            bias=use_bias)
+
+        for i in range(n):
+            if kernel_initializer is None:
+                # TODO: check the shape
+                variance_scaling_init(
+                    self._conv2d.weight.data[i],
+                    gain=kernel_init_gain,
+                    nonlinearity=self._activation)
+        else:
+            kernel_initializer(self._conv2d.weight.data)
+
+        if use_bias:
+            nn.init.constant_(self._conv2d.bias.data, bias_init_value)
+
+    def forward(self, img):
+        return self._activation(self._conv2d(img))
+
+    @property
+    def weight(self):
+        return self._conv2d.weight
+
+    @property
+    def bias(self):
+        return self._conv2d.bias
 
 
 @gin.configurable
